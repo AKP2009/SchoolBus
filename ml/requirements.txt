@@ -1,4 +1,4 @@
-# Pinned to the environment that trained ml/artifacts/anomaly and ml/artifacts/task_time (Python 3.12.1).
+# Pinned to the environment that trained ml/artifacts/anomaly, task_time and clustering (Python 3.12.1).
 # Saved models only load reliably with the same scikit-learn / joblib / numpy versions.
 numpy==2.3.1
 pandas==2.3.0

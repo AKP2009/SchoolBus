@@ -1,0 +1,309 @@
+{
+  "model_name": "clustering",
+  "version": "v2",
+  "versions": {
+    "sklearn": "1.8.0",
+    "numpy": "2.3.1",
+    "pandas": "2.3.0"
+  },
+  "split": {
+    "fit_weeks": [
+      "2026-06-01",
+      "2026-08-03"
+    ],
+    "fit_days": [
+      1,
+      70
+    ],
+    "holdout_days": [
+      71,
+      90
+    ],
+    "by": "week_start of shift_date"
+  },
+  "rows": {
+    "machine": {
+      "fit": 120,
+      "holdout": 36
+    },
+    "operator": {
+      "fit": 200,
+      "holdout": 60
+    }
+  },
+  "params": {
+    "kmeans": {
+      "n_init": 10,
+      "random_state": 42,
+      "k_range": [
+        3,
+        4,
+        5
+      ]
+    },
+    "dbscan_min_samples": 5,
+    "z_outlier": 2.5,
+    "min_fit_hours": 4.0
+  },
+  "anomaly_events": 127,
+  "v1_spec": {
+    "eval": {
+      "ari_operator_weeks_fit": 0.3695496540607405,
+      "ari_operator_weeks_holdout": 0.3631242583246358,
+      "ari_operators_mean_week": 0.4146014735432016,
+      "n_fit": 200,
+      "n_holdout": 60
+    },
+    "operator": {
+      "k": 5,
+      "silhouette": {
+        "3": 0.27430200067671434,
+        "4": 0.28403300720247715,
+        "5": 0.29295777798694955
+      },
+      "cluster_labels": {
+        "0": "idle-heavy",
+        "1": "efficient",
+        "2": "anomaly-prone",
+        "3": "needs safety coaching",
+        "4": "low output"
+      }
+    },
+    "machine": {
+      "k": 3,
+      "silhouette": {
+        "3": 0.2011252793784738,
+        "4": 0.16652159269557007,
+        "5": 0.1877996377578809
+      },
+      "cluster_labels": {
+        "0": "anomaly-prone",
+        "1": "efficient",
+        "2": "idle-heavy"
+      }
+    }
+  },
+  "v2_tuned": {
+    "eval": {
+      "ari_operator_weeks_fit": 0.45102798873825917,
+      "ari_operator_weeks_holdout": 0.4152516498743512,
+      "ari_operators_mean_week": 0.4146014735432016,
+      "n_fit": 200,
+      "n_holdout": 60
+    },
+    "operator": {
+      "k": 4,
+      "silhouette": {
+        "3": 0.33136782803388326,
+        "4": 0.3713545885373958,
+        "5": 0.34387185011009874
+      },
+      "cluster_labels": {
+        "0": "needs safety coaching",
+        "1": "efficient",
+        "2": "idle-heavy",
+        "3": "low output"
+      },
+      "eps": 1.015792727725748,
+      "train_noise_share": 0.03,
+      "weights": {
+        "fuel_per_productive_hour": 0.9305666051930052,
+        "idle_pct": 0.9881239152029679,
+        "productivity_per_hour": 0.8889201651722296,
+        "time_ratio": 0.8466159995252523,
+        "anomaly_per_10h": 0.2662251754070158,
+        "safety_per_10h": 0.5145811836638412
+      },
+      "centroids_z": {
+        "0": {
+          "fuel_per_productive_hour": 1.331,
+          "idle_pct": -0.608,
+          "productivity_per_hour": 0.125,
+          "time_ratio": -0.326,
+          "anomaly_per_10h": 0.185,
+          "safety_per_10h": 0.677
+        },
+        "1": {
+          "fuel_per_productive_hour": -0.579,
+          "idle_pct": -0.518,
+          "productivity_per_hour": 0.172,
+          "time_ratio": -0.4,
+          "anomaly_per_10h": -0.051,
+          "safety_per_10h": -0.216
+        },
+        "2": {
+          "fuel_per_productive_hour": 1.418,
+          "idle_pct": 2.026,
+          "productivity_per_hour": 0.635,
+          "time_ratio": 0.282,
+          "anomaly_per_10h": -0.284,
+          "safety_per_10h": -0.194
+        },
+        "3": {
+          "fuel_per_productive_hour": -0.177,
+          "idle_pct": 0.179,
+          "productivity_per_hour": -0.976,
+          "time_ratio": 0.895,
+          "anomaly_per_10h": 0.061,
+          "safety_per_10h": 0.259
+        }
+      }
+    },
+    "machine": {
+      "k": 3,
+      "silhouette": {
+        "3": 0.20764892146924505,
+        "4": 0.1761639884833378,
+        "5": 0.16821478800300801
+      },
+      "cluster_labels": {
+        "0": "needs safety coaching",
+        "1": "idle-heavy",
+        "2": "efficient"
+      },
+      "eps": 1.8657407682680525,
+      "train_noise_share": 0.09166666666666666,
+      "weights": {
+        "fuel_per_productive_hour": 1.0,
+        "idle_pct": 1.0,
+        "productivity_per_hour": 1.0,
+        "time_ratio": 1.0,
+        "anomaly_per_10h": 1.0,
+        "safety_per_10h": 1.0
+      },
+      "centroids_z": {
+        "0": {
+          "fuel_per_productive_hour": 0.291,
+          "idle_pct": 0.281,
+          "productivity_per_hour": -1.026,
+          "time_ratio": 1.161,
+          "anomaly_per_10h": 0.952,
+          "safety_per_10h": 0.727
+        },
+        "1": {
+          "fuel_per_productive_hour": 0.636,
+          "idle_pct": 0.911,
+          "productivity_per_hour": -0.103,
+          "time_ratio": 0.129,
+          "anomaly_per_10h": -0.551,
+          "safety_per_10h": -0.258
+        },
+        "2": {
+          "fuel_per_productive_hour": -0.605,
+          "idle_pct": -0.798,
+          "productivity_per_hour": 0.587,
+          "time_ratio": -0.673,
+          "anomaly_per_10h": -0.078,
+          "safety_per_10h": -0.177
+        }
+      }
+    }
+  },
+  "reliability_icc": {
+    "v1 operator": {
+      "fuel_per_productive_hour": 0.87,
+      "idle_pct": 0.98,
+      "productivity_per_hour": 0.79,
+      "time_ratio": 0.14,
+      "anomaly_per_10h": 0.07,
+      "safety_per_10h": 0.26
+    },
+    "v1 machine": {
+      "fuel_per_productive_hour": 0.05,
+      "idle_pct": 0.0,
+      "productivity_per_hour": 0.58,
+      "time_ratio": 0.0,
+      "anomaly_per_10h": 0.0,
+      "safety_per_10h": 0.0
+    },
+    "v2 operator": {
+      "fuel_per_productive_hour": 0.87,
+      "idle_pct": 0.98,
+      "productivity_per_hour": 0.79,
+      "time_ratio": 0.72,
+      "anomaly_per_10h": 0.07,
+      "safety_per_10h": 0.26
+    },
+    "v2 machine": {
+      "fuel_per_productive_hour": 0.05,
+      "idle_pct": 0.0,
+      "productivity_per_hour": 0.58,
+      "time_ratio": 0.21,
+      "anomaly_per_10h": 0.0,
+      "safety_per_10h": 0.0
+    }
+  },
+  "personality_crosstab_fit": {
+    "0: needs safety coaching": {
+      "aggressive": 20,
+      "average": 0,
+      "efficient": 0,
+      "idler": 0,
+      "novice": 0
+    },
+    "1: efficient": {
+      "aggressive": 0,
+      "average": 53,
+      "efficient": 49,
+      "idler": 0,
+      "novice": 0
+    },
+    "2: idle-heavy": {
+      "aggressive": 0,
+      "average": 0,
+      "efficient": 0,
+      "idler": 30,
+      "novice": 0
+    },
+    "3: low output": {
+      "aggressive": 0,
+      "average": 27,
+      "efficient": 1,
+      "idler": 0,
+      "novice": 20
+    }
+  },
+  "personality_crosstab_holdout": {
+    "0: needs safety coaching": {
+      "aggressive": 6,
+      "average": 0,
+      "efficient": 0,
+      "idler": 0,
+      "novice": 0
+    },
+    "1: efficient": {
+      "aggressive": 0,
+      "average": 13,
+      "efficient": 14,
+      "idler": 0,
+      "novice": 0
+    },
+    "2: idle-heavy": {
+      "aggressive": 0,
+      "average": 0,
+      "efficient": 0,
+      "idler": 9,
+      "novice": 0
+    },
+    "3: low output": {
+      "aggressive": 0,
+      "average": 11,
+      "efficient": 1,
+      "idler": 0,
+      "novice": 6
+    }
+  },
+  "machine_same_cluster_share": 0.6153846153846153,
+  "ari_reference_merge_efficient_average": 0.5829840737636212,
+  "outlier_share": {
+    "machine": 0.15384615384615385,
+    "operator": 0.05384615384615385
+  },
+  "efficiency_by_personality": {
+    "aggressive": -0.094,
+    "average": 0.091,
+    "efficient": 0.488,
+    "idler": -0.584,
+    "novice": -0.788
+  }
+}

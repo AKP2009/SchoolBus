@@ -1,0 +1,216 @@
+{
+  "version": "v2",
+  "features": [
+    "fuel_per_productive_hour",
+    "idle_pct",
+    "productivity_per_hour",
+    "time_ratio",
+    "anomaly_per_10h",
+    "safety_per_10h"
+  ],
+  "type_scalers": {
+    "machine": {
+      "articulated_truck": {
+        "mean": {
+          "fuel_per_productive_hour": 26.112684415475332,
+          "idle_pct": 16.673157250842387,
+          "productivity_per_hour": 49.04866784070954,
+          "time_ratio": 1.042989067180166,
+          "anomaly_per_10h": 0.49540097455517673,
+          "safety_per_10h": 2.633616912098596
+        },
+        "std": {
+          "fuel_per_productive_hour": 0.6490635851364238,
+          "idle_pct": 2.7569318926016466,
+          "productivity_per_hour": 7.560994203653606,
+          "time_ratio": 0.030659971292025776,
+          "anomaly_per_10h": 0.29604581320741435,
+          "safety_per_10h": 0.5303248935634897
+        }
+      },
+      "dozer": {
+        "mean": {
+          "fuel_per_productive_hour": 22.554072632776254,
+          "idle_pct": 18.986717837892538,
+          "productivity_per_hour": 86.44658739948659,
+          "time_ratio": 1.0400844150678799,
+          "anomaly_per_10h": 0.05797821831377138,
+          "safety_per_10h": 2.6499815967504436
+        },
+        "std": {
+          "fuel_per_productive_hour": 0.6784922886677974,
+          "idle_pct": 4.281254543586963,
+          "productivity_per_hour": 13.429000444376674,
+          "time_ratio": 0.035342839938898814,
+          "anomaly_per_10h": 0.09698354154896492,
+          "safety_per_10h": 0.720870651626355
+        }
+      },
+      "excavator": {
+        "mean": {
+          "fuel_per_productive_hour": 17.477926982532736,
+          "idle_pct": 17.783664278453298,
+          "productivity_per_hour": 89.84595090922294,
+          "time_ratio": 1.0305619454191663,
+          "anomaly_per_10h": 0.04149467025850597,
+          "safety_per_10h": 2.612913162704915
+        },
+        "std": {
+          "fuel_per_productive_hour": 0.4761949505134119,
+          "idle_pct": 3.564983880172933,
+          "productivity_per_hour": 14.180521102592179,
+          "time_ratio": 0.032411700746189306,
+          "anomaly_per_10h": 0.08445110860726081,
+          "safety_per_10h": 0.6267672627212181
+        }
+      },
+      "wheel_loader": {
+        "mean": {
+          "fuel_per_productive_hour": 15.43235670334668,
+          "idle_pct": 16.942967110381865,
+          "productivity_per_hour": 140.52973026336565,
+          "time_ratio": 1.004206980539851,
+          "anomaly_per_10h": 0.05782047777688206,
+          "safety_per_10h": 2.6593131283658002
+        },
+        "std": {
+          "fuel_per_productive_hour": 0.4840589066676739,
+          "idle_pct": 3.8900687027328034,
+          "productivity_per_hour": 19.735284044081745,
+          "time_ratio": 0.03684699763261856,
+          "anomaly_per_10h": 0.08654380973223882,
+          "safety_per_10h": 0.6147857188434304
+        }
+      }
+    },
+    "operator": {
+      "articulated_truck": {
+        "mean": {
+          "fuel_per_productive_hour": 26.293407509093846,
+          "idle_pct": 16.38150679896438,
+          "productivity_per_hour": 49.976766772444606,
+          "time_ratio": 1.0424159927035976,
+          "anomaly_per_10h": 0.5210443503901868,
+          "safety_per_10h": 2.770315670296009
+        },
+        "std": {
+          "fuel_per_productive_hour": 1.9357276260941583,
+          "idle_pct": 8.914647942294659,
+          "productivity_per_hour": 14.35022733508699,
+          "time_ratio": 0.0702095320837659,
+          "anomaly_per_10h": 0.7211980485504489,
+          "safety_per_10h": 1.5427768428927962
+        }
+      },
+      "dozer": {
+        "mean": {
+          "fuel_per_productive_hour": 22.445809822992285,
+          "idle_pct": 17.440021668135355,
+          "productivity_per_hour": 87.75230719061246,
+          "time_ratio": 1.0398533934860115,
+          "anomaly_per_10h": 0.04455811920946275,
+          "safety_per_10h": 2.6615186729754523
+        },
+        "std": {
+          "fuel_per_productive_hour": 1.7534756904546345,
+          "idle_pct": 9.197056283316735,
+          "productivity_per_hour": 21.969313209225188,
+          "time_ratio": 0.07820051599467963,
+          "anomaly_per_10h": 0.20273925624531414,
+          "safety_per_10h": 1.4931363946268164
+        }
+      },
+      "excavator": {
+        "mean": {
+          "fuel_per_productive_hour": 17.491700732762762,
+          "idle_pct": 17.315926312513763,
+          "productivity_per_hour": 90.78645833037412,
+          "time_ratio": 1.030165902247619,
+          "anomaly_per_10h": 0.059383532201187,
+          "safety_per_10h": 2.485199448500021
+        },
+        "std": {
+          "fuel_per_productive_hour": 1.1737723063474008,
+          "idle_pct": 8.914018238201555,
+          "productivity_per_hour": 23.040427733371526,
+          "time_ratio": 0.061723858554244594,
+          "anomaly_per_10h": 0.3090173215843375,
+          "safety_per_10h": 1.6203417267754434
+        }
+      },
+      "wheel_loader": {
+        "mean": {
+          "fuel_per_productive_hour": 15.463525592034527,
+          "idle_pct": 16.85398560310264,
+          "productivity_per_hour": 140.47657431841793,
+          "time_ratio": 1.0105379735106061,
+          "anomaly_per_10h": 0.07073998136827891,
+          "safety_per_10h": 2.734783282785337
+        },
+        "std": {
+          "fuel_per_productive_hour": 1.108476736571163,
+          "idle_pct": 8.323108796479987,
+          "productivity_per_hour": 32.733835425333545,
+          "time_ratio": 0.07298586669280198,
+          "anomaly_per_10h": 0.25152673649243246,
+          "safety_per_10h": 1.541823006758036
+        }
+      }
+    }
+  },
+  "entities": {
+    "operator": {
+      "k": 4,
+      "cluster_labels": {
+        "0": "needs safety coaching",
+        "1": "efficient",
+        "2": "idle-heavy",
+        "3": "low output"
+      },
+      "weights": {
+        "fuel_per_productive_hour": 0.9305666051930052,
+        "idle_pct": 0.9881239152029679,
+        "productivity_per_hour": 0.8889201651722296,
+        "time_ratio": 0.8466159995252523,
+        "anomaly_per_10h": 0.2662251754070158,
+        "safety_per_10h": 0.5145811836638412
+      },
+      "eps": 1.015792727725748,
+      "dbscan_min_samples": 5
+    },
+    "machine": {
+      "k": 3,
+      "cluster_labels": {
+        "0": "needs safety coaching",
+        "1": "idle-heavy",
+        "2": "efficient"
+      },
+      "weights": {
+        "fuel_per_productive_hour": 1.0,
+        "idle_pct": 1.0,
+        "productivity_per_hour": 1.0,
+        "time_ratio": 1.0,
+        "anomaly_per_10h": 1.0,
+        "safety_per_10h": 1.0
+      },
+      "eps": 1.8657407682680525,
+      "dbscan_min_samples": 5
+    }
+  },
+  "efficiency_weights": {
+    "productivity_per_hour": 0.35,
+    "fuel_per_productive_hour": -0.25,
+    "idle_pct": -0.2,
+    "time_ratio": -0.2
+  },
+  "z_outlier": 2.5,
+  "min_fit_hours": 4.0,
+  "excluded_safety_events": [
+    "fatigue_high"
+  ],
+  "time_ratio_p50": "fleet p50: ml.inference.task_time with operator_avg_time_ratio unknown (C.fleet_p50)",
+  "fit_weeks": [
+    "2026-06-01",
+    "2026-08-03"
+  ]
+}
