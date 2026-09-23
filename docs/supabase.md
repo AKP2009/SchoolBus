@@ -76,8 +76,8 @@ in the password (`#` → `%23`).
   metadata that the `handle_new_user` trigger copies into `profiles`:
 ```python
 supabase.auth.admin.create_user({
-  "email": "ravi@demo.site", "password": "demo1234", "email_confirm": True,
-  "user_metadata": {"role": "operator", "full_name": "Ravi Kumar", "operator_id": "OP03", "site_id": "S1"}
+  "email": "ganesh@demo.site", "password": "demo1234", "email_confirm": True,
+  "user_metadata": {"role": "operator", "full_name": "Ganesh Nair", "operator_id": "OP02", "site_id": "S1"}
 })
 ```
 - Create: 2–3 operators (one per demo persona), 1 manager, 1 admin.
@@ -85,7 +85,7 @@ supabase.auth.admin.create_user({
 
   | Email | Role | Name | operator_id | site | Language |
   |---|---|---|---|---|---|
-  | ravi@demo.site | operator | Ravi Kumar | OP03 | S1 | en |
+  | ganesh@demo.site | operator | Ganesh Nair | OP02 | S1 | en |
   | naveen@demo.site | operator | Naveen Rao | OP07 | S1 | ta |
   | vijay@demo.site | operator | Vijay Singh | OP11 | S2 | hi |
   | priya@demo.site | manager | Priya Menon | – | S1 | en |

@@ -101,5 +101,6 @@ for its duration (recorded rows only refresh its template) and hands it back aft
 2. Stored in `chat_messages`.
 
 ## Demo speed
-Replay supports `speed` = 1, 10 or 60 (minutes of data per real minute). The demo usually
-runs at 1× for the live machine and uses scenario triggers for events.
+Replay supports `speed` = 1, 10 or 60 (minutes of data per real minute). The demo runs at
+10× on M04 + M05 from `2026-08-19T15:15:00Z`, so one data hour plays in about 6 min, and uses
+scenario triggers for the events that don't happen by themselves (`demo_script.md`, "Demo data").
