@@ -6,7 +6,7 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["events", "overlay", "proximity"]
+known-first-party = ["events", "fatigue", "overlay", "proximity"]
 
 [tool.black]
 line-length = 100

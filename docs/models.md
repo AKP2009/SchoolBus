@@ -424,6 +424,43 @@ Immediate critical alert if eyes closed continuously > 2 s while the machine is 
 **Assistant behaviour by level:** low — speak only for alerts; medium — check-in every 30 min,
 shorter sentences; high — suggest a break now, notify supervisor, raise proximity warning distance by 2 m.
 
+**Implementation decisions** (`vision/fatigue.py`, `vision/run.py --mode fatigue|both`)
+- MediaPipe 1.0.1, **Tasks `FaceLandmarker`** (the same 478-point Face Mesh with iris). The legacy
+  `solutions.face_mesh` API ends at 0.10.21, which needs `numpy<2`; our stack is on numpy 2.5.
+  Parameters map one to one: `num_faces=1`, `min_face_detection_confidence=0.5`,
+  `min_face_presence_confidence=0.5`, `min_tracking_confidence=0.5`; `refine_landmarks` has no switch
+  (iris points are always returned). The model file downloads to `vision/weights/` on first run.
+- EAR landmarks: right eye 33, 160, 158, 133, 153, 144; left eye 362, 385, 387, 263, 373, 380.
+  MAR = mean of the inner-lip gaps 82–87, 13–14, 312–317 over the inner width 78–308.
+- Calibration: the first 30 s of face frames. Blinks are excluded (frames below 0.8 × the median EAR),
+  threshold = 0.75 × mean of the rest. It falls back to 0.22 with fewer than 60 face frames or a
+  threshold outside 0.12–0.30. Until it finishes, 0.22 is used.
+- Head pitch: `solvePnP` of nose tip, chin, eye outer corners and mouth corners onto a generic
+  face model, focal = frame width. Pitch is **relative to the median pitch during calibration**, so
+  a cab camera mounted above or below the face doesn't read as head-down; head-down is therefore
+  off during the first 30 s.
+- PERCLOS counts face frames only; with no face in view it is unknown, not 0. Frames without a face
+  also break the eyes-closed timer.
+- Yawn / head-down / eyes-closed triggers fire once per continuous episode and re-arm when the
+  condition ends. `fatigue_sample.yawn_count` and `head_down_events` count the minute just ended
+  (like the generator); the score uses the 10-minute counts.
+- Phone: YOLO11n (the proximity model, same weights) on every 5th cab frame, class 67, conf ≥ 0.5,
+  through its own predictor. `model.track` registers ByteTrack callbacks that a plain `predict` on the
+  same object would run too. Confirmed after 3 s of detections with gaps under 2 s; posts once per
+  episode; 2 s unseen ends the episode.
+- Events, all with `sector='cab'` and `details.shift_id`:
+  `fatigue_high` **warning** when the level becomes high (needs ≥ 30 s of PERCLOS history; leaving
+  high needs score < 0.55, so it doesn't flicker); `fatigue_high` **critical** with
+  `details.reason='eyes_closed'` when eyes are closed > 2 s while the machine moves, re-posted every
+  2 s while it lasts; `phone_use` **warning**. `fatigue_sample` every 60 s.
+- Stubs until the backend supplies them: machine moving (`--machine-moving`), shift
+  (`--shift-start`, `--shift-type`, `--shift-id`; default start 06:00 day / 18:00 night IST if that
+  8 h shift is still running, otherwise "now" with a warning; id `SH-<start date>-<machine>-<D|N>`). In `--mode both` the proximity zones widen from the local
+  fatigue state instead of the `FatigueStatus` stub.
+- Cameras: `--camera` / `--source` for proximity, `--cab-camera` (index, URL or file) for fatigue;
+  the same source for both is opened once. URL streams are read on a thread that keeps only the
+  newest frame.
+
 ---
 
 ## 6. Proximity and blindspot (P0, pretrained)
