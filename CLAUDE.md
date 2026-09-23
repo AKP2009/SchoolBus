@@ -36,7 +36,7 @@ docs/                all planning docs
 ```
 
 ## Stack
-Supabase (Postgres, Auth, Realtime, Storage, pgvector) · FastAPI (Python 3.11) ·
+Supabase (Postgres, Auth, Realtime, Storage, pgvector) · FastAPI (Python 3.12) ·
 React 18 + Vite + TypeScript + Tailwind · LightGBM, XGBoost, scikit-learn · Ultralytics YOLO,
 MediaPipe · faster-whisper, Piper TTS · Leaflet maps · Recharts.
 
