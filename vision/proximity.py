@@ -75,6 +75,9 @@ class Zone(StrEnum):
 
 
 SEVERITY_LEVELS = ("info", "warning", "critical", "emergency")  # severity_level enum order
+# Proximity never goes above critical: emergency pages the site manager (design.md alerts) and is
+# reserved for SOS and injuries.
+MAX_PROXIMITY_SEVERITY = "critical"
 ZONE_SEVERITY = {Zone.red: "critical", Zone.orange: "warning"}
 
 
@@ -167,12 +170,12 @@ def classify_zone(distance_m: float, widened: bool = False, previous: Zone | Non
 
 
 def zone_severity(zone: Zone, approaching: bool) -> str | None:
-    """red → critical, orange → warning; approaching raises one level (models.md §6)."""
+    """red → critical, orange → warning; approaching raises one level, capped at critical."""
     base = ZONE_SEVERITY.get(zone)
     if base is None:
         return None
     i = SEVERITY_LEVELS.index(base) + (1 if approaching else 0)
-    return SEVERITY_LEVELS[min(i, len(SEVERITY_LEVELS) - 1)]
+    return SEVERITY_LEVELS[min(i, SEVERITY_LEVELS.index(MAX_PROXIMITY_SEVERITY))]
 
 
 def event_type_for(sector: str) -> str:

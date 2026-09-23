@@ -107,7 +107,7 @@ def test_severity_mapping_and_approach_bump():
     assert P.zone_severity(Zone.orange, False) == "warning"
     assert P.zone_severity(Zone.red, False) == "critical"
     assert P.zone_severity(Zone.orange, True) == "critical"
-    assert P.zone_severity(Zone.red, True) == "emergency"
+    assert P.zone_severity(Zone.red, True) == "critical"  # never emergency: that pages the manager
     assert P.zone_severity(Zone.clear, True) is None
 
 
@@ -240,6 +240,6 @@ def test_event_matches_api_contract():
     }
     assert ev["type"] == "blindspot_intrusion"
     assert ev["ts"] == "2026-09-23T10:15:03Z"
-    assert ev["severity"] == "emergency" and ev["approaching"] is True
+    assert ev["severity"] == "critical" and ev["approaching"] is True
     assert ev["distance_m"] == pytest.approx(2.2, abs=0.1)
     assert ev["details"] == {"track_id": 1, "class": "person", "conf": 0.83}
