@@ -15,7 +15,7 @@ from fatigue import FatigueMonitor, Shift
 W, H = 640, 480
 FPS = 15.0
 NOW = datetime(2026, 9, 24, 4, 30, tzinfo=UTC)  # 10:00 IST
-DAY_SHIFT = Shift(NOW, "day", "SH-2026-09-24-M04-D")  # 0 h into a day shift → no time term
+DAY_SHIFT = Shift(NOW, "day", "SH-2026-09-24-M05-D")  # 0 h into a day shift → no time term
 
 
 def face(ear: float = 0.30, mar: float = 0.05, pitch_deg: float = 0.0) -> np.ndarray:
@@ -85,7 +85,7 @@ class Clock:
 
 
 def monitor(shift: Shift = DAY_SHIFT) -> FatigueMonitor:
-    return FatigueMonitor("M04", "OP03", shift)
+    return FatigueMonitor("M05", "OP02", shift)
 
 
 def calibrated(shift: Shift = DAY_SHIFT) -> Clock:
@@ -237,7 +237,7 @@ def test_counters_cover_10_minutes():
 
 
 # --- debounce -------------------------------------------------------------------------------------
-NIGHT_LATE = Shift(NOW - timedelta(hours=10), "night", "SH-2026-09-23-M04-N")  # 0.25 from shift
+NIGHT_LATE = Shift(NOW - timedelta(hours=10), "night", "SH-2026-09-23-M05-N")  # 0.25 from shift
 
 
 def test_fatigue_high_posts_once_on_entering_high_and_again_after_leaving():
@@ -255,7 +255,7 @@ def test_fatigue_high_posts_once_on_entering_high_and_again_after_leaving():
     highs = c.of_type("fatigue_high", "warning")
     assert len(highs) == 2
     assert highs[0]["details"]["fatigue_level"] == "high"
-    assert highs[0]["sector"] == "cab" and highs[0]["machine_id"] == "M04"
+    assert highs[0]["sector"] == "cab" and highs[0]["machine_id"] == "M05"
 
 
 def test_fatigue_high_hysteresis_holds_between_055_and_06():
@@ -354,7 +354,7 @@ def test_fatigue_sample_every_minute_matches_contract():
     assert len(samples) == 2
     s = samples[0]
     assert set(s) == SAMPLE_KEYS
-    assert s["shift_id"] == "SH-2026-09-24-M04-D" and s["operator_id"] == "OP03"
+    assert s["shift_id"] == "SH-2026-09-24-M05-D" and s["operator_id"] == "OP02"
     assert s["ear_avg"] == pytest.approx(0.3, abs=0.001)
     assert s["perclos_60s"] == 0.0 and s["fatigue_level"] == "low"
     assert s["yawn_count"] == 0 and s["phone_detected"] is False
@@ -378,8 +378,8 @@ def test_no_face_minute_has_null_ear():
 
 # --- shift ----------------------------------------------------------------------------------------
 def test_shift_defaults_to_standard_start():
-    s = F.resolve_shift(None, "day", "M04", now=NOW)  # 10:00 IST
-    assert s.shift_id == "SH-2026-09-24-M04-D"
+    s = F.resolve_shift(None, "day", "M05", now=NOW)  # 10:00 IST
+    assert s.shift_id == "SH-2026-09-24-M05-D"
     assert s.hours_into(NOW) == pytest.approx(4.0)
 
 
@@ -391,15 +391,15 @@ def test_night_shift_after_midnight_belongs_to_previous_date():
 
 
 def test_shift_start_hhmm_and_iso():
-    assert F.resolve_shift("08:30", "day", "M04", now=NOW).hours_into(NOW) == pytest.approx(1.5)
-    iso = F.resolve_shift("2026-09-24T07:00:00", "day", "M04", shift_id="X", now=NOW)
+    assert F.resolve_shift("08:30", "day", "M05", now=NOW).hours_into(NOW) == pytest.approx(1.5)
+    iso = F.resolve_shift("2026-09-24T07:00:00", "day", "M05", shift_id="X", now=NOW)
     assert iso.hours_into(NOW) == pytest.approx(3.0) and iso.shift_id == "X"
 
 
 def test_default_outside_the_shift_starts_now():
     now = datetime(2026, 9, 23, 21, 36, tzinfo=UTC)  # 03:06 IST: last day start was 21 h ago
-    s = F.resolve_shift(None, "day", "M04", now=now)
+    s = F.resolve_shift(None, "day", "M05", now=now)
     assert s.assumed and s.hours_into(now) == pytest.approx(0.0)
-    assert s.shift_id == "SH-2026-09-24-M04-D"
-    explicit = F.resolve_shift("06:00", "day", "M04", now=now)  # asked for it: keep 21 h
+    assert s.shift_id == "SH-2026-09-24-M05-D"
+    explicit = F.resolve_shift("06:00", "day", "M05", now=now)  # asked for it: keep 21 h
     assert not explicit.assumed and explicit.hours_into(now) == pytest.approx(21.1, abs=0.01)

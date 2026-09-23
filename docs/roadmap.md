@@ -54,6 +54,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score) _(MediaPipe FaceLandmarker 1.0.1, ~23–24 fps on the laptop webcam with phone detection on; `vision/run.py --mode fatigue|both`)_
 - [x] **B:** phone detection _(YOLO11n class 67 every 5th cab frame, shares the proximity weights, 3 s persistence)_
 - [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
+- [x] **B:** vision live on the backend: `VISION_API_TOKEN` from `vision/.env` on every call; machine moving from `GET /machine/{id}/state` and high fatigue from `GET /operator/{id}/fatigue`, polled every 2 s with last-known / safe-default fallback; defaults OP02/M05 _(`vision/tests/test_backend_client.py` against a mock backend; live: 20 s proximity run posted 20 `blindspot_intrusion` → 20 `safety_events` rows on one `BLINDSPOT_RED` alert)_
 - [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions
 - [ ] **D:** all P0 operator screens on mocks
 - [ ] **D:** all P0 manager screens on mocks

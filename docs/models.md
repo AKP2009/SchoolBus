@@ -514,15 +514,16 @@ shorter sentences; high — suggest a break now, notify supervisor, raise proxim
   high needs score < 0.55, so it doesn't flicker); `fatigue_high` **critical** with
   `details.reason='eyes_closed'` when eyes are closed > 2 s while the machine moves, re-posted every
   2 s while it lasts; `phone_use` **warning**. `fatigue_sample` every 60 s.
-- Stubs until the backend supplies them: machine moving (`--machine-moving`), shift
-  (`--shift-start`, `--shift-type`, `--shift-id`; default start 06:00 day / 18:00 night IST if that
+- Machine moving: polled from `GET /machine/{id}/state` every 2 s (`vision/backend_client.py`,
+  `MachineState`). `--machine-moving` / `--no-machine-moving` override it for testing.
+- Still a stub: shift (`--shift-start`, `--shift-type`, `--shift-id`; default start 06:00 day / 18:00 night IST if that
   8 h shift is still running, otherwise "now" with a warning; id `SH-<start date>-<machine>-<D|N>`). In `--mode both` the proximity zones widen from the local
-  fatigue state instead of the `FatigueStatus` stub.
+  fatigue state (fresher than the backend's `fatigue_log`) instead of polling.
 - **Backend (`POST /events`, `backend/app/services/events.py`):** `fatigue_sample` → `fatigue_log` + `fatigue`
   WebSocket message; `fatigue_high` → `FATIGUE_HIGH` (warning) or `EYES_CLOSED` (critical) alert, `phone_use` →
   `PHONE_USE` (category behaviour). The 2 s re-posts of eyes-closed coalesce into one alert per episode (30 s), which
   resolves 30 s after the last event. `GET /operator/{id}/fatigue` returns the latest level with a `stale` flag
-  (> 10 min old); the vision `FatigueStatus` stub can poll it (not wired in `vision/` yet).
+  (> 10 min old); vision polls it every 2 s for zone widening (§6).
 - Cameras: `--camera` / `--source` for proximity, `--cab-camera` (index, URL or file) for fatigue;
   the same source for both is opened once. URL streams are read on a thread that keeps only the
   newest frame.
@@ -566,8 +567,19 @@ Low visibility or high fatigue adds 2 m to both limits.
 - Zone hysteresis: entry limits are exact (3 m / 7 m), but leaving a zone outward needs 0.3 m extra,
   otherwise a person standing at 3.0 m flips warning/critical every frame (seen on the webcam test).
 - Event type: `blindspot_intrusion` for sectors rear / left / right, else `proximity_breach`.
-- High fatigue widening: `FatigueStatus` is a stub (always false) until the backend has an endpoint
-  to poll; `--low-visibility` widens now. (The backend now has it: `GET /operator/{id}/fatigue`.)
+- High fatigue widening: without a local cab pipeline, `OperatorFatigue` polls
+  `GET /operator/{id}/fatigue` every 2 s; high = `fatigue_level == "high"` and not `stale`.
+  `--fatigue-high` / `--no-fatigue-high` override it; `--low-visibility` widens too.
+- Backend polling (`vision/backend_client.py`): a daemon thread per endpoint GETs every 2 s (timeout
+  1.5 s) and caches the answer; the frame loop only reads the cache. Backend down, timeout, 5xx or
+  401/403 → keep the last known value (or the default if there never was one). 404 (machine not in
+  the running replay, no fatigue row) or a stale row → the safe default: **moving = true** (eyes
+  closed > 2 s is then critical; the machine may be moving) and **fatigue high = false** (standard
+  zones; widening on every outage would flood alerts). Only up/down transitions are logged.
+- Auth: every backend call (`POST /events` and both polls) sends `Authorization: Bearer
+  $VISION_API_TOKEN`; `run.py` reads `vision/.env` (see `vision/.env.example`) without overriding
+  variables already set, and `--token` wins. Defaults are the demo persona OP02 on M05
+  (`MACHINE_ID`, `OPERATOR_ID`, `BACKEND_URL` in `.env` can change them).
 - **Backend:** `PROXIMITY_ORANGE/RED`, `BLINDSPOT_ORANGE/RED` alerts (`source='vision'`, `category='safety'`,
   stage `warn`: safety alerts from the camera don't derate). The every-2-s red re-posts update one alert per
   machine and kind (count, closest distance; ORANGE → RED only rises) and it resolves after 30 s without events.
