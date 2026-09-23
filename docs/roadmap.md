@@ -49,6 +49,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** task time model (p10/p50/p90 + SHAP) + result sheet (late-shift and night p50 optimistic, see `ml/artifacts/task_time/README.md`)
 - [x] **A:** clustering + result sheet (personality ARI 0.42 on holdout, below 0.5: efficient and average share a cluster, see `ml/artifacts/clustering/README.md`)
 - [x] **A:** predictive maintenance + result sheet (hour-level recall 0.44 misses 0.75, 12/15 failures caught at 0.5 and 15/15 at medium with the 6σ safety floor, median lead 37 h; electrical/undercarriage weak, see `ml/artifacts/maintenance/README.md`)
+- [x] **A:** digital twin health score + plan re-evaluation (`ml/inference/health.py`, `plan.py`, demo `ml/05_health_and_plan.ipynb`; anomaly term only on `machine_fault`, see `ml/artifacts/health/README.md` and `ml/artifacts/plan/README.md`)
 - [ ] **A:** `ml/inference/` functions importable by backend
 - [ ] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score)
 - [ ] **B:** phone detection
@@ -89,7 +90,7 @@ shutdown → escalated alerts in the DB within the expected times.
 ## Phase 5 — Integration and scenarios (everyone)
 - [ ] Demo panel with all scenario buttons
 - [ ] Run `demo_script.md` end to end 3 times; log every failure; fix
-- [ ] Plan re-evaluation (P1) if time
+- [ ] Plan re-evaluation (P1) if time _(ML side done: `ml/inference/plan.py`; `/plan/re-evaluate` and `/plan/accept` not wired yet)_
 - [ ] Geofencing, training recommendations, scenario quiz (P1) if time
 - [ ] Offline demo: Wi-Fi off → report incident → Wi-Fi on → appears on manager screen
 - [ ] Fallbacks ready: `--source demo.mp4` for vision, cached LLM answers for chat

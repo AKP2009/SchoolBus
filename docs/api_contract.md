@@ -47,6 +47,9 @@ Response
   "new_order": ["T-…-4", "T-…-3"], "explanation": "Rain started; task 5 no longer fits before 18:00." }
 ```
 `POST /plan/accept` with the same `shift_id` applies it.
+Extra fields from `ml.inference.plan.re_evaluate_plan` (optional for clients): `triggers`, `available_min`,
+`schedule` = `[{ "task_id", "priority", "p50_min", "fits", "start", "end" }]` in planned order (moved tasks last,
+`start`/`end` null), `break` = `{ "start", "end", "minutes": 15 }` when the fatigue trigger inserted a break, else null.
 
 ### `GET /machine/{machine_id}/health`
 ```json
@@ -54,6 +57,10 @@ Response
   "subsystems": { "engine": 0.9, "cooling": 0.85, "hydraulics": 0.41, "electrical": 0.95, "undercarriage": 0.88 },
   "anomaly_score": 0.71, "failure_probability": 0.72, "likely_component": "hydraulics" }
 ```
+Extra fields from `ml.inference.health.compute_health` (optional for clients): `band` (`green` / `orange` /
+`red` for overall), `subsystem_bands`, `reasons` = `[{ "subsystem", "source": "rule" | "anomaly" |
+"failure_probability", "penalty", "text" }]`, largest penalty first. Any of `anomaly_score`,
+`failure_probability`, `likely_component` is null when that input is missing.
 
 ### `POST /events` (from vision service and voice)
 ```json

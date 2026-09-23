@@ -514,6 +514,24 @@ Signal → subsystem: engine (rpm, oil pressure, oil temp, vibration), cooling (
 hydraulics (hydraulic pressure, hydraulic oil temp), electrical (battery voltage),
 undercarriage (vibration while travelling).
 
+**Implementation decisions (v1, `ml/inference/health.py`, demo in `ml/05_health_and_plan.ipynb`)**
+- `compute_health(machine_id, ts, rule_states, anomaly, maintenance, travelling)` returns the
+  `/machine/{id}/health` response plus `band`, `subsystem_bands` and `reasons`; `to_snapshot_row` maps it to
+  `machine_health_snapshots`. Any input may be missing or malformed: it then adds no penalty (field null), never raises.
+- anomaly_contrib counts **only when model 1 says `machine_fault`**. Normal minutes score median 0.20 / p90 0.49
+  (M04), so the literal formula would turn about 1 minute in 10 orange with nothing wrong. Glitches don't count.
+  "Top signals belong to the subsystem" = any of the top 3. Derived features follow their signal
+  (`rpm_per_load` engine, `coolant_minus_hyd_oil_c` cooling + hydraulics). Vibration counts for the undercarriage
+  while ground speed > 2 km/h, else for the engine.
+- Rule → subsystem: COOLANT_* cooling, HYD_OIL_HIGH / HYD_PRESSURE_DROP hydraulics, OIL_PRESSURE_LOW engine,
+  BATTERY_LOW electrical, FAULT_CODE by code (E-110 cooling, E-215 engine, E-360/365 hydraulics, E-410 electrical;
+  the table has no severity, so `warning`). Usage rules (SEATBELT, TIP_RISK, EXCESS_IDLE, OVERSPEED) and resolved
+  alerts don't count; `emergency` = critical. failure_prob applies to `likely_component` (brakes/other: no subsystem).
+- `rule_states_frame(telemetry)` = stateless §R approximation for notebooks/tests (no hysteresis, stages or
+  HYD_PRESSURE_DROP); the backend's rule engine supplies the real states.
+- **Demo (test period):** M04 electrical failure 2026-08-25 is green until 23 engine h before, then red
+  (probability 0.09 → 0.53 in one hour), orange/red after, 0.32 at the end. Details: `ml/artifacts/health/README.md`.
+
 ---
 
 ## 12. Plan re-evaluation (P1)
@@ -523,3 +541,21 @@ fatigue level high; manager edits the plan.
 **Steps:** re-predict remaining tasks with current conditions → sort by priority, then by
 p50 → fill until shift end with 10 min buffer → tasks that don't fit go to "next shift" →
 show the diff for accept/reject. Stretch: OR-Tools CP-SAT with precedence constraints.
+
+**Implementation decisions (v1, `ml/inference/plan.py`, demo in `ml/05_health_and_plan.ipynb`)**
+- `detect_triggers(...)` returns `task_overrun` (running longer than its p90), `rain` (> 2 mm in the hour),
+  `low_health` (< 0.6), `fatigue_high`, `manager_edit`; missing inputs don't fire.
+- `re_evaluate_plan(shift_id, tasks, now, shift_end, shift_start, conditions, reason)`: current weather and
+  `health_score` replace the task's own values (missing keeps them), `hours_into_shift` = now − shift start for
+  all tasks. Priority **1 = most important** (missing = 2). Greedy on p50 **with skip**: a task that doesn't fit is
+  skipped and the next is tried. The running task stays first with max(p50 − minutes run, 5) left.
+- If the model can't run, the stored `predicted_p50_min` is used; a task with no estimate moves to the next shift.
+- Response adds `triggers`, `available_min`, `schedule` (start/end per task for the diff). `fits` is in the
+  original sequence order, `new_order` the planned order. Nothing is written; explanation times are Asia/Kolkata.
+- **Demo (test period):** 15 shifts where rain starts mid-shift; it changes the plan in 5 (one task moves each
+  time). Shown: SH-2026-08-21-M07-N, 9.3 mm/h, p50s +19–23 %, task 4 moves. In the data all three tasks
+  still finished, so the rain estimate was pessimistic there. Details: `ml/artifacts/plan/README.md`.
+- **Fatigue high → 15-minute break** (`BREAK_MIN`) before the next task (after the running one); it takes its
+  time from the shift before the remaining tasks are re-fitted. Explanation: "Break added because fatigue is high
+  (15 min before the next task). Task 5 no longer fits…". Response field `break` = `{start, end, minutes}` or null.
+  (The task-time model itself has no live-fatigue feature; the break is how fatigue changes the plan.)
