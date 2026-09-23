@@ -191,12 +191,18 @@ larger than ~20 MB each.
 
 ### 10. Scheduled jobs
 Run in FastAPI with APScheduler (simpler than pg_cron for Python models):
-| Job | Every | Writes |
-|---|---|---|
-| Predictive maintenance scoring | 10 min of replay time | `maintenance_predictions` |
-| Fleet metrics + clustering | on demand / daily | `fleet_metrics_weekly` |
-| Training recommendations | daily | `training_recommendations` |
-| Handover summary | at shift end | `shifts.handover_summary` |
+| Job | Every | Writes | Status |
+|---|---|---|---|
+| Predictive maintenance scoring | 10 min of replay time | `maintenance_predictions` | built (`backend/app/jobs/maintenance.py`) |
+| Fleet metrics + clustering | on demand (`POST /analytics/cluster`) / daily 01:00 IST | `fleet_metrics_weekly` | built |
+| Vision alert expiry | 10 s | resolves vision alerts quiet for 30 s | built (`EventService.expire`) |
+| Training recommendations | daily | `training_recommendations` | next task |
+| Handover summary | at shift end | `shifts.handover_summary` | next task |
+
+`backend/app/jobs/scheduler.py` builds an `AsyncIOScheduler` started in the FastAPI lifespan when
+`SCHEDULER_ENABLED` (default true; the tests run without it). Every job has `max_instances=1`, `coalesce=True`.
+The maintenance job ticks every 5 s of wall-clock time and scores a machine once its replay clock has moved
+10 min; with no replay running it does nothing.
 
 ---
 

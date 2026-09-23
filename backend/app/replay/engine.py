@@ -53,6 +53,7 @@ WARMUP = timedelta(hours=1)
 ANOMALY_WINDOW = timedelta(minutes=60)  # >= 30 min needed for idle_pct30 / slope15
 REFILL_BELOW = 200
 MAINTENANCE_REFRESH = timedelta(hours=1)
+REPLAYED_MAX = 7 * 24 * 60  # replayed minute rows kept per machine for the maintenance job
 TRAVEL_KMH = H.TRAVEL_KMH
 
 
@@ -91,6 +92,9 @@ class MachineStream:
     anomaly: dict[str, Any] | None = None
     maintenance: dict[str, Any] | None = None
     maintenance_checked: datetime | None = None
+    # one row per data minute emitted since the replay started (scenario rows included), for
+    # the maintenance scoring job (app/jobs/maintenance.py)
+    replayed: deque[dict[str, Any]] = field(default_factory=lambda: deque(maxlen=REPLAYED_MAX))
 
     def add_minute_row(self, row: dict[str, Any]) -> None:
         self.minute_rows.append(row)
@@ -117,6 +121,7 @@ class ReplayEngine:
         self.streams: dict[str, MachineStream] = {}
         self.speed: float = 1
         self.replay_ts: datetime | None = None
+        self.from_ts: datetime | None = None  # where the running replay started
         self.running = False
         self.task: asyncio.Task[None] | None = None
         self.anomaly_error: str | None = None
@@ -144,6 +149,7 @@ class ReplayEngine:
             self.source = source
             self.speed = speed
             self.replay_ts = from_ts
+            self.from_ts = from_ts
             self.streams = {}
             for mid in dict.fromkeys(machine_ids):
                 info = machines[mid]
@@ -292,6 +298,7 @@ class ReplayEngine:
         if s.last_minute is None or minute > s.last_minute:
             s.last_minute = minute
             s.add_minute_row(row)
+            s.replayed.append(row)
             await self._score_minute(s, row["ts"])
 
     async def _score_minute(self, s: MachineStream, ts: datetime) -> None:
@@ -396,6 +403,15 @@ class ReplayEngine:
         s.scenario = sc
         log.info("scenario %s on %s from %s", name, machine_id, start)
         return sc
+
+    def set_maintenance(self, machine_id: str, prediction: dict[str, Any]) -> None:
+        """A fresh maintenance_predictions row (maintenance job): the next health minute uses it
+        instead of waiting for the hourly database lookup."""
+        s = self.streams.get(machine_id)
+        if s is not None:
+            s.maintenance = prediction
+            if self.replay_ts is not None:
+                s.maintenance_checked = self.replay_ts
 
     def machine_health(self, machine_id: str) -> dict[str, Any] | None:
         s = self.streams.get(machine_id)

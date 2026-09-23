@@ -70,11 +70,13 @@ python -m nbconvert --to notebook --execute --inplace data/generator/validation.
 python data/generator/load_to_supabase.py --days 14 --reset                      # last 14 days -> Supabase (needs data/.env)
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
-cd backend && python -m pytest                                                    # rule engine + scenario tests (no DB needed)
-curl -X POST localhost:8000/replay/start -H 'content-type: application/json'   -d '{"machine_ids":["M01","M02","M03","M04"],"from":"2026-08-20T01:30:00Z","speed":10}'
-curl -X POST localhost:8000/scenario/overheating -H 'content-type: application/json' -d '{"machine_id":"M04"}'
+cd backend && python -m pytest                                                    # rules, scenarios, events, predict/plan, jobs, auth (no DB needed)
+TOKEN=$(python backend/scripts/get_token.py)                                     # manager JWT (priya); every endpoint but /health needs one
+curl -X POST localhost:8000/replay/start -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"machine_ids":["M01","M02","M03","M04"],"from":"2026-08-20T01:30:00Z","speed":10}'
+curl -X POST localhost:8000/scenario/overheating -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"machine_id":"M04"}'
+curl -X POST "localhost:8000/analytics/cluster?week_start=2026-08-17" -H "authorization: Bearer $TOKEN"   # fleet clustering for a week
 # vision
-python vision/run.py --camera 0 --backend http://localhost:8000
+python vision/run.py --camera 0 --backend http://localhost:8000                 # posts with $VISION_API_TOKEN (same value as backend/.env)
 python vision/run.py calibrate --distance 3                                       # once per camera -> vision/calibration.json
 python vision/run.py --camera 0 --sector rear --machine-id M04 --dry-run          # print events; --source demo.mp4 as fallback
 python vision/run.py --mode fatigue --camera 0 --operator-id OP03 --dry-run      # fatigue on the webcam; --shift-type night, --machine-moving
