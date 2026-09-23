@@ -263,6 +263,8 @@ for the full config and then filtered, so IDs and attributes match the full data
   labels come on top: 25 failures × 20 % of a 50–200 h window is ~5.7 % of rows, so
   `anomaly_label` is true on ~8.7 % of rows. The anomaly model trains on data before failure
   windows (models.md §1), so these rows don't inflate its contamination estimate.
+  **The anomaly model is evaluated on injected anomaly types only; pre_failure labels are
+  evaluated by the predictive maintenance model.**
 - **Anomaly placement.** Events are drawn by type share (overheating 18 %, hydraulic_leak 15 %,
   excessive_idle 20 %, battery_fault 12 %, sensor_glitch 20 %, unsafe_operation 15 %), then placed
   on a shift weighted by its length and the operator's personality (aggressive ×2 overheating and
