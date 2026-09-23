@@ -13,6 +13,8 @@ ml/artifacts/**/*.joblib
 !ml/artifacts/anomaly/*.joblib
 # task time models are small (~2 MB) and committed too
 !ml/artifacts/task_time/*.joblib
+# clustering models are tiny (~16 KB) and committed too
+!ml/artifacts/clustering/*.joblib
 
 # python
 __pycache__/
