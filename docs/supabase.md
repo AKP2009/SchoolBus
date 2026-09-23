@@ -179,7 +179,8 @@ How the loader behaves:
 - Event rows keep the generator's ids; identity sequences are moved past max(id) afterwards.
 - training_modules = the generator's 10 plus `TM-CYC-01` (time_ratio for load/haul/grade/backfill)
   and `TM-SIM-01` (scenario pack for the 'needs safety coaching' cluster), so every trigger in
-  `models.md` §10 has a module.
+  `models.md` §10 has a module. `TM-SIM-01.scenario` is read from `backend/kb/scenarios.json`
+  (12 scenarios); the load stops if that file is missing or an `answer` index is out of range.
 - Nothing from `data/output/truth/` is loaded. `telemetry.anomaly_label/anomaly_type` are loaded
   because they are schema columns (evaluation only, never features).
 - Warns and stops if the projected database size is above 400 MB (`--force` overrides).
