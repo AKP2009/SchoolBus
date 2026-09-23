@@ -81,6 +81,19 @@ supabase.auth.admin.create_user({
 })
 ```
 - Create: 2–3 operators (one per demo persona), 1 manager, 1 admin.
+- Accounts (all password `demo1234`, run `python backend/scripts/create_demo_users.py`, idempotent):
+
+  | Email | Role | Name | operator_id | site | Language |
+  |---|---|---|---|---|---|
+  | ravi@demo.site | operator | Ravi Kumar | OP03 | S1 | en |
+  | naveen@demo.site | operator | Naveen Rao | OP07 | S1 | ta |
+  | vijay@demo.site | operator | Vijay Singh | OP11 | S2 | hi |
+  | priya@demo.site | manager | Priya Menon | – | S1 | en |
+  | admin@demo.site | admin | Demo Admin | – | – | en |
+
+  Operator names must match `operators` (the script checks, so load data first). The trigger only
+  fires on insert and doesn't set `preferred_language`, so the script also upserts each `profiles`
+  row and then verifies role, operator_id and site_id.
 
 ### 5. Row Level Security
 Enabled on every table in `001_init.sql`. Summary:
@@ -166,7 +179,8 @@ How the loader behaves:
 - Event rows keep the generator's ids; identity sequences are moved past max(id) afterwards.
 - training_modules = the generator's 10 plus `TM-CYC-01` (time_ratio for load/haul/grade/backfill)
   and `TM-SIM-01` (scenario pack for the 'needs safety coaching' cluster), so every trigger in
-  `models.md` §10 has a module.
+  `models.md` §10 has a module. `TM-SIM-01.scenario` is read from `backend/kb/scenarios.json`
+  (12 scenarios); the load stops if that file is missing or an `answer` index is out of range.
 - Nothing from `data/output/truth/` is loaded. `telemetry.anomaly_label/anomaly_type` are loaded
   because they are schema columns (evaluation only, never features).
 - Warns and stops if the projected database size is above 400 MB (`--force` overrides).

@@ -76,6 +76,19 @@ Types: `proximity_breach`, `blindspot_intrusion`, `fatigue_high`, `phone_use`, `
   "ear_avg": 0.27, "perclos_60s": 0.08, "yawn_count": 0, "head_down_events": 0,
   "phone_detected": false, "fatigue_score": 0.31, "fatigue_level": "low" }
 ```
+Fatigue alerts from the cab camera have no distance or approaching flag:
+```json
+{ "type": "fatigue_high", "machine_id": "M04", "operator_id": "OP03", "ts": "…",
+  "severity": "critical", "sector": "cab",
+  "details": { "shift_id": "SH-…", "reason": "eyes_closed", "eyes_closed_s": 2.07, "machine_moving": true,
+               "fatigue_score": 0.41, "fatigue_level": "medium", "perclos_60s": 0.12,
+               "yawns_10min": 0, "head_down_10min": 0 } }
+{ "type": "phone_use", "machine_id": "M04", "operator_id": "OP03", "ts": "…", "severity": "warning",
+  "sector": "cab", "details": { "shift_id": "SH-…", "class": "cell phone", "conf": 0.71, "seen_s": 3.0 } }
+```
+`fatigue_high` is `warning` when the level becomes high (no `reason`) and `critical` for
+`reason: "eyes_closed"` (models.md §5).
+
 Response `{ "stored": true, "alert_id": 123 }`
 
 ### `POST /chat`

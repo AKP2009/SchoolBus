@@ -26,7 +26,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [ ] Confirm `api_contract.md`; D creates mock JSON files from it
 - [ ] Paper sketches for all P0 screens
 - [ ] Repo created with folder layout from `CLAUDE.md`; everyone can run `git pull`
-- [ ] Supabase project created, migration applied, demo users created (C) _(project `hjdxrhgqojlwpayoyfvc` linked, 001+002 pushed; demo users on hold)_
+- [x] Supabase project created, migration applied, demo users created (C) _(project `hjdxrhgqojlwpayoyfvc` linked, 001+002 pushed; 5 demo users via `backend/scripts/create_demo_users.py`)_
 - [ ] Webcam + YOLO fps test (B)
 
 **Checkpoint 0:** everyone can explain the demo story, the schema, and their first task.
@@ -39,7 +39,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** validation notebook passes; 14 days loaded into Supabase _(28/28 checks; `load_to_supabase.py --days 14 --reset`, 2026-08-16 → 08-29, ~210k rows, 61 MB)_
 - [x] **B:** proximity detection with tracking and distance on webcam _(YOLO11n + ByteTrack, ~21–30 fps at 640 px on the laptop webcam, CPU; `vision/run.py`)_
 - [x] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
-- [ ] **C:** knowledge base documents written (fault codes, FAQ, safety, tips)
+- [x] **C:** knowledge base documents written (fault codes, FAQ, safety, tips) _(`backend/kb/`: 5 markdown docs, `scenarios.json` (12 scenarios), `rag_eval.json` (25 questions))_
 - [x] **D:** tokens, Tailwind config, layouts, shared components _(`web/`, Vite 7 + React 18 + Tailwind 3; every component on `/styleguide` in both modes; checked at 1280×800 and 1440)_
 
 **Checkpoint 1:** sample data renders in at least one real screen; webcam shows distance to a person.
@@ -51,8 +51,8 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** predictive maintenance + result sheet (hour-level recall 0.44 misses 0.75, 12/15 failures caught at 0.5 and 15/15 at medium with the 6σ safety floor, median lead 37 h; electrical/undercarriage weak, see `ml/artifacts/maintenance/README.md`)
 - [x] **A:** digital twin health score + plan re-evaluation (`ml/inference/health.py`, `plan.py`, demo `ml/05_health_and_plan.ipynb`; anomaly term only on `machine_fault`, see `ml/artifacts/health/README.md` and `ml/artifacts/plan/README.md`)
 - [ ] **A:** `ml/inference/` functions importable by backend
-- [ ] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score)
-- [ ] **B:** phone detection
+- [x] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score) _(MediaPipe FaceLandmarker 1.0.1, ~23–24 fps on the laptop webcam with phone detection on; `vision/run.py --mode fatigue|both`)_
+- [x] **B:** phone detection _(YOLO11n class 67 every 5th cab frame, shares the proximity weights, 3 s persistence)_
 - [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
 - [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions
 - [ ] **D:** all P0 operator screens on mocks

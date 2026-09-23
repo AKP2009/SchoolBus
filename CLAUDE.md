@@ -74,6 +74,8 @@ cd backend && uvicorn app.main:app --reload --port 8000
 python vision/run.py --camera 0 --backend http://localhost:8000
 python vision/run.py calibrate --distance 3                                       # once per camera -> vision/calibration.json
 python vision/run.py --camera 0 --sector rear --machine-id M04 --dry-run          # print events; --source demo.mp4 as fallback
+python vision/run.py --mode fatigue --camera 0 --operator-id OP03 --dry-run      # fatigue on the webcam; --shift-type night, --machine-moving
+python vision/run.py --mode both --camera 1 --cab-camera 0 --dry-run              # proximity + fatigue; --cab-camera takes an index, URL or file
 cd vision && python -m pytest                                                     # vision tests (no camera needed)
 # web
 cd web && npm run dev                                                             # /operator, /manager, /styleguide
