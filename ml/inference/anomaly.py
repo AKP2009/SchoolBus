@@ -31,15 +31,18 @@ SIGNALS = [
     "battery_voltage",
     "vibration_rms_g",
 ]
-INPUT_COLUMNS = ["ts", "machine_id", *SIGNALS, "is_idle"]
+MOTION_SIGNALS = ["pitch_deg", "roll_deg", "ground_speed_kmh"]  # features only, no glitch check
+FEATURE_SIGNALS = [*SIGNALS, *MOTION_SIGNALS]
+INPUT_COLUMNS = ["ts", "machine_id", *FEATURE_SIGNALS, "is_idle"]
 
 FEATURE_COLUMNS = [
-    *[f"{s}_{agg}" for s in SIGNALS for agg in ("mean5", "std5", "slope15")],
+    *[f"{s}_{agg}" for s in FEATURE_SIGNALS for agg in ("mean5", "std5", "slope15")],
     "idle_pct30",
     "rpm_per_load",
     "fuel_per_load",
     "coolant_minus_hyd_oil_c",
 ]
+STATES = ("idle", "working")  # one model per machine type x state (is_idle of the scored minute)
 
 # Sensor validity ranges (what a telematics unit accepts as a physically possible reading).
 # A reading outside its range cannot be real; oil pressure only counts while the engine runs.
@@ -55,8 +58,8 @@ PLAUSIBLE_RANGE: dict[str, tuple[float, float]] = {
     "vibration_rms_g": (0, 5),
 }
 ENGINE_RUNNING_RPM = 500
-PERSIST_MIN = 3  # a real fault persists >= 3 minutes ...
-MULTI_SIGNAL_Z = 3.0  # ... or moves >= 2 signals with |z| above this
+SETTLE_MIN = 5  # model flags are ignored this many minutes after an idle/working switch or a gap
+PERSIST_MIN = 3  # a model fault fires after this many consecutive eligible flagged minutes
 TOP_N = 3
 
 
@@ -113,7 +116,7 @@ def _machine_features(g: pd.DataFrame) -> pd.DataFrame:
     r15_t = t_s.rolling("15min").sum()
     r15_tt = (t_s * t_s).rolling("15min").sum()
     denom = r15_n * r15_tt - r15_t**2
-    for s in SIGNALS:
+    for s in FEATURE_SIGNALS:
         x = g[s].astype(float)
         r5 = x.rolling("5min")
         out[f"{s}_mean5"] = r5.mean()
@@ -133,7 +136,9 @@ def _machine_features(g: pd.DataFrame) -> pd.DataFrame:
 def build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     """Rolling-window features per machine, one row per telemetry minute.
 
-    Returns (features aligned to the sorted input, glitch Series). Input columns used: INPUT_COLUMNS.
+    Returns (features aligned to the sorted input, glitch Series). Besides FEATURE_COLUMNS the
+    frame carries `state` ('idle' / 'working', selects the model) and `state_age_min` (minutes
+    since the last idle/working switch or data gap). Input columns used: INPUT_COLUMNS.
     Windows are trailing and time-based (5 min, 15 min, 30 min), so gaps between shifts are fine.
     """
     df = df.loc[:, INPUT_COLUMNS].copy()
@@ -143,6 +148,13 @@ def build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     parts = [_machine_features(g) for _, g in clean.groupby("machine_id", sort=False)]
     feats = pd.concat(parts, ignore_index=True)[FEATURE_COLUMNS]
     feats.index = df.index
+    idle = df["is_idle"].astype(bool)
+    contiguous = df["machine_id"].eq(df["machine_id"].shift()) & (
+        df["ts"].diff() <= pd.Timedelta(minutes=2)
+    )
+    run_start = df["ts"].where(~contiguous | idle.ne(idle.shift())).ffill()
+    feats.insert(0, "state_age_min", (df["ts"] - run_start).dt.total_seconds() / 60)
+    feats.insert(0, "state", np.where(idle, "idle", "working"))
     feats.insert(0, "ts", df["ts"])
     feats.insert(0, "machine_id", df["machine_id"])
     return feats, glitch
@@ -151,48 +163,27 @@ def build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
 # ---------------------------------------------------------------------------------------------
 # Decision logic (shared by the notebook evaluation and live scoring)
 # ---------------------------------------------------------------------------------------------
-def classify(
-    machine_id: pd.Series,
-    ts: pd.Series,
-    flagged: np.ndarray,
-    z: np.ndarray,
-    glitch: pd.Series,
-) -> np.ndarray:
+def classify(feats: pd.DataFrame, flagged: np.ndarray, glitch: pd.Series) -> np.ndarray:
     """kind per row: 'sensor_glitch', 'machine_fault' or 'normal'.
 
-    machine_fault = model flag that has persisted >= PERSIST_MIN consecutive minutes, or a flag
-    where >= 2 distinct raw signals have a feature with |z| >= MULTI_SIGNAL_Z.
-    Rows must be sorted by (machine_id, ts).
+    A model flag counts only once the machine has been SETTLE_MIN minutes in its current state;
+    machine_fault fires after PERSIST_MIN consecutive counting flags. Glitches fire at once.
+    `feats` is the output of build_features (sorted by machine_id, ts).
     """
-    flagged = np.asarray(flagged, dtype=bool)
+    eligible = np.asarray(flagged, dtype=bool) & (feats["state_age_min"].to_numpy() >= SETTLE_MIN)
     same_run = (
-        machine_id.eq(machine_id.shift()) & (ts.diff() <= pd.Timedelta(minutes=2))
+        feats["machine_id"].eq(feats["machine_id"].shift())
+        & (feats["ts"].diff() <= pd.Timedelta(minutes=2))
     ).to_numpy()
-    run_id = np.cumsum(~same_run | ~flagged)
-    run_len = pd.Series(flagged.astype(int)).groupby(run_id).cumsum().to_numpy()
-
-    big = np.abs(z) >= MULTI_SIGNAL_Z
-    sig_of = np.array([_signal_of(f) for f in FEATURE_COLUMNS])
-    n_signals = np.zeros(len(flagged), dtype=int)
-    for s in np.unique(sig_of):
-        n_signals += big[:, sig_of == s].any(axis=1)
-
-    fault = flagged & ((run_len >= PERSIST_MIN) | (n_signals >= 2))
-    kind = np.where(fault, "machine_fault", "normal").astype(object)
+    run_id = np.cumsum(~same_run | ~eligible)
+    run_len = pd.Series(eligible.astype(int)).groupby(run_id).cumsum().to_numpy()
+    kind = np.where(eligible & (run_len >= PERSIST_MIN), "machine_fault", "normal").astype(object)
     kind[glitch.notna().to_numpy()] = "sensor_glitch"
     return kind
 
 
-def _signal_of(feature: str) -> str:
-    for s in SIGNALS:
-        if feature.startswith(s):
-            return s
-    return {
-        "idle_pct30": "is_idle",
-        "rpm_per_load": "engine_rpm",
-        "fuel_per_load": "fuel_rate_lph",
-        "coolant_minus_hyd_oil_c": "coolant_temp_c",
-    }[feature]
+def model_key(machine_type: str, state: str) -> str:
+    return f"{machine_type}_{state}"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -206,11 +197,11 @@ def load_artifacts(artifact_dir: str | None = None) -> dict[str, Any]:
         raise RuntimeError("feature_list.json does not match FEATURE_COLUMNS; retrain the model")
     cfg = json.loads((d / "config.json").read_text())
     models = {
-        mt: {
-            "model": joblib.load(d / f"iforest_{mt}.joblib"),
-            "scaler": joblib.load(d / f"scaler_{mt}.joblib"),
+        key: {
+            "model": joblib.load(d / f"iforest_{key}.joblib"),
+            "scaler": joblib.load(d / f"scaler_{key}.joblib"),
         }
-        for mt in cfg["machine_types"]
+        for key in cfg["model_keys"]
     }
     return {"features": features, "config": cfg, "models": models}
 
@@ -218,14 +209,24 @@ def load_artifacts(artifact_dir: str | None = None) -> dict[str, Any]:
 def score_frame(
     feats: pd.DataFrame, machine_type: str, art: dict[str, Any]
 ) -> dict[str, np.ndarray]:
-    """Raw model outputs for a feature frame of one machine type."""
-    m = art["models"][machine_type]
+    """Raw model outputs for a feature frame of one machine type (each row uses its state model)."""
+    n = len(feats)
     X = feats.loc[:, art["features"]].to_numpy(dtype=float)
-    z = m["scaler"].transform(X)
-    raw = -m["model"].score_samples(z)  # higher = more anomalous
-    c = art["config"]["score_scale"][machine_type]
-    score = np.clip((raw - c["min"]) / (c["max"] - c["min"]), 0.0, 1.0)
-    flagged = raw > c["threshold"]
+    z = np.zeros_like(X)
+    raw = np.zeros(n)
+    score = np.zeros(n)
+    flagged = np.zeros(n, dtype=bool)
+    state = feats["state"].to_numpy()
+    for st in STATES:
+        rows = state == st
+        if not rows.any():
+            continue
+        key = model_key(machine_type, st)
+        m, c = art["models"][key], art["config"]["score_scale"][key]
+        z[rows] = m["scaler"].transform(X[rows])
+        raw[rows] = -m["model"].score_samples(z[rows])  # higher = more anomalous
+        score[rows] = np.clip((raw[rows] - c["min"]) / (c["max"] - c["min"]), 0.0, 1.0)
+        flagged[rows] = raw[rows] > c["threshold"]
     return {"z": z, "raw": raw, "score": score, "flagged": flagged}
 
 
@@ -251,7 +252,7 @@ def score_anomaly(window_df: pd.DataFrame, machine_type: str | None = None) -> d
 
     feats, glitch = build_features(window_df)
     out = score_frame(feats, machine_type, art)
-    kind = classify(feats["machine_id"], feats["ts"], out["flagged"], out["z"], glitch)
+    kind = classify(feats, out["flagged"], glitch)
 
     i = len(feats) - 1
     k = str(kind[i])
@@ -262,7 +263,7 @@ def score_anomaly(window_df: pd.DataFrame, machine_type: str | None = None) -> d
         # The glitched reading was replaced before feature building; report its own z instead,
         # standardised like that signal's 5-min mean.
         s = str(glitch.iloc[i])
-        sc = art["models"][machine_type]["scaler"]
+        sc = art["models"][model_key(machine_type, feats["state"].iloc[i])]["scaler"]
         j = art["features"].index(f"{s}_mean5")
         raw_value = float(window_df.sort_values("ts", kind="stable")[s].iloc[-1])
         z_raw = (raw_value - sc.mean_[j]) / sc.scale_[j]

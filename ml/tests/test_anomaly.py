@@ -35,22 +35,23 @@ def tiny_artifacts(sample: pd.DataFrame, tmp_path: Path, monkeypatch: pytest.Mon
     feats, _ = A.build_features(sample)
     feats["machine_type"] = feats.machine_id.map(machine_map)
     scale = {}
-    for mt, g in feats.groupby("machine_type"):
+    for (mt, st), g in feats.groupby(["machine_type", "state"]):
+        key = A.model_key(mt, st)
         X = g[A.FEATURE_COLUMNS].to_numpy(float)
         sc = StandardScaler().fit(X)
         m = IsolationForest(n_estimators=50, contamination=0.03, random_state=42).fit(
             sc.transform(X)
         )
         raw = -m.score_samples(sc.transform(X))
-        scale[mt] = {
+        scale[key] = {
             "min": float(raw.min()),
             "max": float(raw.max()),
             "threshold": float(-m.offset_),
         }
-        joblib.dump(m, tmp_path / f"iforest_{mt}.joblib")
-        joblib.dump(sc, tmp_path / f"scaler_{mt}.joblib")
+        joblib.dump(m, tmp_path / f"iforest_{key}.joblib")
+        joblib.dump(sc, tmp_path / f"scaler_{key}.joblib")
     (tmp_path / "feature_list.json").write_text(json.dumps(A.FEATURE_COLUMNS))
-    cfg = {"machine_types": sorted(scale), "machine_map": machine_map, "score_scale": scale}
+    cfg = {"model_keys": sorted(scale), "machine_map": machine_map, "score_scale": scale}
     (tmp_path / "config.json").write_text(json.dumps(cfg))
     monkeypatch.setattr(A, "ARTIFACT_DIR", tmp_path)
     A.load_artifacts.cache_clear()
@@ -59,9 +60,12 @@ def tiny_artifacts(sample: pd.DataFrame, tmp_path: Path, monkeypatch: pytest.Mon
 
 
 def _window(sample: pd.DataFrame, machine: str = "M01", minutes: int = 60) -> pd.DataFrame:
+    """Trailing window ending at the 15th minute of the machine's longest working stretch."""
     g = sample[sample.machine_id == machine]
-    working = g[~g.is_idle.astype(bool)]
-    end = working.ts.iloc[len(working) // 2]
+    working = ~g.is_idle.astype(bool)
+    run = (working != working.shift()).cumsum()
+    longest = run[working].value_counts().idxmax()
+    end = g.ts[run == longest].iloc[15]
     return g[(g.ts > end - pd.Timedelta(minutes=minutes)) & (g.ts <= end)].copy()
 
 
@@ -101,15 +105,32 @@ def test_glitch_does_not_leak_into_following_features(sample):
     assert glitch.drop(glitch.index[-5]).isna().all()
 
 
-def test_persistent_multi_signal_fault_is_machine_fault(sample, tiny_artifacts):
+def test_fault_fires_only_after_persistence(sample, tiny_artifacts):
+    # Broad engine fault starting 6 minutes before the window end, 10+ minutes into working.
     w = _window(sample)
-    last = w.index[-6:]
-    w.loc[last, "battery_voltage"] = np.linspace(25.0, 22.5, len(last))
-    w.loc[last, "coolant_temp_c"] = np.linspace(100.0, 112.0, len(last))
-    out = A.score_anomaly(w)
+    fault = ["coolant_temp_c", "hydraulic_oil_temp_c", "oil_pressure_kpa", "battery_voltage"]
+    w.loc[w.index[-6:], [*fault, "vibration_rms_g"]] = [112.0, 95.0, 120.0, 22.5, 1.5]
+    # 2 flagged minutes: not yet; 3rd consecutive flagged minute: machine_fault
+    assert A.score_anomaly(w.iloc[:-4])["kind"] == "normal"
+    out = A.score_anomaly(w.iloc[:-3])
     assert out["kind"] == "machine_fault" and out["is_anomaly"]
-    signals = {A._signal_of(s["feature"]) for s in out["top_signals"]}
-    assert signals & {"battery_voltage", "coolant_temp_c"}
+    top = " ".join(s["feature"] for s in out["top_signals"])
+    assert any(sig in top for sig in [*fault, "vibration_rms_g"])
+
+
+def test_classify_settle_and_persistence():
+    ts = pd.Series(pd.date_range("2026-08-20 01:00", periods=12, freq="1min", tz="UTC"))
+    feats = pd.DataFrame(
+        {"machine_id": "M01", "ts": ts, "state_age_min": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]}
+    )
+    flagged = np.array([1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0], dtype=bool)
+    glitch = pd.Series([None] * 11 + ["coolant_temp_c"], dtype=object)
+    kind = A.classify(feats, flagged, glitch)
+    # flags at age < 5 don't count; minutes 5-7 are the first 3 settled flags in a row
+    assert list(kind[:7]) == ["normal"] * 7
+    assert kind[7] == "machine_fault"
+    assert list(kind[8:11]) == ["normal"] * 3  # run broken at minute 8, only 2 flags after it
+    assert kind[11] == "sensor_glitch"  # glitches fire at once
 
 
 def test_ignores_ground_truth_columns(sample, tiny_artifacts):

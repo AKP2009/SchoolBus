@@ -45,10 +45,10 @@ replay stream before the ML models.
 | `HYD_OIL_HIGH` | hydraulic_oil_temp_c > 90 | warning; > 95 critical |
 | `OIL_PRESSURE_LOW` | oil_pressure_kpa < 100 while engine_rpm > 1200 | critical |
 | `BATTERY_LOW` | battery_voltage < 24.0 for 5 min | warning |
-| `HYD_PRESSURE_DROP` | hydraulic_pressure_bar falls > 35% within 3 min under load | critical (possible leak) |
+| `HYD_PRESSURE_DROP` | 2-min mean hydraulic_pressure_bar < 65% of the 3-min mean ending 3 min earlier (baseline > 100 bar), engine_load_pct > 40 for the last 6 min, stationary (3-min mean ground_speed_kmh < 2) | critical (possible leak) |
 | `SEATBELT` | not fastened and (speed > 0.5 or load > 20%) for 5 s | warning; 30 s critical |
 | `TIP_RISK` | abs(pitch) or abs(roll) > 15° | warning; > 25° critical |
-| `EXCESS_IDLE` | is_idle for > 10 continuous min | info; > 20 min warning |
+| `EXCESS_IDLE` | is_idle for > 10 continuous min at mean engine_rpm > 1200 (high idle) | info; > 20 min warning |
 | `OVERSPEED` | ground_speed_kmh above type limit or geofence limit | warning |
 | `FAULT_CODE` | fault_code not null | from fault code table |
 
@@ -114,31 +114,39 @@ Stored as an `alerts` row (`source='anomaly_model'`, `category='behaviour'`) and
 **Evaluation** (against ground-truth `anomaly_label`): precision, recall, F1 per `anomaly_type`,
 and detection delay (minutes from anomaly start to first alert). Target: recall ≥ 0.8, median delay ≤ 5 min.
 
-**Implementation decisions (v1, `ml/01_anomaly.ipynb`, `ml/inference/anomaly.py`)**
+**Implementation decisions (v2, `ml/01_anomaly.ipynb`, `ml/inference/anomaly.py`)**
 - Windows are trailing and time-based per machine (`5min`, `15min`, `30min`); the 15-min slope is
   a least-squares slope in units per minute. `rpm_per_load` / `fuel_per_load` clip load at 0
   (the sensor reads slightly negative at idle, which gave division by ~0).
+- v2 adds `pitch_deg`, `roll_deg`, `ground_speed_kmh` (mean5 / std5 / slope15), giving 40 features, and
+  trains **one model per machine type × state** (`idle` / `working` from `is_idle` of the scored
+  minute): 8 IsolationForests with the parameters above, no one-hot.
 - "Before any known failure window" = training excludes every row within `drift_window_h` engine
   hours before a failure. Engine hours advance by full shift length, so they are rebuilt from
   `shifts` (matches the `pre_failure_*` labels on 37,142 of 37,143 rows).
 - Sensor glitch = exactly one signal outside its sensor validity range (`PLAUSIBLE_RANGE` in the
-  inference module; oil pressure only while rpm > 500) and plausible the minute before. Causal,
-  so live scoring labels it immediately. The reading is forward-filled before features so one
-  spike doesn't pollute 5 minutes of features. Real fault = model flag persisting ≥ 3 min, or
-  ≥ 2 distinct signals with |z| ≥ 3. Otherwise `kind='normal'`.
+  inference module; oil pressure only while rpm > 500) and plausible the minute before. Causal
+  and instant. The reading is forward-filled before features so one spike doesn't pollute 5
+  minutes of features.
+- Real fault (v2): model flags are ignored for the first 5 min after an idle↔working switch or a
+  data gap (`SETTLE_MIN`), and the alert fires after 3 consecutive counting flags
+  (`PERSIST_MIN`). v1's "≥ 2 signals with |z| ≥ 3" shortcut is removed.
 - Output `kind` ∈ {`normal`, `machine_fault`, `sensor_glitch`}; `is_anomaly = kind != 'normal'`.
   For a glitch, the first `top_signals` entry is the raw signal, with its z computed using that signal's `_mean5` scaler.
 - Evaluation: an event is caught if a correctly classified alert fires between its start and 5 minutes after its end.
   Only injected types are evaluated.
-- **Result (test):** model alone recall 0.62 (target missed), median delay 3 min. Rules + model
-  recall 1.00, 2 min. The model's contribution is glitch-vs-fault separation; excessive_idle,
-  unsafe_operation (tilt needs pitch/roll/speed, not in the feature list) and hydraulic_leak are
-  weak. One threshold-tuning round on validation didn't help; spec threshold kept. Details in
+  A false alert = a run of alerting minutes touching no injected event, per 100 machine-hours.
+- **Result (test, days 81–90):** rules + model recall 0.97, median delay 2 min, 17.5 false alerts
+  per 100 machine-h (v1: 1.00, 2 min, 138). Model alone recall 0.28 (§1 target 0.8 missed; v1
+  0.62). 97% of its flags on normal minutes fall within 5 min of a state switch, so the settle gate
+  discards them, and it rarely flags battery or leak minutes. Next step if needed: train each model on
+  settled minutes only. Its reliable contribution is glitch-vs-fault separation (19/19). Details:
   `ml/artifacts/anomaly/README.md`.
-- Artifacts: `iforest_<type>.joblib`, `scaler_<type>.joblib`, `feature_list.json`, `config.json`
-  (thresholds, score min/max, machine map), `metrics.json`. The `.joblib` files are git-ignored:
-  run the notebook to create them. Not yet logged to `model_runs`; `metrics.json` has the
-  fields that table needs.
+- Artifacts (≈ 5 MB, committed): `iforest_<type>_<state>.joblib`, `scaler_<type>_<state>.joblib`
+  (joblib compress=3), `feature_list.json`, `config.json` (model keys, thresholds, score
+  min/max, machine map), `metrics.json` (v2 and v1 results). They load only with the versions
+  pinned in `ml/requirements.txt`. Not yet logged to `model_runs`; `metrics.json` has the fields
+  that table needs.
 
 **Stretch (P2) — LSTM autoencoder:** window 60 steps × 11 signals, encoder LSTM(64) → LSTM(16),
 RepeatVector, decoder LSTM(16) → LSTM(64) → TimeDistributed(Dense(11)). Adam lr 1e-3, batch 128,
