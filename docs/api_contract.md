@@ -32,11 +32,26 @@ Request
 ```json
 { "task_ids": ["T-SH-2026-09-01-M01-D-1"] }
 ```
-Response (also written to `tasks`)
+Response (also written to `tasks` when `DATA_SOURCE=supabase`)
 ```json
 { "predictions": [ { "task_id": "T-…", "p10_min": 35.2, "p50_min": 42.0, "p90_min": 55.1,
-  "factors": [ { "feature": "rain_mm", "label": "Rain", "impact_min": 8.1 } ],
-  "operator_avg_min": 47.5, "expected_efficiency": 0.88 } ] }
+  "standard_min": 48.0, "expected_efficiency": 0.88,
+  "operator_avg_min": 47.5, "operator_avg_efficiency": 0.90, "operator_prev_efficiency": 0.95,
+  "factors": [ { "feature": "rain_mm", "label": "Rain", "impact_min": 8.1 } ] } ] }
+```
+
+### `GET /operators/{operator_id}/efficiency?task_type=&as_of=`
+Efficiency summary per task_type plus training recommendations (docs/models.md §10). `as_of`
+defaults to the latest task_date with a completed task (not current_date); `task_type` filters to
+one row. With `DATA_SOURCE=supabase`, new recommendations are inserted into
+`training_recommendations` (duplicates of open ones skipped).
+```json
+{ "operator_id": "OP05", "as_of": "2026-08-29",
+  "summary": [ { "task_type": "trench", "avg_efficiency": 0.79, "prev_efficiency": 0.98,
+    "last_task_efficiency": 0.85, "trend": "down", "fleet_median": 1.01, "n_tasks": 32 } ],
+  "recommendations": [ { "operator_id": "OP05", "task_type": "trench",
+    "module_id": "TM-TECH-TRENCH-01", "reason": "Trench: efficiency 0.79 vs site 1.01 over 32 tasks",
+    "trigger_metric": "efficiency", "trigger_value": 0.79, "sim_module_id": null, "status": "pending" } ] }
 ```
 
 ### `POST /plan/re-evaluate`

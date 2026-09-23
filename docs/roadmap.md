@@ -22,7 +22,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 
 ## Phase 0 — Design lock (everyone)
 - [ ] Read `features.md`; confirm P0 / P1 / P2 split — freeze it
-- [ ] Confirm schema (`001_init.sql`) and generator column names match
+- [x] Confirm schema (`001_init.sql`) and generator column names match
 - [ ] Confirm `api_contract.md`; D creates mock JSON files from it
 - [ ] Paper sketches for all P0 screens
 - [ ] Repo created with folder layout from `CLAUDE.md`; everyone can run `git pull`
@@ -32,13 +32,13 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 **Checkpoint 0:** everyone can explain the demo story, the schema, and their first task.
 
 ## Phase 1 — Data and scaffolds
-- [ ] **A:** 1-day sample dataset shared (within the first few hours)
-- [ ] **A:** master tables, weather, tasks with duration formula
+- [x] **A:** 1-day sample dataset shared (within the first few hours)
+- [x] **A:** master tables, weather, tasks with duration formula
 - [ ] **A:** telemetry normal behaviour + drift + anomalies + labels
 - [ ] **A:** fatigue, safety events, incidents, handover notes
 - [ ] **A:** validation notebook passes; 14 days loaded into Supabase
 - [ ] **B:** proximity detection with tracking and distance on webcam
-- [ ] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
+- [x] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
 - [ ] **C:** knowledge base documents written (fault codes, FAQ, safety, tips)
 - [ ] **D:** tokens, Tailwind config, layouts, shared components
 
@@ -46,10 +46,10 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 
 ## Phase 2 — Models, vision, RAG, screens
 - [ ] **A:** anomaly model + result sheet
-- [ ] **A:** task time model (p10/p50/p90 + SHAP) + result sheet
+- [x] **A:** task time model (p10/p50/p90 + SHAP) + result sheet
 - [ ] **A:** clustering + result sheet
 - [ ] **A:** predictive maintenance + result sheet
-- [ ] **A:** `ml/inference/` functions importable by backend
+- [x] **A:** `ml/inference/` functions importable by backend
 - [ ] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score)
 - [ ] **B:** phone detection
 - [ ] **B:** vision posts to `/events` (backend stub is fine)
@@ -64,7 +64,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [ ] **C:** rule engine + graded response state machine + hysteresis
 - [ ] **C + A:** anomaly scoring and health snapshots every minute in replay
 - [ ] **C:** `/events` writes safety_events / fatigue_log / alerts and forwards on WebSocket
-- [ ] **C:** `/predict/task-time` writes predictions to tasks
+- [x] **C:** `/predict/task-time` writes predictions to tasks
 - [ ] **C + A:** `/scenario/{name}` with overheating, hydraulic_leak, tip_risk, seatbelt
 - [ ] **C:** handover summary, incident transcript → draft
 - [ ] **B:** voice command pipeline (STT → intent → TTS)

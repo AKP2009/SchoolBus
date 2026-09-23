@@ -167,11 +167,16 @@ Cheaper than a 3D simulator and still interactive. A 3D simulator is P2 future s
 ---
 
 ## 5. Task time estimation — P0
-**What:** Predicts how long each task will take with a range, using task details, operator skill,
-machine health, weather and time of shift. Shows the operator's previous average and expected
-efficiency, and suggests a training module when they are consistently slower.
-**How:** LightGBM quantile regression (P10 / P50 / P90). SHAP values explain each estimate.
-See `models.md` §2.
+**What:** Predicts how long each task will take with a range (P10 / P50 / P90), using task details,
+operator skill, machine health, weather and time of shift. SHAP factors explain each estimate.
+**How:** two LightGBM quantile models — a standard model (no operator info) and a personal model
+— with the operator's efficiency history: `avg_efficiency` (duration-weighted over the last 30
+days), `prev_efficiency` (the 30 days before that), `last_task_efficiency`, and
+`expected_efficiency` = standard_min / predicted p50 for the upcoming task, plus the site's
+`fleet_median` for that task type. A training module is recommended when efficiency is low
+(avg < 0.83 with ≥ 5 tasks, or dropping ≤ 0.90 × prev) — worst gap first, max 2 open.
+Each `training_recommendations` row gets `sim_module_id`, which will link to the 3D simulator
+later (null until then). Efficiency is anchored to `standard_min` (see `models.md` §2).
 
 ---
 

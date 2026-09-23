@@ -1,7 +1,15 @@
 # Database schema
 
-The runnable version is `supabase/migrations/001_init.sql`. This doc explains it and includes
-the full SQL at the bottom. **If they ever differ, the migration wins.**
+The runnable version is `supabase/migrations/001_init.sql` (+ `002_task_efficiency.sql` and
+`supabase/seed.sql`). This doc explains the schema and includes the full SQL of 001 at the
+bottom. **If they ever differ, the migration wins.**
+
+**Migration 002 additions** (`supabase/migrations/002_task_efficiency.sql`):
+- `tasks`: `standard_min numeric(7,1)` (standard-operator p50), `expected_efficiency numeric(5,3)`
+  (standard_min / predicted p50, upcoming tasks), `efficiency numeric(5,3)`
+  (standard_min / actual once completed)
+- `training_modules.sim_module_id text references training_modules(module_id)`
+- view `v_operator_efficiency` (see Views) + `grant select ... to authenticated`
 
 ## Design choices
 - **Readable text IDs** for synthetic entities (`S1`, `M01`, `OP01`, `SH-2026-09-01-M01-D`) so CSVs
@@ -11,6 +19,10 @@ the full SQL at the bottom. **If they ever differ, the migration wins.**
   Use them only to evaluate models, never as features.
 - **`client_id uuid unique`** on tables the operator app writes offline (`incidents`,
   `training_records`), so a retried sync upserts instead of duplicating.
+- **`efficiency` is anchored to `tasks.standard_min`** (standard-operator p50), not the model's
+  predicted p50 — otherwise every operator lands near 1.0 and nobody stands out. For the same
+  reason `fleet_metrics_weekly.efficiency_index` should use `standard_min / actual`; the
+  `time_ratio` column (actual / predicted p50) stays as a model-calibration metric only.
 - **Model outputs are stored**, not recomputed in the UI: `tasks.predicted_*`, `alerts`,
   `machine_health_snapshots`, `maintenance_predictions`, `fleet_metrics_weekly`.
 - **RLS:** operators read shared fleet data and only their own personal rows (fatigue, training,
@@ -74,7 +86,18 @@ erDiagram
 **Views:** `v_machine_latest` (latest telemetry row per machine), `v_open_alerts`,
 `v_machine_health_latest`. All use `security_invoker` so RLS applies.
 
+**Views:** `v_machine_latest` (latest telemetry row per machine), `v_open_alerts`,
+`v_machine_health_latest`, `v_operator_efficiency` (migration 002). All use `security_invoker`
+so RLS applies. `v_operator_efficiency` is one row per (operator, site, task_type) with
+duration-weighted efficiency over the last 30 days ([as_of−29, as_of]), the previous window
+([as_of−59, as_of−30]), task counts, the site median for that task_type, and a trend
+('up' ≥ 1.03×, 'down' ≤ 0.97×); `as_of` = max(task_date) of completed tasks — NOT current_date.
+Windows and rules mirror `ml/inference/task_time.py`.
+
 **Function:** `match_document_chunks(query_embedding, match_count, min_similarity)` for RAG retrieval.
+
+**Seed:** `supabase/seed.sql` inserts the six technique modules (`TM-TECH-<TYPE>-01`) the training
+recommender links to; idempotent (`on conflict do nothing`), run after migrations.
 
 **Realtime-enabled tables:** `alerts`, `safety_events`, `incidents`, `tasks`,
 `machine_health_snapshots`, `maintenance_predictions`. Telemetry is streamed by the backend

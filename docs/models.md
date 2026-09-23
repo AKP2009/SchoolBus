@@ -124,23 +124,39 @@ normal validation data.
 **Purpose:** Predict how long a task will take with a realistic range, explain why, and compare
 with the operator's usual performance.
 
-**Input:** `tasks` joined with `weather` (hour of scheduled start), `operators`, `machines`,
-`fatigue_log` (average for the operator in that hour of shift, if available).
+**Two models share one feature builder** (`ml/task_time/features.py`, imported by training and the
+backend so they can never drift). Feature lists are module constants:
 
-**Features**
-| Feature | Type |
-|---|---|
-| task_type, material_type, machine_type, unit | categorical |
-| quantity, terrain_slope_deg, haul_distance_m | numeric |
-| operator skill_score, experience_years, certification_level | numeric |
-| operator_avg_time_ratio for this task_type (last 30 days, computed only from past) | numeric |
-| machine health_score at task start | numeric |
-| temp_c, rain_mm, wind_kmh, visibility_m, dust_index | numeric |
-| shift_type, hours_into_shift, day_of_week | categorical / numeric |
+| Model | Features (STANDARD_FEATURES / PERSONAL_FEATURES) | Purpose |
+|---|---|---|
+| **Standard** | task_type, material_type, machine_type, unit, quantity, log_quantity, terrain_slope_deg, haul_distance_m, machine_health, temp_c, rain_mm, wind_kmh, visibility_m, dust_index, shift_type, hours_into_shift, day_of_week — **no operator information** | Fair "standard operator" p50 for the same work order |
+| **Personal** | STANDARD_FEATURES + skill_score, experience_years, certification_level, operator_avg_time_ratio_30d | p10/p50/p90 for this operator on this task |
 
-**Target:** `actual_duration_min`. Train on `log1p(actual_duration_min)` and convert back.
+`operator_avg_time_ratio_30d`: per (operator_id, task_type), the mean of
+`actual_duration_min / standard_min` over completed, non-delayed tasks with task_date in
+[d−30, d−1] (strictly earlier dates only; NaN under 3 tasks). It uses `standard_min` as input and
+can be recomputed once standard_min exists. Categoricals are pandas `category` with the DB enum
+values. **Never features:** personality, operator_id, delay_reason, any `actual_*` column,
+anything from `tasks_truth.csv`, `anomaly_label`/`anomaly_type`.
 
-**Model:** three LightGBM regressors, one per quantile
+**standard_min** anchors every efficiency number: `efficiency = standard_min / actual_min`
+(completed, non-delayed tasks only). For training rows it is computed **out-of-fold**: GroupKFold
+with 5 folds grouped by ISO week, same params with `n_estimators` frozen to the standard model's
+best iteration. Test and future tasks use the standard model directly. The backend recomputes the
+30-day ratio against these values (`ml/inference/task_time.py`).
+
+**as_of rule:** efficiency summaries anchor on `as_of` = max(task_date) that has a completed,
+non-delayed task — not current_date (the synthetic data ends before today). avg window
+[as_of−29, as_of], prev window [as_of−59, as_of−30]; `trend` = 'up' if avg ≥ 1.03·prev,
+'down' if avg ≤ 0.97·prev, else 'flat'; `fleet_median` = site median efficiency for that
+task_type over the avg window; any metric with n < 3 is null. The same rules live in the SQL
+view `v_operator_efficiency` (migration 002).
+
+**Target:** `log1p(actual_duration_min)`, converted back after prediction. Time split by task_date:
+train days 1–70, validation 71–80, test 81–90 (docs "General rules"); future-day tasks excluded.
+
+**Model:** standard p50, then three personal quantile models — the params from the doc below,
+early stopping 50 rounds on the validation set:
 ```python
 LGBMRegressor(objective='quantile', alpha=a,          # a in {0.1, 0.5, 0.9}
               n_estimators=600, learning_rate=0.05, num_leaves=31,
@@ -150,19 +166,38 @@ LGBMRegressor(objective='quantile', alpha=a,          # a in {0.1, 0.5, 0.9}
 ```
 Categoricals passed as `category` dtype. Enforce p10 ≤ p50 ≤ p90 after prediction.
 
-**Explanation:** SHAP `TreeExplainer` on the p50 model. Convert the top 2–3 SHAP values into
-minutes and show them ("rain +8 min").
+**Intervals:** if validation p10–p90 coverage falls outside 75–85%, split-conformal (CQR)
+widening calibrated on validation is applied; the offset is saved with the artifacts and added
+to p10/p90 by the backend.
+
+**Results (test days 81–90, `ml/artifacts/task_time/v1/metrics.json`):**
+
+| model | MAE (min) | MAPE |
+|---|---|---|
+| personal p50 | 7.9 | 9.3% |
+| standard p50 | 11.3 | 13.5% |
+| baseline (median min/unit × qty) | 24.4 | 29.7% |
+
+p10–p90 coverage 0.793 (validation raw 0.657 → conformal offset 2.81 min applied). Personal p50
+beats the baseline by 3×.
+
+**Explanation:** SHAP `TreeExplainer` on the standard p50 and personal p50 models. Convert the
+top 2–3 SHAP values into minutes (exp-space deltas) and show them ("rain +8 min"). The learned
+effects match the hidden formula (rain +, slope +, rock ≈ +40%, night +, skill −); tasks_truth.csv
+is used **only** for that comparison (see `ml/notebooks/02_task_time.ipynb`).
 
 **Output**
 ```json
 { "task_id": "T-...", "p10_min": 35.2, "p50_min": 42.0, "p90_min": 55.1,
-  "factors": [{"feature": "rain_mm", "impact_min": 8.1}, {"feature": "material_type=rock", "impact_min": 6.3}],
-  "operator_avg_min": 47.5, "expected_efficiency": 0.88 }
+  "standard_min": 48.0, "expected_efficiency": 0.88,
+  "operator_avg_min": 47.5, "operator_avg_efficiency": 0.90, "operator_prev_efficiency": 0.95,
+  "factors": [{"feature": "rain_mm", "label": "Rain", "impact_min": 8.1}] }
 ```
-Stored in `tasks.predicted_p10_min / p50 / p90` and `prediction_factors`.
+Stored in `tasks.predicted_p10_min / p50 / p90` and `prediction_factors`; the model's
+`standard_min` and `expected_efficiency` are written back too (migration 002 columns).
 
-**Evaluation:** MAE and MAPE on p50; interval coverage (share of actuals between p10 and p90,
-target ≈ 80%). Baseline to beat: median duration per task_type × quantity.
+**Evaluation:** MAE and MAPE on p50; interval coverage (target ≈ 80%, enforced by the conformal
+step). Baseline to beat: median duration per task_type × quantity — beaten.
 
 ---
 
@@ -329,15 +364,21 @@ unfinished work, fuel. `temperature=0.3`. Stored in `shifts.handover_summary`.
 
 ## 10. Training recommender (P1, rules)
 
-| Trigger (last 7 days) | Module topic |
+| Trigger | Module topic |
 |---|---|
 | idle_pct > 25% | Fuel-efficient operation |
 | harsh_maneuver ≥ 3 | Smooth controls |
-| time_ratio > 1.2 for a task_type | Technique for that task type |
+| efficiency low for a task_type: avg < 0.83 with n ≥ 5, or avg ≤ 0.90 × prev (both windows n ≥ 3) | Technique for that task type |
 | proximity breaches ≥ 2 | Blindspot awareness |
 | seatbelt violations ≥ 1 | Seatbelt and cab safety |
 | tip_risk events ≥ 1 | Working on slopes |
 | cluster_label = 'needs safety coaching' | Scenario simulator pack |
+
+Efficiency = standard_min / actual (see §2). Module IDs per task_type: `TM-TECH-DIG-01`,
+`TM-TECH-TRENCH-01`, `TM-TECH-LOAD-01`, `TM-TECH-HAUL-01`, `TM-TECH-GRADE-01`,
+`TM-TECH-BACKFILL-01` (seeded in `supabase/seed.sql`); each rec carries
+`trigger_metric='efficiency'`, `trigger_value=avg`, and `sim_module_id` (null for now).
+Worst gap (site median − avg) first, max 2 open per operator, no duplicate module.
 
 Max 2 open recommendations per operator. Stored in `training_recommendations` with a plain-language `reason`.
 

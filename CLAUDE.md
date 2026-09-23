@@ -36,7 +36,7 @@ docs/                all planning docs
 ```
 
 ## Stack
-Supabase (Postgres, Auth, Realtime, Storage, pgvector) · FastAPI (Python 3.11) ·
+Supabase (Postgres, Auth, Realtime, Storage, pgvector) · FastAPI (Python 3.12) ·
 React 18 + Vite + TypeScript + Tailwind · LightGBM, XGBoost, scikit-learn · Ultralytics YOLO,
 MediaPipe · faster-whisper, Piper TTS · Leaflet maps · Recharts.
 
@@ -63,14 +63,21 @@ MediaPipe · faster-whisper, Piper TTS · Leaflet maps · Recharts.
 
 ## Commands (fill in as they become real)
 ```
+# python env (repo root; macOS needs `brew install libomp` for LightGBM)
+source .venv/bin/activate
 # data
 python data/generator/generate.py --config data/generator/config.yaml
+python data/generator/validate.py
+# training (writes ml/artifacts/task_time/v1)
+python -m ml.task_time.train
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
 # vision
 python vision/run.py --camera 0 --backend http://localhost:8000
 # web
 cd web && npm run dev
+# tests
+pytest   # from repo root: ml/tests; cd backend: backend/tests
 # db
 supabase db push
 ```

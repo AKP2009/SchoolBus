@@ -89,6 +89,13 @@ Quantities chosen so most tasks take 20–120 min. 5% of tasks get a random dela
 (+15–60 min) with a `delay_reason` (waiting for truck, blocked access, refuelling).
 `scheduled_start` = previous task end + 5–15 min.
 
+Implementation notes (tasks): quantity targets `T ~ U(20, 120)` min of *base* time
+(`quantity = T / 60 * base_rate`), so the realised duration keeps the full hidden formula —
+material and slope are genuinely in it (rock is really ~+40%) and the models can learn them.
+Tasks never start at or after the machine's failure time, so the failing shift just runs
+fewer tasks. Tasks on `future_days` shifts keep only the plan (status `scheduled`, chain
+spaced by the nominal target).
+
 ## Telemetry — normal behaviour
 Each minute has an activity state from the task timeline: `working`, `idle`, `travelling`, `off`.
 
@@ -181,6 +188,41 @@ Pick 1–3 based on what happened: "Hydraulic oil ran hot around {time}, kept lo
 - Anomaly rate 2.5–3.5%; 20–30 failures; every personality present.
 - Baseline check: a simple linear model on tasks should reach R² > 0.6 (else the signal is too weak).
 
+## Implementation decisions (part 1: master data, weather, shifts, maintenance, health)
+- **RNG:** one `numpy.random.Generator` per module, `default_rng([seed, crc32(module)])`, so
+  output is byte-identical per seed and editing one module doesn't shift another's draws.
+- **`future_days`** (config, default 1): extra planned days after the history. They get weather,
+  shifts and health, but no failures or services. "Now" for `machines` state = 06:00 local on the
+  first future day.
+- **Engine hours:** the engine runs for the whole shift. `machines.total_engine_hours` is the value
+  at "now"; hours at `start_date` were 2,000–10,500, and older machines have more.
+- **Roster:** each operator has a fixed weekly rest day, plus a 2% chance of leave on any day, giving
+  ~5.8 shifts/week. Night crew = round(35% of available operators), filled first by whoever worked
+  the night before (no night → day turnaround), then by operators with `preferred_shift = night`.
+  Each operator has a usual machine.
+- **Failures** are placed first, inside candidate shifts: day ≥ 10, ≥ 25 days apart on the same
+  machine (so drift windows never overlap a previous repair), 1–3 per machine. Component counts
+  follow the mix exactly (largest remainder): no undercarriage failures on wheeled machines, and no
+  hydraulics failures on trucks, because their hydraulic pressure is 0. The failing shift's
+  `end_time` = failure time. Other shifts overlapping the 4–24 h downtime are dropped.
+  `downtime_hours` is on the `failure` row; the `repair` row has 0 and carries `cost_inr`.
+- **Scheduled service** (`component = 'other'`) happens right after the shift in which
+  hours_since_service reaches 500. Its downtime is 2–4 h, capped at the gap before the next shift.
+- **`machine_health_daily.csv`** (helper, not a DB table) is evaluated at the end of each local day:
+  baseline U(0.9, 1.0) − 0.005·age − Σ 0.4·p² over un-repaired failures.
+- **Weather grid:** top of each UTC hour, from `start_date` through `start_date + days + future_days`
+  inclusive. Visibility: 8,000 m dry, 6–8 km light rain, 4–6 km moderate rain, 1.5–4 km heavy rain
+  (≥ 7.6 mm/h). Dust is 0.1 while it rains. Rain is rounded to 2 decimals *before* the visibility
+  band is chosen, so the CSV is self-consistent (no 7.6 mm/h rows with moderate-rain visibility).
+- **Personality** is drawn independently of experience. Nothing in part 1 reads it except validation.
+
 ## Output files
 `data/output/{table}.csv` for small tables, `telemetry.parquet` (full), plus
-`validation.html`. `load_to_supabase.py --days 14` loads the last 14 days.
+`validation.html` (`python data/generator/validate.py`). `load_to_supabase.py --days 14`
+loads the last 14 days.
+`machine_health_daily.csv` is a generator-only helper (not a DB table): per machine and local
+day, baseline − age − drift; it feeds the task formula (f_health) and the telemetry drift.
+`tasks_truth.csv` (task_id + every duration factor + the noise) is validation-only:
+never load it into the database, never use it as a model feature.
+`future_days` (config, default 1) adds planned-only day(s) after the history — weather, shifts
+and tasks (status `scheduled`), no failures/services; they exist for the live demo.
