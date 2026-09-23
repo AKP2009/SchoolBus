@@ -555,4 +555,7 @@ show the diff for accept/reject. Stretch: OR-Tools CP-SAT with precedence constr
 - **Demo (test period):** 15 shifts where rain starts mid-shift; it changes the plan in 5 (one task moves each
   time). Shown: SH-2026-08-21-M07-N, 9.3 mm/h, p50s +19–23 %, task 4 moves. In the data all three tasks
   still finished, so the rain estimate was pessimistic there. Details: `ml/artifacts/plan/README.md`.
-- The fatigue trigger has no live-fatigue feature to act on (task-time model uses usual fatigue per hour).
+- **Fatigue high → 15-minute break** (`BREAK_MIN`) before the next task (after the running one); it takes its
+  time from the shift before the remaining tasks are re-fitted. Explanation: "Break added because fatigue is high
+  (15 min before the next task). Task 5 no longer fits…". Response field `break` = `{start, end, minutes}` or null.
+  (The task-time model itself has no live-fatigue feature; the break is how fatigue changes the plan.)

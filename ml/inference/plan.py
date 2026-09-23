@@ -13,6 +13,8 @@ response of docs/api_contract.md:
 
 A running task stays first: it can't be re-ordered, and its time left is its new p50 minus the
 minutes it has already run (at least `MIN_LEFT_MIN`, since a task past its p90 is not done yet).
+When the `fatigue_high` trigger fires, a `BREAK_MIN` break goes before the next task (after the
+running one) and the remaining tasks are fitted into what is left.
 Nothing here writes to the database; `POST /plan/accept` applies the result.
 """
 
@@ -28,6 +30,8 @@ RAIN_MM_H = 2.0  # rain starts: > 2 mm in the hour
 HEALTH_MIN = 0.6  # machine overall health below this
 BUFFER_MIN = 10.0  # kept free before shift end
 MIN_LEFT_MIN = 5.0  # a running task needs at least this long to finish
+BREAK_MIN = 15.0  # break inserted before the next task when fatigue is high
+BREAK_TEXT = "Break added because fatigue is high ({:.0f} min before the next task)"
 LOCAL_TZ = "Asia/Kolkata"
 REMAINING_STATUSES = ("scheduled", "in_progress", "delayed")
 
@@ -152,6 +156,11 @@ def _task_label(row: Mapping[str, Any]) -> str:
     return f"task {n}"
 
 
+def _lead(texts: list[str]) -> str:
+    """Trigger phrases in one sentence: 'Rain started; operator fatigue is high'."""
+    return "; ".join(t if i == 0 else t[:1].lower() + t[1:] for i, t in enumerate(texts))
+
+
 def _join(parts: list[str]) -> str:
     return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
@@ -176,9 +185,13 @@ def re_evaluate_plan(
     reason: trigger code(s) from `detect_triggers` or the API request; used in the explanation.
     predictor: replaces `predict_task_time` (tests).
 
+    With the `fatigue_high` trigger and tasks still waiting, a BREAK_MIN break is inserted before
+    the next task (after the running one) and takes its time from the shift before tasks are fitted.
+
     Returns shift_id, fits (fitting tasks in their original order), moved_to_next_shift,
     new_order (the running task, then the rest in the new order), explanation, and extra fields
-    `triggers`, `available_min` and `schedule` (per task: start, end, p50_min, fits).
+    `triggers`, `available_min`, `schedule` (per task: start, end, p50_min, fits) and `break`
+    ({start, end, minutes}, or None).
     """
     now, shift_end = _utc(now), _utc(shift_end)
     start = _utc(shift_start) if shift_start is not None else None
@@ -189,7 +202,7 @@ def re_evaluate_plan(
     t = t.reset_index(drop=True)
     available = max((shift_end - now).total_seconds() / 60 - buffer_min, 0.0)
     end_local = shift_end.tz_convert(LOCAL_TZ).strftime("%H:%M")
-    lead = "; ".join(TRIGGER_TEXT.get(r, r.replace("_", " ").capitalize()) for r in reasons)
+    lead = _lead([TRIGGER_TEXT.get(r, r.replace("_", " ").capitalize()) for r in reasons])
 
     base = {"shift_id": shift_id, "triggers": reasons, "available_min": round(available, 1)}
     if t.empty:
@@ -201,6 +214,7 @@ def re_evaluate_plan(
             "new_order": [],
             "explanation": f"{lead}. {text}" if lead else text,
             "schedule": [],
+            "break": None,
         }
 
     p50 = _predict(current_features(t, now, start, conditions), predictor)
@@ -229,6 +243,9 @@ def re_evaluate_plan(
         left = max((r["_p50"] or 0.0) - ran, MIN_LEFT_MIN)
         schedule.append({"r": r, "minutes": left, "fits": True})  # already running: stays
         used += left
+    take_break = "fatigue_high" in reasons and bool(waiting)
+    if take_break:
+        used += BREAK_MIN
     for r in waiting:
         m = r["_p50"]
         ok = m is not None and used + m <= available
@@ -245,7 +262,16 @@ def re_evaluate_plan(
 
     clock = now
     out_schedule = []
+    rest = None
     for s in schedule:
+        if take_break and rest is None and s["r"].get("status") != "in_progress":
+            rest_end = clock + pd.Timedelta(minutes=BREAK_MIN)
+            rest = {
+                "start": clock.isoformat().replace("+00:00", "Z"),
+                "end": rest_end.isoformat().replace("+00:00", "Z"),
+                "minutes": BREAK_MIN,
+            }
+            clock = rest_end
         item = {
             "task_id": s["r"]["task_id"],
             "priority": int(s["r"]["_priority"]),
@@ -262,6 +288,17 @@ def re_evaluate_plan(
         out_schedule.append(item)
 
     # Plain-language explanation
+    if take_break:
+        lead = _lead(
+            [
+                (
+                    BREAK_TEXT.format(BREAK_MIN)
+                    if r == "fatigue_high"
+                    else TRIGGER_TEXT.get(r, r.replace("_", " ").capitalize())
+                )
+                for r in reasons
+            ]
+        )
     parts = [lead] if lead else []
     by_id = {r["task_id"]: r for r in rows}
     if moved:
@@ -293,4 +330,5 @@ def re_evaluate_plan(
         "new_order": new_order,
         "explanation": explanation,
         "schedule": out_schedule,
+        "break": rest,
     }

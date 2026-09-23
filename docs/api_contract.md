@@ -49,7 +49,7 @@ Response
 `POST /plan/accept` with the same `shift_id` applies it.
 Extra fields from `ml.inference.plan.re_evaluate_plan` (optional for clients): `triggers`, `available_min`,
 `schedule` = `[{ "task_id", "priority", "p50_min", "fits", "start", "end" }]` in planned order (moved tasks last,
-`start`/`end` null).
+`start`/`end` null), `break` = `{ "start", "end", "minutes": 15 }` when the fatigue trigger inserted a break, else null.
 
 ### `GET /machine/{machine_id}/health`
 ```json

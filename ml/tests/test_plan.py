@@ -283,3 +283,44 @@ def test_real_model_on_sample_shift() -> None:
     assert total(wet) > total(dry)  # heavy rain and poor visibility slow the work down
     assert len(wet["moved_to_next_shift"]) >= len(dry["moved_to_next_shift"])
     assert wet["explanation"].startswith("Rain started.")
+
+
+def test_fatigue_adds_break_and_refits() -> None:
+    now = END - pd.Timedelta(minutes=110)  # 100 min available
+    tasks = make_tasks((1, 1, 50), (2, 2, 40))
+    rested = plan(tasks, now)
+    assert rested["moved_to_next_shift"] == [] and rested["break"] is None
+    tired = plan(tasks, now, reason=P.detect_triggers(fatigue_level="high"))
+    assert tired["break"] == {
+        "start": "2026-08-21T06:40:00Z",
+        "end": "2026-08-21T06:55:00Z",
+        "minutes": P.BREAK_MIN,
+    }
+    assert tired["new_order"] == [tid(1)]  # 15 + 50 + 40 = 105 > 100
+    assert tired["moved_to_next_shift"] == [tid(2)]
+    assert tired["schedule"][0]["start"] == "2026-08-21T06:55:00Z"  # after the break
+    assert tired["explanation"] == (
+        "Break added because fatigue is high (15 min before the next task). "
+        "Task 2 no longer fits before 14:00; it moves to the next shift."
+    )
+
+
+def test_fatigue_break_goes_after_the_running_task() -> None:
+    now = START + pd.Timedelta(hours=2)
+    tasks = make_tasks((1, 2, 60), (2, 1, 30))
+    tasks.loc[0, ["status", "actual_start"]] = ["in_progress", now - pd.Timedelta(minutes=20)]
+    out = plan(tasks, now, reason=["rain", "fatigue_high"])
+    run, nxt = out["schedule"]
+    assert out["break"]["start"] == run["end"]  # running task finishes first (40 min left)
+    assert nxt["start"] == out["break"]["end"]
+    assert out["explanation"].startswith("Rain started; break added because fatigue is high")
+
+
+def test_fatigue_without_waiting_tasks_adds_no_break() -> None:
+    now = START + pd.Timedelta(hours=2)
+    tasks = make_tasks((1, 2, 60))
+    tasks.loc[0, ["status", "actual_start"]] = ["in_progress", now - pd.Timedelta(minutes=20)]
+    out = plan(tasks, now, reason="fatigue_high")
+    assert out["break"] is None
+    assert out["explanation"].startswith("Operator fatigue is high.")
+    assert plan(make_tasks(), now, reason="fatigue_high")["break"] is None

@@ -49,11 +49,14 @@ conditions, and 3 still fit with rain. The shift shown is the first of the 5.
   No tasks left gives empty lists and "No tasks left in this shift."
 - `fits` keeps the original sequence order and `new_order` is the planned order (as in api_contract.md). Extra
   fields: `triggers`, `available_min`, `schedule` (per task: `start`, `end`, `p50_min`, `fits`, for the diff view).
+- **Fatigue high → a 15-minute break** before the next task (after the running one). The break takes its time from the
+  shift, then the remaining tasks are re-fitted. Explanation: *"Break added because fatigue is high (15 min before the
+  next task). Task 5 no longer fits before 14:00; it moves to the next shift."* Response field `break` = `{start, end, minutes}`.
 - Nothing is written. `POST /plan/accept` applies the result. Times in the explanation are Asia/Kolkata.
 
 ## Limits
-- The fatigue trigger re-plans, but the task-time model has no live-fatigue input (only the operator's usual
-  fatigue for that hour). So high fatigue alone changes the plan only through `hours_into_shift`.
+- The task-time model has no live-fatigue input (only the operator's usual fatigue for that hour), so high
+  fatigue changes the plan through the break, not through slower task estimates.
 - The late-shift and night p50s are optimistic (models.md §2 survivorship), so late re-plans tend to fit a
   little more than will really finish.
 - No precedence constraints yet. The OR-Tools CP-SAT version is the stretch goal.
