@@ -20,14 +20,15 @@ from supabase import Client, create_client
 ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 PASSWORD = "demo1234"
 
-# Operators: Ravi is the demo persona (docs/demo_script.md); Naveen prefers night shifts at S1
-# and speaks Tamil; Vijay is at the quarry (S2) and speaks Hindi, for the multilingual demo.
+# Operators: Ganesh (OP02, M05 on the demo night shift) is the demo persona
+# (docs/demo_script.md, "Demo data"); Naveen prefers night shifts at S1 and speaks Tamil;
+# Vijay is at the quarry (S2) and speaks Hindi, for the multilingual demo.
 DEMO_USERS: list[dict[str, Any]] = [
     {
-        "email": "ravi@demo.site",
+        "email": "ganesh@demo.site",
         "role": "operator",
-        "full_name": "Ravi Kumar",
-        "operator_id": "OP03",
+        "full_name": "Ganesh Nair",
+        "operator_id": "OP02",
         "site_id": "S1",
         "preferred_language": "en",
     },

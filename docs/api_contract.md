@@ -74,7 +74,7 @@ From the latest row of the replay stream (scripted scenario rows included). `mov
 
 ### `POST /events` (from vision service and voice)
 ```json
-{ "type": "proximity_breach", "machine_id": "M04", "operator_id": "OP03",
+{ "type": "proximity_breach", "machine_id": "M05", "operator_id": "OP02",
   "ts": "2026-09-23T10:15:03Z", "severity": "critical",
   "distance_m": 2.4, "sector": "rear", "approaching": true,
   "details": { "track_id": 7, "class": "person", "conf": 0.83 } }
@@ -82,18 +82,18 @@ From the latest row of the replay stream (scripted scenario rows included). `mov
 Types: `proximity_breach`, `blindspot_intrusion`, `fatigue_high`, `phone_use`, `sos`, plus
 `fatigue_sample` (per-minute fatigue_log row, not an alert):
 ```json
-{ "type": "fatigue_sample", "operator_id": "OP03", "shift_id": "SH-…", "ts": "…",
+{ "type": "fatigue_sample", "operator_id": "OP02", "shift_id": "SH-…", "ts": "…",
   "ear_avg": 0.27, "perclos_60s": 0.08, "yawn_count": 0, "head_down_events": 0,
   "phone_detected": false, "fatigue_score": 0.31, "fatigue_level": "low" }
 ```
 Fatigue alerts from the cab camera have no distance or approaching flag:
 ```json
-{ "type": "fatigue_high", "machine_id": "M04", "operator_id": "OP03", "ts": "…",
+{ "type": "fatigue_high", "machine_id": "M05", "operator_id": "OP02", "ts": "…",
   "severity": "critical", "sector": "cab",
   "details": { "shift_id": "SH-…", "reason": "eyes_closed", "eyes_closed_s": 2.07, "machine_moving": true,
                "fatigue_score": 0.41, "fatigue_level": "medium", "perclos_60s": 0.12,
                "yawns_10min": 0, "head_down_10min": 0 } }
-{ "type": "phone_use", "machine_id": "M04", "operator_id": "OP03", "ts": "…", "severity": "warning",
+{ "type": "phone_use", "machine_id": "M05", "operator_id": "OP02", "ts": "…", "severity": "warning",
   "sector": "cab", "details": { "shift_id": "SH-…", "class": "cell phone", "conf": 0.71, "seen_s": 3.0 } }
 ```
 `fatigue_high` is `warning` when the level becomes high (no `reason`) and `critical` for
@@ -102,7 +102,7 @@ Fatigue alerts from the cab camera have no distance or approaching flag:
 Response `{ "stored": true, "alert_id": 123 }`
 
 ### `POST /chat`
-Request `{ "session_id": "uuid", "operator_id": "OP03", "message": "What does E-360 mean?", "language": "en" }`
+Request `{ "session_id": "uuid", "operator_id": "OP02", "message": "What does E-360 mean?", "language": "en" }`
 Response
 ```json
 { "answer": "E-360 means low hydraulic oil level. Stop work, lower the attachment…",
@@ -122,7 +122,7 @@ for the operator to confirm.
 ### `POST /analytics/cluster?week_start=2026-09-14` → writes `fleet_metrics_weekly`, returns summary.
 
 ### `POST /replay/start`
-`{ "machine_ids": ["M01","M04"], "from": "2026-08-20T01:30:00Z", "speed": 1 }`
+`{ "machine_ids": ["M04","M05"], "from": "2026-08-19T15:15:00Z", "speed": 10 }` (the demo window, `demo_script.md` "Demo data")
 `POST /replay/stop`, `GET /replay/status`
 Supabase holds 2026-08-16 → 08-29 (shifts 00:30–07:30 and 12:30–20:30 UTC). Starting again
 replaces the running replay. 404 `UNKNOWN_MACHINE`; 503 `NO_TELEMETRY_SOURCE` when neither
@@ -130,7 +130,7 @@ Supabase nor `data/output/telemetry.parquet` has the data.
 
 ### `POST /scenario/{name}` (demo panel only)
 Names: `overheating`, `hydraulic_leak`, `fatigue`, `proximity`, `tip_risk`, `seatbelt`, `sos`.
-Body `{ "machine_id": "M04" }`. Injects a scripted signal sequence into the replay stream.
+Body `{ "machine_id": "M05" }`. Injects a scripted signal sequence into the replay stream.
 Built into the replay: `overheating`, `hydraulic_leak`, `tip_risk`, `seatbelt` (timings in
 `backend/app/replay/scenarios.py`). `fatigue`, `proximity`, `sos` come from the vision service /
 voice via `POST /events` and return 501 here. 409 `REPLAY_NOT_RUNNING`, `MACHINE_NOT_IN_REPLAY`,
@@ -158,11 +158,11 @@ written, on open, stage change, severity rise and resolve (`stage: "resolved"`),
 ## Shapes fixed during scaffolding
 These were not specified above. They are defined in `backend/app/schemas/` and can be changed there:
 - `POST /plan/accept` → `{ "shift_id": "SH-…", "applied": true }`
-- `POST /incidents/transcribe` request `{ "transcript": "…", "operator_id": "OP03", "machine_id": "M04" | null }`
+- `POST /incidents/transcribe` request `{ "transcript": "…", "operator_id": "OP02", "machine_id": "M05" | null }`
 - `POST /analytics/cluster` → `{ "week_start": "2026-09-14", "rows_written": 42, "summary": "…" }`
 - `POST /replay/start`, `POST /replay/stop`, `GET /replay/status` → `{ "running": true, "machine_ids": [...], "speed": 1, "replay_ts": "…" | null,
-  "source": "supabase" | "parquet" | null, "scenarios": { "M04": "overheating" } }`
-- `POST /scenario/{name}` → `{ "scenario": "overheating", "machine_id": "M04", "started": true, "start_ts": "…", "duration_min": 26 }`
+  "source": "supabase" | "parquet" | null, "scenarios": { "M05": "overheating" } }`
+- `POST /scenario/{name}` → `{ "scenario": "overheating", "machine_id": "M05", "started": true, "start_ts": "…", "duration_min": 26 }`
   (`start_ts` is replay time)
 - `POST /events` accepts only the 5 alert types listed above plus `fatigue_sample`; any other `type` is a 400.
 
