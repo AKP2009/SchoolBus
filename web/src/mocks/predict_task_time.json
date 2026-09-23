@@ -1,0 +1,172 @@
+{
+    "predictions": [
+        {
+            "task_id": "T-SH-2026-08-30-M02-N-1",
+            "p10_min": 91.45330405656945,
+            "p50_min": 103.90936752204016,
+            "p90_min": 109.03684499837216,
+            "standard_min": 110.14652307567792,
+            "expected_efficiency": 1.0600249592734245,
+            "operator_avg_min": 86.35714285714286,
+            "operator_avg_efficiency": 0.9874707237668872,
+            "operator_prev_efficiency": 1.011390971183369,
+            "factors": [
+                {
+                    "feature": "quantity",
+                    "label": "Quantity",
+                    "impact_min": 36.50481814236501
+                },
+                {
+                    "feature": "task_type",
+                    "label": "Task: load",
+                    "impact_min": -21.10111811759262
+                },
+                {
+                    "feature": "machine_type",
+                    "label": "Machine: excavator",
+                    "impact_min": 12.59262908415623
+                }
+            ]
+        },
+        {
+            "task_id": "T-SH-2026-08-30-M02-N-2",
+            "p10_min": 77.31038340380375,
+            "p50_min": 99.48486433457073,
+            "p90_min": 103.7832183495355,
+            "standard_min": 104.3719516936919,
+            "expected_efficiency": 1.049123928467005,
+            "operator_avg_min": 63.36666666666667,
+            "operator_avg_efficiency": 1.1170693163783951,
+            "operator_prev_efficiency": null,
+            "factors": [
+                {
+                    "feature": "material_type",
+                    "label": "Material: rock",
+                    "impact_min": 27.904944602194732
+                },
+                {
+                    "feature": "task_type",
+                    "label": "Task: dig",
+                    "impact_min": -12.148430746261127
+                },
+                {
+                    "feature": "machine_type",
+                    "label": "Machine: excavator",
+                    "impact_min": 9.023877804995948
+                }
+            ]
+        },
+        {
+            "task_id": "T-SH-2026-08-30-M02-N-3",
+            "p10_min": 84.33782851375987,
+            "p50_min": 112.93133561403414,
+            "p90_min": 118.87102232807757,
+            "standard_min": 112.29097167270463,
+            "expected_efficiency": 0.9943296168610094,
+            "operator_avg_min": null,
+            "operator_avg_efficiency": null,
+            "operator_prev_efficiency": 1.016554200027251,
+            "factors": [
+                {
+                    "feature": "task_type",
+                    "label": "Task: trench",
+                    "impact_min": 26.315066000859318
+                },
+                {
+                    "feature": "machine_type",
+                    "label": "Machine: excavator",
+                    "impact_min": 8.339198535956939
+                },
+                {
+                    "feature": "shift_type",
+                    "label": "Night shift",
+                    "impact_min": 7.51241821075314
+                }
+            ]
+        },
+        {
+            "task_id": "T-SH-2026-08-30-M02-N-4",
+            "p10_min": 63.37121084299997,
+            "p50_min": 71.37797482795789,
+            "p90_min": 90.27001450693609,
+            "standard_min": 76.7881073147941,
+            "expected_efficiency": 1.075795544772407,
+            "operator_avg_min": 63.36666666666667,
+            "operator_avg_efficiency": 1.1170693163783951,
+            "operator_prev_efficiency": null,
+            "factors": [
+                {
+                    "feature": "quantity",
+                    "label": "Quantity",
+                    "impact_min": 11.515224036083325
+                },
+                {
+                    "feature": "material_type",
+                    "label": "Material: topsoil",
+                    "impact_min": -11.09711392409777
+                },
+                {
+                    "feature": "machine_type",
+                    "label": "Machine: excavator",
+                    "impact_min": 6.8858951021884565
+                }
+            ]
+        },
+        {
+            "task_id": "T-SH-2026-08-30-M02-N-5",
+            "p10_min": 100.3582251516651,
+            "p50_min": 126.08973659793506,
+            "p90_min": 138.59526298298726,
+            "standard_min": 124.25934289418043,
+            "expected_efficiency": 0.9854834044931727,
+            "operator_avg_min": null,
+            "operator_avg_efficiency": null,
+            "operator_prev_efficiency": 1.016554200027251,
+            "factors": [
+                {
+                    "feature": "task_type",
+                    "label": "Task: trench",
+                    "impact_min": 27.328356308234447
+                },
+                {
+                    "feature": "quantity",
+                    "label": "Quantity",
+                    "impact_min": 21.947560032433614
+                },
+                {
+                    "feature": "machine_type",
+                    "label": "Machine: excavator",
+                    "impact_min": 8.937960967597832
+                }
+            ]
+        },
+        {
+            "task_id": "T-SH-2026-08-30-M02-N-6",
+            "p10_min": 23.478851226168636,
+            "p50_min": 29.10505979936191,
+            "p90_min": 43.20480827979432,
+            "standard_min": 28.511072259669508,
+            "expected_efficiency": 0.9795916055906738,
+            "operator_avg_min": 86.35714285714286,
+            "operator_avg_efficiency": 0.9874707237668872,
+            "operator_prev_efficiency": 1.011390971183369,
+            "factors": [
+                {
+                    "feature": "quantity",
+                    "label": "Quantity",
+                    "impact_min": -18.826069992602743
+                },
+                {
+                    "feature": "task_type",
+                    "label": "Task: load",
+                    "impact_min": -11.436930201880852
+                },
+                {
+                    "feature": "material_type",
+                    "label": "Material: sand",
+                    "impact_min": -3.7642753590102025
+                }
+            ]
+        }
+    ]
+}

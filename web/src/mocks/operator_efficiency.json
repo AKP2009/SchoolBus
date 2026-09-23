@@ -1,0 +1,82 @@
+{
+    "operator_id": "OP05",
+    "as_of": "2026-08-29",
+    "summary": [
+        {
+            "task_type": "backfill",
+            "avg_efficiency": 0.7496289059859157,
+            "prev_efficiency": 0.8487139263905035,
+            "last_task_efficiency": 0.7739395006628045,
+            "trend": "down",
+            "fleet_median": 1.0016623725698857,
+            "n_tasks": 8
+        },
+        {
+            "task_type": "dig",
+            "avg_efficiency": 0.7979828644348814,
+            "prev_efficiency": 0.823522867117893,
+            "last_task_efficiency": 0.7067816615816149,
+            "trend": "down",
+            "fleet_median": 0.9989047412973301,
+            "n_tasks": 28
+        },
+        {
+            "task_type": "grade",
+            "avg_efficiency": null,
+            "prev_efficiency": 0.9310887220650581,
+            "last_task_efficiency": 0.9761110348464818,
+            "trend": null,
+            "fleet_median": 1.001374162464853,
+            "n_tasks": 2
+        },
+        {
+            "task_type": "haul",
+            "avg_efficiency": 0.8591955933136373,
+            "prev_efficiency": 0.8416737441478982,
+            "last_task_efficiency": 1.0711825951743377,
+            "trend": "flat",
+            "fleet_median": 1.0006310081006713,
+            "n_tasks": 31
+        },
+        {
+            "task_type": "load",
+            "avg_efficiency": 0.792971855573293,
+            "prev_efficiency": 0.8263374687549392,
+            "last_task_efficiency": 0.7335803831269719,
+            "trend": "down",
+            "fleet_median": 1.0029908683786954,
+            "n_tasks": 28
+        },
+        {
+            "task_type": "trench",
+            "avg_efficiency": 0.792717135747239,
+            "prev_efficiency": 0.8464384499444808,
+            "last_task_efficiency": 0.7327385813133734,
+            "trend": "down",
+            "fleet_median": 1.0055531382142167,
+            "n_tasks": 32
+        }
+    ],
+    "recommendations": [
+        {
+            "operator_id": "OP05",
+            "task_type": "backfill",
+            "module_id": "TM-TECH-BACKFILL-01",
+            "reason": "Backfill: efficiency 0.75 vs site 1.00 over 8 tasks",
+            "trigger_metric": "efficiency",
+            "trigger_value": 0.7496289059859157,
+            "sim_module_id": null,
+            "status": "pending"
+        },
+        {
+            "operator_id": "OP05",
+            "task_type": "trench",
+            "module_id": "TM-TECH-TRENCH-01",
+            "reason": "Trench: efficiency 0.79 vs site 1.01 over 32 tasks",
+            "trigger_metric": "efficiency",
+            "trigger_value": 0.792717135747239,
+            "sim_module_id": null,
+            "status": "pending"
+        }
+    ]
+}
