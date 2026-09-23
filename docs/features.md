@@ -166,7 +166,7 @@ Cheaper than a 3D simulator and still interactive. A 3D simulator is P2 future s
 Content: `backend/kb/scenarios.json`, 12 scenarios in the `training_modules.scenario` shape
 (`{"steps": [{prompt, choices, answer}]}`, `answer` = 0-based index, as in the generator seed), with
 extra per-step fields `id`, `title`, `image_prompt`, `explanation` and `module_id` (the module to take
-next). Meant to replace the 3-step placeholder in `TM-SIM-01.scenario` (not loaded yet).
+next). `load_to_supabase.py` writes the whole file into `TM-SIM-01.scenario` on every load.
 
 ---
 

@@ -39,6 +39,8 @@ from common import REPO_ROOT, ist_to_utc
 
 OUTPUT_DIR = REPO_ROOT / "data" / "output"
 ENV_FILE = REPO_ROOT / "data" / ".env"
+# Scenario simulator content (12 scenarios), written as TM-SIM-01.scenario on every load.
+SCENARIOS_FILE = REPO_ROOT / "backend" / "kb" / "scenarios.json"
 
 # FK order, as in docs/supabase.md §9 and generate.py.
 TABLE_ORDER = [
@@ -112,39 +114,7 @@ EXTRA_MODULES: list[dict[str, Any]] = [
         "target_metric": "cluster_label",
         "machine_types": ALL_TYPES,
         "languages": LANGS,
-        "scenario": json.dumps(
-            {
-                "steps": [
-                    {
-                        "prompt": "A worker walks into your rear blind spot while you reverse.",
-                        "choices": [
-                            "Keep reversing slowly",
-                            "Stop and sound the horn",
-                            "Swing away",
-                        ],
-                        "answer": 1,
-                    },
-                    {
-                        "prompt": "You notice you are nodding off late in a night shift.",
-                        "choices": [
-                            "Open the window and continue",
-                            "Park safely and tell the supervisor",
-                            "Drink tea while working",
-                        ],
-                        "answer": 1,
-                    },
-                    {
-                        "prompt": "Your seatbelt alarm sounds as you move off.",
-                        "choices": [
-                            "Fasten it once the task is done",
-                            "Stop and fasten it",
-                            "Silence the alarm",
-                        ],
-                        "answer": 1,
-                    },
-                ]
-            }
-        ),
+        "scenario": None,  # filled from SCENARIOS_FILE in build_tables
     },
 ]
 # Every §10 trigger must map to at least one module's target_metric.
@@ -161,6 +131,18 @@ REQUIRED_TRIGGERS = {
 
 class LoadError(Exception):
     """A problem the user must fix; printed without a traceback."""
+
+
+def read_scenarios() -> str:
+    """backend/kb/scenarios.json as the jsonb text for TM-SIM-01.scenario."""
+    try:
+        pack = json.loads(SCENARIOS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise LoadError(f"Cannot read {SCENARIOS_FILE}: {e}") from e
+    steps = pack.get("steps") if isinstance(pack, dict) else None
+    if not steps or not all(0 <= s.get("answer", -1) < len(s.get("choices", [])) for s in steps):
+        raise LoadError(f"{SCENARIOS_FILE}: needs steps with choices and a valid answer index")
+    return json.dumps(pack, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
@@ -184,8 +166,10 @@ def build_tables(days: int) -> tuple[dict[str, pd.DataFrame], date]:
         raise LoadError(f"No data in {OUTPUT_DIR}: run generate.py first")
 
     t: dict[str, pd.DataFrame] = {name: read_csv(name) for name in MASTER_KEYS}
+    extra = pd.DataFrame(EXTRA_MODULES)
+    extra.loc[extra["module_id"] == "TM-SIM-01", "scenario"] = read_scenarios()
     t["training_modules"] = pd.concat(
-        [t["training_modules"], pd.DataFrame(EXTRA_MODULES)], ignore_index=True
+        [t["training_modules"], extra], ignore_index=True
     ).drop_duplicates("module_id", keep="first")
     missing = REQUIRED_TRIGGERS - set(t["training_modules"]["target_metric"])
     if missing:
