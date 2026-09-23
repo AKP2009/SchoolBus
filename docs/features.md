@@ -163,6 +163,10 @@ Download for offline use.
 **What:** "What would you do?" scenarios: an image or short clip of a situation (person in
 blindspot, overheating while lifting, slope warning) with choices, scored with explanations.
 Cheaper than a 3D simulator and still interactive. A 3D simulator is P2 future scope.
+Content: `backend/kb/scenarios.json`, 12 scenarios in the `training_modules.scenario` shape
+(`{"steps": [{prompt, choices, answer}]}`, `answer` = 0-based index, as in the generator seed), with
+extra per-step fields `id`, `title`, `image_prompt`, `explanation` and `module_id` (the module to take
+next). `load_to_supabase.py` writes the whole file into `TM-SIM-01.scenario` on every load.
 
 ---
 
