@@ -25,6 +25,11 @@ we chose**, not Caterpillar specifications. In production they come from the mac
 service manual and are configured per machine type. They live in one config file
 (`backend/app/alerts/thresholds.yaml`) for that reason.
 
+## Camera distance
+Distance from one camera uses a pinhole model with assumed real heights: person 1.7 m, car 1.5 m,
+truck 3.0 m. It is a rough estimate (±20–30 %), which is why the zones have wide margins and why we
+fuse with the assumed ultrasonic sensor (`min` of the two) in production.
+
 ## Data
 - All data is synthetic (see `synthetic_data.md`), 1-minute telemetry, 2 sites, 12 machines, 20 operators, 90 days.
 - Fault codes are our own, not Caterpillar codes.

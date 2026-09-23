@@ -447,6 +447,28 @@ Low visibility or high fatigue adds 2 m to both limits.
 **Output:** `safety_events` (`proximity_breach` or `blindspot_intrusion`, `distance_m`, `sector`,
 `approaching`) and an `alerts` row when orange or red.
 
+**Implementation decisions** (`vision/proximity.py`, `vision/run.py`)
+- Weights `yolo11n.pt`. Calibration: `python vision/run.py calibrate --distance 3` takes the median
+  person box height over 30 frames and saves `focal_px` + `frame_height_px` to `vision/calibration.json`
+  (per camera, git-ignored); f is rescaled if the frame height changes. Without the file the service
+  assumes f = 1.2 × frame height and says "UNCALIBRATED" on the overlay.
+- Approaching: closing speed = distance change between the newest sample and the oldest sample at
+  or before 1 s ago; no verdict with less than 0.7 s of history.
+- Severity: red → critical, orange → warning, approaching raises one level (orange → critical,
+  red → emergency).
+- Debounce, per track: post when the zone changes into red or orange, when severity rises inside the
+  same zone (the object starts approaching), and every 2 s while red. Going clear posts nothing
+  but resets the track, so re-entry posts again. A track unseen for 2 s is forgotten.
+- Zone hysteresis: entry limits are exact (3 m / 7 m), but leaving a zone outward needs 0.3 m extra,
+  otherwise a person standing at 3.0 m flips warning/critical every frame (seen on the webcam test).
+- Event type: `blindspot_intrusion` for sectors rear / left / right, else `proximity_breach`.
+- High fatigue widening: `FatigueStatus` is a stub (always false) until the backend has an endpoint
+  to poll; `--low-visibility` widens now.
+- Delivery: background thread, httpx, exponential backoff 0.5 → 10 s on connection errors and 5xx;
+  4xx and 501 are logged and dropped. Bounded queue of 200, oldest dropped first. `--dry-run` prints.
+- 640 → 480 px when the loop averages under 10 fps over 3 s (after a 3 s warm-up that starts at the
+  first processed frame, since torch start-up makes the first inference take seconds); it does not switch back.
+
 ---
 
 ## 7. RAG training chatbot (P1)

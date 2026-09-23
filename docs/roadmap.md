@@ -37,7 +37,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** telemetry normal behaviour + drift + anomalies + labels
 - [x] **A:** fatigue, safety events, incidents, handover notes
 - [x] **A:** validation notebook passes; 14 days loaded into Supabase _(28/28 checks; `load_to_supabase.py --days 14 --reset`, 2026-08-16 → 08-29, ~210k rows, 61 MB)_
-- [ ] **B:** proximity detection with tracking and distance on webcam
+- [x] **B:** proximity detection with tracking and distance on webcam _(YOLO11n + ByteTrack, ~21–30 fps at 640 px on the laptop webcam, CPU; `vision/run.py`)_
 - [x] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
 - [ ] **C:** knowledge base documents written (fault codes, FAQ, safety, tips)
 - [ ] **D:** tokens, Tailwind config, layouts, shared components
@@ -52,7 +52,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [ ] **A:** `ml/inference/` functions importable by backend
 - [ ] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score)
 - [ ] **B:** phone detection
-- [ ] **B:** vision posts to `/events` (backend stub is fine)
+- [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
 - [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions
 - [ ] **D:** all P0 operator screens on mocks
 - [ ] **D:** all P0 manager screens on mocks
