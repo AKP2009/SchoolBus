@@ -200,6 +200,44 @@ Stored in `tasks.predicted_p10_min / p50 / p90` and `prediction_factors`.
 **Evaluation:** MAE and MAPE on p50; interval coverage (share of actuals between p10 and p90,
 target ≈ 80%). Baseline to beat: median duration per task_type × quantity.
 
+**Implementation decisions (v1, `ml/02_task_time.ipynb`, `ml/inference/task_time.py`)**
+- Targets: `completed` tasks with `actual_duration_min` (6,379). `delayed` tasks have no duration in
+  the generated data (still running at shift end), so they drop out. Completed tasks with a random
+  `delay_reason` are kept. Split by `task_date`: 4,946 / 717 / 716.
+- Weather = the latest `weather` row at or before `scheduled_start` for the site (the hour
+  containing it). `hours_into_shift` = scheduled_start − shift start. `day_of_week` from task_date.
+- `health_score` at task start = service-based health rebuilt from `maintenance_log`:
+  clip(1 − 0.2·hours_since_service/interval, 0.3, 1), with engine hours rebuilt per shift and anchored
+  to the end-of-run `machines.total_engine_hours`. The generator's drift term needs the next failure
+  (future), so it isn't used. The live backend passes `health_score` from `v_machine_health_latest`.
+- `operator_avg_time_ratio` = mean of actual ÷ reference minutes over the operator's same-type tasks
+  that **ended before** this task's scheduled start, last 30 days (NaN without history). Reference
+  minutes = median minutes per unit per task_type on train, with haul measured in ton-km. The
+  evaluation baseline stays literal (per unit, no distance).
+- Extra feature `operator_fatigue_hour_avg`: the operator's mean `fatigue_score` in that whole hour
+  of shift over earlier shifts (the "if available" fatigue input above).
+- Categoricals use the training levels (`encoders.json`); an unseen level becomes NaN.
+- **Interval calibration (one tuning round):** raw intervals covered 83% on train but 66% on test
+  (too narrow on both sides: out-of-sample p50 error is larger than the in-sample residuals the
+  quantile models learn). Conformalized quantile regression on validation: offset
+  c = quantile of max(p10 − y, y − p90) in log space; shipped interval [p10 − c, p90 + c], then sorted.
+  c = 0.052 (×1.05). LightGBM parameters unchanged.
+- Factors: top 3 by |impact| in minutes, impact = p50 − expm1(log p50 − shap). `quantity`/`unit` are
+  never shown (size of the job). Each factor = `{feature, label, impact_min}`, e.g.
+  `{"feature": "material_type=rock", "label": "Material: rock", "impact_min": 6.8}`.
+- `operator_avg_min` = operator_avg_time_ratio × reference minutes (null without history);
+  `expected_efficiency` = p50 ÷ operator_avg_min (< 1 = faster than usual).
+- **Result (test, days 81–90):** p50 MAE 8.9 min / MAPE 10.6% vs baseline 23.8 min / 28.4%;
+  p10–p90 coverage 80.0% (raw 65.5%). The random +15–60 min delays are the main misses (MAPE 31%).
+  Planted factors recovered: rain (with visibility), material, slope, skill, at 69–88% of the planted size.
+  **Not recovered: hours into shift (×0.94 vs ×1.03) and night (×1.05 vs ×1.10)**, because of
+  survivorship: long tasks late in a shift or at night get cut off as `delayed` (82% after hour 7) and
+  never become targets. **Late-shift and night p50s are optimistic.** The fix would be censored-duration
+  training (not done). Details: `ml/artifacts/task_time/README.md`.
+- Artifacts (≈ 1.8 MB, committed): `lgbm_p10/p50/p90.joblib` (compress=3), `encoders.json`,
+  `config.json` (interval offset, params), `feature_list.json`, `metrics.json`, `shap_importance.png`.
+  Pinned in `ml/requirements.txt` (lightgbm 4.7.0, shap 0.52.0). Not yet logged to `model_runs`.
+
 ---
 
 ## 3. Predictive maintenance (P1)

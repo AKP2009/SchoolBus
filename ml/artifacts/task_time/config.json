@@ -1,0 +1,35 @@
+{
+  "version": "v1",
+  "quantiles": [
+    0.1,
+    0.5,
+    0.9
+  ],
+  "target": "log1p(actual_duration_min)",
+  "lgbm_params": {
+    "objective": "quantile",
+    "n_estimators": 600,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_child_samples": 20,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "verbose": -1
+  },
+  "early_stopping_rounds": 50,
+  "best_iteration": {
+    "0.1": 364,
+    "0.5": 599,
+    "0.9": 600
+  },
+  "interval_offset_log": 0.05152988600205788,
+  "interval_method": "CQR on validation days, target coverage 0.8",
+  "operator_ratio_window_days": 30,
+  "not_a_factor": [
+    "quantity",
+    "unit"
+  ]
+}

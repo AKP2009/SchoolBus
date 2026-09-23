@@ -1,0 +1,23 @@
+[
+  "task_type",
+  "material_type",
+  "machine_type",
+  "unit",
+  "shift_type",
+  "quantity",
+  "terrain_slope_deg",
+  "haul_distance_m",
+  "skill_score",
+  "experience_years",
+  "certification_level",
+  "operator_avg_time_ratio",
+  "health_score",
+  "temp_c",
+  "rain_mm",
+  "wind_kmh",
+  "visibility_m",
+  "dust_index",
+  "hours_into_shift",
+  "day_of_week",
+  "operator_fatigue_hour_avg"
+]

@@ -11,6 +11,8 @@ data/output/*
 ml/artifacts/**/*.joblib
 # anomaly models are small (~5 MB) and committed so the backend needs no retraining
 !ml/artifacts/anomaly/*.joblib
+# task time models are small (~2 MB) and committed too
+!ml/artifacts/task_time/*.joblib
 
 # python
 __pycache__/

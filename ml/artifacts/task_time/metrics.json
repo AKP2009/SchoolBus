@@ -1,0 +1,214 @@
+{
+  "model_name": "task_time",
+  "version": "v1",
+  "versions": {
+    "lightgbm": "4.7.0",
+    "shap": "0.52.0",
+    "sklearn": "1.8.0",
+    "numpy": "2.3.1",
+    "pandas": "2.3.0"
+  },
+  "split": {
+    "train_days": [
+      1,
+      70
+    ],
+    "val_days": [
+      71,
+      80
+    ],
+    "test_days": [
+      81,
+      90
+    ],
+    "by": "task_date"
+  },
+  "rows": {
+    "train": 4946,
+    "val": 717,
+    "test": 716
+  },
+  "target": "log1p(actual_duration_min)",
+  "params": {
+    "objective": "quantile",
+    "n_estimators": 600,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_child_samples": 20,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "verbose": -1
+  },
+  "best_iteration": {
+    "0.1": 364,
+    "0.5": 599,
+    "0.9": 600
+  },
+  "baseline": {
+    "definition": "median(actual_duration_min / quantity) per task_type on train x quantity",
+    "val": {
+      "mae_min": 21.754927037043082,
+      "mape_pct": 26.49758111095723
+    },
+    "test": {
+      "mae_min": 23.755598021766275,
+      "mape_pct": 28.41655232152548
+    }
+  },
+  "uncalibrated": {
+    "train": {
+      "mae_min": 4.992560824446062,
+      "mape_pct": 5.778476403116188,
+      "coverage_p10_p90": 0.8263243024666397,
+      "below_p10": 0.08774767488879903,
+      "above_p90": 0.08592802264456126,
+      "below_p50": 0.4955519611807521,
+      "median_width_min": 22.843788530563938
+    },
+    "val": {
+      "mae_min": 8.486171338102366,
+      "mape_pct": 10.808707224656935,
+      "coverage_p10_p90": 0.6666666666666666,
+      "below_p10": 0.20781032078103207,
+      "above_p90": 0.12552301255230125,
+      "below_p50": 0.5913528591352859,
+      "median_width_min": 24.230594564575952
+    },
+    "test": {
+      "mae_min": 8.865877167001168,
+      "mape_pct": 10.634470079206302,
+      "coverage_p10_p90": 0.6550279329608939,
+      "below_p10": 0.18156424581005587,
+      "above_p90": 0.1634078212290503,
+      "below_p50": 0.5516759776536313,
+      "median_width_min": 25.157582455995225
+    }
+  },
+  "calibrated": {
+    "train": {
+      "mae_min": 4.992560824446062,
+      "mape_pct": 5.778476403116188,
+      "coverage_p10_p90": 0.9759401536595228,
+      "below_p10": 0.0074807925596441565,
+      "above_p90": 0.016579053780832995,
+      "below_p50": 0.4955519611807521,
+      "median_width_min": 31.081863760904113
+    },
+    "val": {
+      "mae_min": 8.486171338102366,
+      "mape_pct": 10.808707224656935,
+      "coverage_p10_p90": 0.803347280334728,
+      "below_p10": 0.10739191073919108,
+      "above_p90": 0.08926080892608089,
+      "below_p50": 0.5913528591352859,
+      "median_width_min": 32.52585601642237
+    },
+    "test": {
+      "mae_min": 8.865877167001168,
+      "mape_pct": 10.634470079206302,
+      "coverage_p10_p90": 0.8002793296089385,
+      "below_p10": 0.09636871508379888,
+      "above_p90": 0.10335195530726257,
+      "below_p50": 0.5516759776536313,
+      "median_width_min": 33.752702362688325
+    }
+  },
+  "interval_offset_log": 0.05152988600205788,
+  "target_coverage": 0.8,
+  "shap_mean_abs_impact_min_test": {
+    "quantity": 30.493,
+    "task_type": 11.09,
+    "material_type": 7.591,
+    "machine_type": 5.964,
+    "skill_score": 3.987,
+    "haul_distance_m": 3.93,
+    "operator_avg_time_ratio": 3.051,
+    "terrain_slope_deg": 2.584,
+    "health_score": 1.742,
+    "shift_type": 1.527,
+    "experience_years": 1.425,
+    "hours_into_shift": 0.597,
+    "operator_fatigue_hour_avg": 0.461,
+    "unit": 0.436,
+    "visibility_m": 0.422,
+    "rain_mm": 0.39,
+    "temp_c": 0.353,
+    "wind_kmh": 0.292,
+    "dust_index": 0.198,
+    "day_of_week": 0.153,
+    "certification_level": 0.04
+  },
+  "planted_factors": [
+    {
+      "factor": "Rain 0 \u2192 10 mm",
+      "planted_x": 1.15,
+      "recovered_x": 1.072,
+      "recovered": false
+    },
+    {
+      "factor": "Rain 0 \u2192 10 mm (+ visibility 8000 \u2192 2750 m)",
+      "planted_x": 1.15,
+      "recovered_x": 1.113,
+      "recovered": true
+    },
+    {
+      "factor": "Material clay \u2192 rock",
+      "planted_x": 1.4,
+      "recovered_x": 1.287,
+      "recovered": true
+    },
+    {
+      "factor": "Material clay \u2192 sand",
+      "planted_x": 0.9,
+      "recovered_x": 0.927,
+      "recovered": true
+    },
+    {
+      "factor": "Slope 0 \u2192 8\u00b0",
+      "planted_x": 1.16,
+      "recovered_x": 1.112,
+      "recovered": true
+    },
+    {
+      "factor": "Skill 0.9 \u2192 0.45 (skill only)",
+      "planted_x": 1.281,
+      "recovered_x": 1.185,
+      "recovered": true
+    },
+    {
+      "factor": "Skill 0.9 \u2192 0.45 (+ usual pace)",
+      "planted_x": 1.281,
+      "recovered_x": 1.245,
+      "recovered": true
+    },
+    {
+      "factor": "Day \u2192 night shift",
+      "planted_x": 1.1,
+      "recovered_x": 1.048,
+      "recovered": false
+    },
+    {
+      "factor": "Day \u2192 night shift (+ usual fatigue)",
+      "planted_x": 1.1,
+      "recovered_x": 1.04,
+      "recovered": false
+    },
+    {
+      "factor": "Hours into shift 3 \u2192 7.5",
+      "planted_x": 1.03,
+      "recovered_x": 0.936,
+      "recovered": false
+    }
+  ],
+  "planted_factors_recovered": {
+    "Rain": true,
+    "Material": true,
+    "Slope": true,
+    "Skill": true,
+    "Night": false,
+    "Hours into shift": false
+  }
+}

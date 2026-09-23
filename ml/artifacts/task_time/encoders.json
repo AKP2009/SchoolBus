@@ -1,0 +1,50 @@
+{
+  "categories": {
+    "task_type": [
+      "backfill",
+      "dig",
+      "grade",
+      "haul",
+      "load",
+      "trench"
+    ],
+    "material_type": [
+      "clay",
+      "gravel",
+      "rock",
+      "sand",
+      "topsoil"
+    ],
+    "machine_type": [
+      "articulated_truck",
+      "dozer",
+      "excavator",
+      "wheel_loader"
+    ],
+    "unit": [
+      "m3",
+      "tons"
+    ],
+    "shift_type": [
+      "day",
+      "night"
+    ]
+  },
+  "baseline": {
+    "backfill": 0.4952948402948403,
+    "dig": 0.6322222222222222,
+    "grade": 0.7883333333333333,
+    "haul": 1.424264705882353,
+    "load": 0.41797979797979795,
+    "trench": 1.14
+  },
+  "reference": {
+    "backfill": 0.4952948402948403,
+    "dig": 0.6322222222222222,
+    "grade": 0.7883333333333333,
+    "haul": 0.9904554079696395,
+    "load": 0.41797979797979795,
+    "trench": 1.14
+  },
+  "note": "categories: training levels per categorical (unseen -> NaN); baseline: median minutes per unit per task_type (train, evaluation benchmark); reference: same with haul per ton-km (operator pace yardstick)"
+}
