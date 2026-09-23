@@ -1,0 +1,278 @@
+"""Unusual behaviour / anomaly detection (models.md §1).
+
+`score_anomaly(window_df)` scores the last minute of one machine's trailing telemetry window and
+returns the output JSON from models.md §1. Feature code lives here so the training notebook
+(`ml/01_anomaly.ipynb`) and the backend compute exactly the same features.
+
+Never reads `anomaly_label` / `anomaly_type`: every function selects columns explicitly.
+"""
+
+from __future__ import annotations
+
+import json
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+import joblib
+import numpy as np
+import pandas as pd
+
+ARTIFACT_DIR = Path(__file__).resolve().parents[1] / "artifacts" / "anomaly"
+
+SIGNALS = [
+    "engine_rpm",
+    "engine_load_pct",
+    "coolant_temp_c",
+    "oil_pressure_kpa",
+    "hydraulic_pressure_bar",
+    "hydraulic_oil_temp_c",
+    "fuel_rate_lph",
+    "battery_voltage",
+    "vibration_rms_g",
+]
+MOTION_SIGNALS = ["pitch_deg", "roll_deg", "ground_speed_kmh"]  # features only, no glitch check
+FEATURE_SIGNALS = [*SIGNALS, *MOTION_SIGNALS]
+INPUT_COLUMNS = ["ts", "machine_id", *FEATURE_SIGNALS, "is_idle"]
+
+FEATURE_COLUMNS = [
+    *[f"{s}_{agg}" for s in FEATURE_SIGNALS for agg in ("mean5", "std5", "slope15")],
+    "idle_pct30",
+    "rpm_per_load",
+    "fuel_per_load",
+    "coolant_minus_hyd_oil_c",
+]
+STATES = ("idle", "working")  # one model per machine type x state (is_idle of the scored minute)
+
+# Sensor validity ranges (what a telematics unit accepts as a physically possible reading).
+# A reading outside its range cannot be real; oil pressure only counts while the engine runs.
+PLAUSIBLE_RANGE: dict[str, tuple[float, float]] = {
+    "engine_rpm": (0, 3000),
+    "engine_load_pct": (-10, 110),
+    "coolant_temp_c": (10, 130),
+    "oil_pressure_kpa": (20, 800),
+    "hydraulic_pressure_bar": (-10, 1000),
+    "hydraulic_oil_temp_c": (10, 120),
+    "fuel_rate_lph": (0, 80),
+    "battery_voltage": (18, 32),
+    "vibration_rms_g": (0, 5),
+}
+ENGINE_RUNNING_RPM = 500
+SETTLE_MIN = 5  # model flags are ignored this many minutes after an idle/working switch or a gap
+PERSIST_MIN = 3  # a model fault fires after this many consecutive eligible flagged minutes
+TOP_N = 3
+
+
+# ---------------------------------------------------------------------------------------------
+# Sensor glitch handling
+# ---------------------------------------------------------------------------------------------
+def implausible(df: pd.DataFrame) -> pd.DataFrame:
+    """Boolean frame (rows x SIGNALS): reading is outside its sensor validity range."""
+    out = pd.DataFrame(index=df.index)
+    for s in SIGNALS:
+        lo, hi = PLAUSIBLE_RANGE[s]
+        x = df[s].astype(float)
+        out[s] = (x < lo) | (x > hi) | x.isna()
+    out["oil_pressure_kpa"] &= df["engine_rpm"].astype(float) > ENGINE_RUNNING_RPM
+    return out
+
+
+def mark_glitches(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Flag single-minute sensor glitches and replace the glitched value by the previous reading.
+
+    Glitch at minute t: exactly one signal is implausible, and that signal was plausible in the
+    previous minute of the same machine (<= 2 min earlier). Causal: only uses t-1 and t.
+    Returns (cleaned copy of df, Series with the glitched signal name or None per row).
+    `df` must be sorted by (machine_id, ts).
+    """
+    bad = implausible(df)
+    same_machine = df["machine_id"].eq(df["machine_id"].shift())
+    contiguous = same_machine & (df["ts"] - df["ts"].shift() <= pd.Timedelta(minutes=2))
+    prev_bad = bad.shift(fill_value=False).astype(bool)
+    single = bad.sum(axis=1) == 1
+    newly = bad & ~prev_bad & contiguous.to_numpy()[:, None]
+    is_glitch = single & newly.any(axis=1)
+
+    glitch_signal = pd.Series(None, index=df.index, dtype=object)
+    clean = df.copy()
+    for s in SIGNALS:
+        rows = is_glitch & bad[s]
+        if rows.any():
+            glitch_signal[rows] = s
+            clean[s] = clean[s].astype(float).mask(rows)
+            clean[s] = clean.groupby("machine_id", sort=False)[s].ffill()
+    return clean, glitch_signal
+
+
+# ---------------------------------------------------------------------------------------------
+# Features
+# ---------------------------------------------------------------------------------------------
+def _machine_features(g: pd.DataFrame) -> pd.DataFrame:
+    g = g.set_index("ts")
+    t = (g.index - g.index[0]).total_seconds().to_numpy() / 60.0  # minutes
+    out = pd.DataFrame(index=g.index)
+    t_s = pd.Series(t, index=g.index)
+    r15_n = t_s.rolling("15min").count()
+    r15_t = t_s.rolling("15min").sum()
+    r15_tt = (t_s * t_s).rolling("15min").sum()
+    denom = r15_n * r15_tt - r15_t**2
+    for s in FEATURE_SIGNALS:
+        x = g[s].astype(float)
+        r5 = x.rolling("5min")
+        out[f"{s}_mean5"] = r5.mean()
+        out[f"{s}_std5"] = r5.std(ddof=0)
+        r15_x = x.rolling("15min").sum()
+        r15_tx = (t_s * x).rolling("15min").sum()
+        slope = (r15_n * r15_tx - r15_t * r15_x) / denom.where(denom > 1e-9)
+        out[f"{s}_slope15"] = slope.fillna(0.0)
+    out["idle_pct30"] = g["is_idle"].astype(float).rolling("30min").mean() * 100
+    load = g["engine_load_pct"].clip(lower=0.0) + 1  # the sensor reads slightly below 0 at idle
+    out["rpm_per_load"] = g["engine_rpm"] / load
+    out["fuel_per_load"] = g["fuel_rate_lph"] / load
+    out["coolant_minus_hyd_oil_c"] = g["coolant_temp_c"] - g["hydraulic_oil_temp_c"]
+    return out.fillna(0.0).reset_index(drop=True)
+
+
+def build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Rolling-window features per machine, one row per telemetry minute.
+
+    Returns (features aligned to the sorted input, glitch Series). Besides FEATURE_COLUMNS the
+    frame carries `state` ('idle' / 'working', selects the model) and `state_age_min` (minutes
+    since the last idle/working switch or data gap). Input columns used: INPUT_COLUMNS.
+    Windows are trailing and time-based (5 min, 15 min, 30 min), so gaps between shifts are fine.
+    """
+    df = df.loc[:, INPUT_COLUMNS].copy()
+    df["ts"] = pd.to_datetime(df["ts"], utc=True)
+    df = df.sort_values(["machine_id", "ts"], kind="stable").reset_index(drop=True)
+    clean, glitch = mark_glitches(df)
+    parts = [_machine_features(g) for _, g in clean.groupby("machine_id", sort=False)]
+    feats = pd.concat(parts, ignore_index=True)[FEATURE_COLUMNS]
+    feats.index = df.index
+    idle = df["is_idle"].astype(bool)
+    contiguous = df["machine_id"].eq(df["machine_id"].shift()) & (
+        df["ts"].diff() <= pd.Timedelta(minutes=2)
+    )
+    run_start = df["ts"].where(~contiguous | idle.ne(idle.shift())).ffill()
+    feats.insert(0, "state_age_min", (df["ts"] - run_start).dt.total_seconds() / 60)
+    feats.insert(0, "state", np.where(idle, "idle", "working"))
+    feats.insert(0, "ts", df["ts"])
+    feats.insert(0, "machine_id", df["machine_id"])
+    return feats, glitch
+
+
+# ---------------------------------------------------------------------------------------------
+# Decision logic (shared by the notebook evaluation and live scoring)
+# ---------------------------------------------------------------------------------------------
+def classify(feats: pd.DataFrame, flagged: np.ndarray, glitch: pd.Series) -> np.ndarray:
+    """kind per row: 'sensor_glitch', 'machine_fault' or 'normal'.
+
+    A model flag counts only once the machine has been SETTLE_MIN minutes in its current state;
+    machine_fault fires after PERSIST_MIN consecutive counting flags. Glitches fire at once.
+    `feats` is the output of build_features (sorted by machine_id, ts).
+    """
+    eligible = np.asarray(flagged, dtype=bool) & (feats["state_age_min"].to_numpy() >= SETTLE_MIN)
+    same_run = (
+        feats["machine_id"].eq(feats["machine_id"].shift())
+        & (feats["ts"].diff() <= pd.Timedelta(minutes=2))
+    ).to_numpy()
+    run_id = np.cumsum(~same_run | ~eligible)
+    run_len = pd.Series(eligible.astype(int)).groupby(run_id).cumsum().to_numpy()
+    kind = np.where(eligible & (run_len >= PERSIST_MIN), "machine_fault", "normal").astype(object)
+    kind[glitch.notna().to_numpy()] = "sensor_glitch"
+    return kind
+
+
+def model_key(machine_type: str, state: str) -> str:
+    return f"{machine_type}_{state}"
+
+
+# ---------------------------------------------------------------------------------------------
+# Live scoring
+# ---------------------------------------------------------------------------------------------
+@lru_cache(maxsize=1)
+def load_artifacts(artifact_dir: str | None = None) -> dict[str, Any]:
+    d = Path(artifact_dir) if artifact_dir else ARTIFACT_DIR
+    features = json.loads((d / "feature_list.json").read_text())
+    if features != FEATURE_COLUMNS:
+        raise RuntimeError("feature_list.json does not match FEATURE_COLUMNS; retrain the model")
+    cfg = json.loads((d / "config.json").read_text())
+    models = {
+        key: {
+            "model": joblib.load(d / f"iforest_{key}.joblib"),
+            "scaler": joblib.load(d / f"scaler_{key}.joblib"),
+        }
+        for key in cfg["model_keys"]
+    }
+    return {"features": features, "config": cfg, "models": models}
+
+
+def score_frame(
+    feats: pd.DataFrame, machine_type: str, art: dict[str, Any]
+) -> dict[str, np.ndarray]:
+    """Raw model outputs for a feature frame of one machine type (each row uses its state model)."""
+    n = len(feats)
+    X = feats.loc[:, art["features"]].to_numpy(dtype=float)
+    z = np.zeros_like(X)
+    raw = np.zeros(n)
+    score = np.zeros(n)
+    flagged = np.zeros(n, dtype=bool)
+    state = feats["state"].to_numpy()
+    for st in STATES:
+        rows = state == st
+        if not rows.any():
+            continue
+        key = model_key(machine_type, st)
+        m, c = art["models"][key], art["config"]["score_scale"][key]
+        z[rows] = m["scaler"].transform(X[rows])
+        raw[rows] = -m["model"].score_samples(z[rows])  # higher = more anomalous
+        score[rows] = np.clip((raw[rows] - c["min"]) / (c["max"] - c["min"]), 0.0, 1.0)
+        flagged[rows] = raw[rows] > c["threshold"]
+    return {"z": z, "raw": raw, "score": score, "flagged": flagged}
+
+
+def score_anomaly(window_df: pd.DataFrame, machine_type: str | None = None) -> dict[str, Any]:
+    """Score the latest minute of one machine's trailing telemetry window.
+
+    `window_df`: telemetry rows of one machine (columns INPUT_COLUMNS, extra columns ignored),
+    ideally the last >= 30 minutes. `machine_type` defaults to a `machine_type` column in the
+    frame, else the machine map saved at training time.
+    """
+    art = load_artifacts()
+    if window_df.empty:
+        raise ValueError("window_df is empty")
+    machine_ids = window_df["machine_id"].unique()
+    if len(machine_ids) != 1:
+        raise ValueError(f"window_df must hold one machine, got {list(machine_ids)}")
+    machine_id = str(machine_ids[0])
+    if machine_type is None:
+        if "machine_type" in window_df.columns:
+            machine_type = str(window_df["machine_type"].iloc[-1])
+        else:
+            machine_type = art["config"]["machine_map"][machine_id]
+
+    feats, glitch = build_features(window_df)
+    out = score_frame(feats, machine_type, art)
+    kind = classify(feats, out["flagged"], glitch)
+
+    i = len(feats) - 1
+    k = str(kind[i])
+    z_last = out["z"][i]
+    top = np.argsort(-np.abs(z_last))[:TOP_N]
+    top_signals = [{"feature": art["features"][j], "z": round(float(z_last[j]), 2)} for j in top]
+    if k == "sensor_glitch":
+        # The glitched reading was replaced before feature building; report its own z instead,
+        # standardised like that signal's 5-min mean.
+        s = str(glitch.iloc[i])
+        sc = art["models"][model_key(machine_type, feats["state"].iloc[i])]["scaler"]
+        j = art["features"].index(f"{s}_mean5")
+        raw_value = float(window_df.sort_values("ts", kind="stable")[s].iloc[-1])
+        z_raw = (raw_value - sc.mean_[j]) / sc.scale_[j]
+        top_signals = [{"feature": s, "z": round(float(z_raw), 2)}] + top_signals[: TOP_N - 1]
+    return {
+        "machine_id": machine_id,
+        "ts": feats["ts"].iloc[i].isoformat().replace("+00:00", "Z"),
+        "anomaly_score": round(float(out["score"][i]), 3),
+        "is_anomaly": k != "normal",
+        "kind": k,
+        "top_signals": top_signals,
+    }

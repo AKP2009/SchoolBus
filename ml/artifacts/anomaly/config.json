@@ -1,0 +1,88 @@
+{
+  "version": "v2",
+  "machine_types": [
+    "articulated_truck",
+    "dozer",
+    "excavator",
+    "wheel_loader"
+  ],
+  "states": [
+    "idle",
+    "working"
+  ],
+  "model_keys": [
+    "articulated_truck_idle",
+    "articulated_truck_working",
+    "dozer_idle",
+    "dozer_working",
+    "excavator_idle",
+    "excavator_working",
+    "wheel_loader_idle",
+    "wheel_loader_working"
+  ],
+  "machine_map": {
+    "M01": "excavator",
+    "M02": "excavator",
+    "M03": "wheel_loader",
+    "M04": "wheel_loader",
+    "M05": "dozer",
+    "M06": "articulated_truck",
+    "M07": "excavator",
+    "M08": "excavator",
+    "M09": "wheel_loader",
+    "M10": "wheel_loader",
+    "M11": "dozer",
+    "M12": "articulated_truck"
+  },
+  "score_scale": {
+    "articulated_truck_idle": {
+      "min": 0.38520648211186576,
+      "max": 0.5982568846668272,
+      "threshold": 0.5104624792560256
+    },
+    "articulated_truck_working": {
+      "min": 0.36707831688217313,
+      "max": 0.6826699264622879,
+      "threshold": 0.538580125278408
+    },
+    "dozer_idle": {
+      "min": 0.3871995693040196,
+      "max": 0.5911381561897616,
+      "threshold": 0.5058418598375793
+    },
+    "dozer_working": {
+      "min": 0.3666237219304659,
+      "max": 0.6531999541923886,
+      "threshold": 0.5476453865186091
+    },
+    "excavator_idle": {
+      "min": 0.39657610867998083,
+      "max": 0.5984349451257245,
+      "threshold": 0.5096027042175435
+    },
+    "excavator_working": {
+      "min": 0.36370838064946714,
+      "max": 0.6609390095774829,
+      "threshold": 0.5538945308981883
+    },
+    "wheel_loader_idle": {
+      "min": 0.3934013680192635,
+      "max": 0.6040518335428061,
+      "threshold": 0.5084893067317553
+    },
+    "wheel_loader_working": {
+      "min": 0.35961488164657907,
+      "max": 0.6673308487659568,
+      "threshold": 0.5555714078258825
+    }
+  },
+  "isolation_forest": {
+    "n_estimators": 200,
+    "contamination": 0.03,
+    "max_samples": "auto",
+    "max_features": 1.0,
+    "random_state": 42
+  },
+  "settle_min": 5,
+  "persist_min": 3
+}

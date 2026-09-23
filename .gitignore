@@ -8,7 +8,9 @@ data/output/*
 !data/output/.gitkeep
 # 1-day sample from generate.py --sample, shared for mocks
 !data/output/sample/
-ml/artifacts/*.joblib
+ml/artifacts/**/*.joblib
+# anomaly models are small (~5 MB) and committed so the backend needs no retraining
+!ml/artifacts/anomaly/*.joblib
 
 # python
 __pycache__/
