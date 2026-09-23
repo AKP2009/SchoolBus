@@ -64,7 +64,9 @@ MediaPipe · faster-whisper, Piper TTS · Leaflet maps · Recharts.
 ## Commands (fill in as they become real)
 ```
 # data
-python data/generator/generate.py --config data/generator/config.yaml
+python data/generator/generate.py --config data/generator/config.yaml --sample   # 1 day, M01+M06 -> data/output/sample/
+python data/generator/generate.py --config data/generator/config.yaml            # full 90 days -> data/output/ (~30 s)
+python -m nbconvert --to notebook --execute --inplace data/generator/validation.ipynb           # all validation checks
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
 # vision

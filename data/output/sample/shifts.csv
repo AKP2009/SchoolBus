@@ -1,5 +1,5 @@
 shift_id,site_id,operator_id,machine_id,shift_type,shift_date,start_time,end_time,fuel_start_pct,fuel_end_pct,handover_notes,issues_reported,handover_summary,handover_generated_at
-SH-2026-06-01-M01-D,S1,OP06,M01,day,2026-06-01,2026-06-01T00:30:00Z,2026-06-01T08:30:00Z,90.3,60.15,No issues.,{},,
-SH-2026-06-01-M06-D,S1,OP10,M06,day,2026-06-01,2026-06-01T00:30:00Z,2026-06-01T08:30:00Z,97.28,67.01,"Task 5 not finished, 8.7 t left.",{unfinished_task},,
-SH-2026-06-01-M01-N,S1,OP07,M01,night,2026-06-01,2026-06-01T12:30:00Z,2026-06-01T20:30:00Z,93.94,61.55,"Task 6 not finished, 12.9 m3 left.",{unfinished_task},,
-SH-2026-06-01-M06-N,S1,OP02,M06,night,2026-06-01,2026-06-01T12:30:00Z,2026-06-01T20:30:00Z,97.36,65.53,"Task 5 not finished, 25.4 t left. Refuelled to 97%.",{unfinished_task},,
+SH-2026-06-01-M06-D,S1,OP05,M06,day,2026-06-01,2026-06-01T00:30:00Z,2026-06-01T08:30:00Z,92.7,64.13,"Task 5 not finished, 22.3 t left.",{unfinished_task},,
+SH-2026-06-01-M01-D,S1,OP06,M01,day,2026-06-01,2026-06-01T00:30:00Z,2026-06-01T08:30:00Z,90.12,66.3,No issues.,{},,
+SH-2026-06-01-M01-N,S1,OP07,M01,night,2026-06-01,2026-06-01T12:30:00Z,2026-06-01T20:30:00Z,93.52,60.45,"Task 4 not finished, 49.1 m3 left. People walking near the machine, watch the frnot side.","{unfinished_task,people_near_machine}",,
+SH-2026-06-01-M06-N,S1,OP02,M06,night,2026-06-01,2026-06-01T12:30:00Z,2026-06-01T20:30:00Z,92.58,59.15,"Task 4 not finished, 4.6 t left. People walking near the machine, watch the left side. Refuelled to 93%.","{unfinished_task,people_near_machine}",,

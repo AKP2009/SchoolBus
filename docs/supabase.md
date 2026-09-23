@@ -113,7 +113,12 @@ snapshots to the DB. This keeps Realtime traffic and DB size low.
 | `training-content` | yes | Videos, PDFs, scenario images | `{module_id}/…` |
 | `documents` | no | RAG source files | `{doc_type}/{file}` |
 
-Storage policies (add in `002_storage.sql`):
+Storage policies live in `supabase/migrations/002_storage.sql`:
+- `incident-media`: any signed-in user can upload and read.
+- `training-content`: public reads go through public URLs; only managers (`is_manager()`) can insert, update or delete.
+- `documents`: managers only, for select, insert, update and delete. RAG ingest uses the service role.
+
+The core of it:
 ```sql
 insert into storage.buckets (id, name, public) values
   ('incident-media','incident-media', false),
