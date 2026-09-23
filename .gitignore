@@ -1,0 +1,34 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# generated data and model artifacts
+data/output/*
+!data/output/.gitkeep
+# 1-day sample from generate.py --sample, shared for mocks
+!data/output/sample/
+ml/artifacts/*.joblib
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# node / web
+node_modules/
+dist/
+
+# supabase cli
+supabase/.temp/
+supabase/.branches/
+
+# os / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,1 @@
+id,client_id,ts,site_id,machine_id,operator_id,incident_type,severity,description,injury,damage_description,root_cause,reported_via,voice_transcript,ai_summary,linked_alert_id,linked_event_id,media_paths,status,created_by

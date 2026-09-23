@@ -1,0 +1,12 @@
+id,ts,site_id,machine_id,operator_id,event_type,severity,distance_m,sector,approaching,details,alert_id,resolved
+1,2026-06-01T01:17:13Z,S1,M06,OP10,phone_use,warning,,cab,,"{""source"":""synthetic""}",,true
+2,2026-06-01T05:59:08Z,S1,M06,OP10,blindspot_intrusion,warning,5.13,left,true,"{""source"":""synthetic"",""class"":""person"",""conf"":0.92}",,true
+3,2026-06-01T12:38:17Z,S1,M06,OP02,harsh_maneuver,info,,,,"{""source"":""synthetic""}",,true
+4,2026-06-01T14:25:38Z,S1,M01,OP07,harsh_maneuver,warning,,,,"{""source"":""synthetic""}",,true
+5,2026-06-01T18:13:00Z,S1,M01,OP07,fatigue_high,warning,,,,"{""source"":""synthetic"",""fatigue_score"":0.645}",,true
+6,2026-06-01T18:15:00Z,S1,M06,OP02,fatigue_high,warning,,,,"{""source"":""synthetic"",""fatigue_score"":0.61}",,true
+7,2026-06-01T19:13:00Z,S1,M01,OP07,fatigue_high,warning,,,,"{""source"":""synthetic"",""fatigue_score"":0.624}",,true
+8,2026-06-01T19:54:26Z,S1,M01,OP07,seatbelt_unfastened,warning,,,,"{""source"":""synthetic""}",,true
+9,2026-06-01T20:03:00Z,S1,M06,OP02,fatigue_high,warning,,,,"{""source"":""synthetic"",""fatigue_score"":0.625}",,true
+10,2026-06-01T20:06:32Z,S1,M01,OP07,blindspot_intrusion,warning,6.42,left,true,"{""source"":""synthetic"",""class"":""person"",""conf"":0.7}",,true
+11,2026-06-01T20:26:00Z,S1,M01,OP07,fatigue_high,warning,,,,"{""source"":""synthetic"",""fatigue_score"":0.608}",,true

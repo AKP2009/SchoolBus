@@ -1,0 +1,11 @@
+operator_id,site_id,full_name,experience_years,certification_level,languages,preferred_shift,skill_score,personality
+OP01,S1,Dinesh Krishnan,8.5,3,{en},day,0.638,efficient
+OP02,S1,Ganesh Nair,19.0,3,{en},night,0.98,average
+OP03,S1,Ravi Kumar,4.5,2,"{en,ta}",day,0.57,average
+OP04,S1,Anand Sharma,8.5,3,"{en,hi}",day,0.616,idler
+OP05,S1,Karthik Iyer,2.0,1,"{en,hi,ta}",day,0.443,novice
+OP06,S1,Rajesh Thomas,18.0,3,"{en,hi}",day,0.956,efficient
+OP07,S1,Naveen Rao,5.5,2,"{en,ta}",night,0.598,average
+OP08,S1,Murugan Nair,10.5,3,"{en,ta}",day,0.682,aggressive
+OP09,S1,Karthik Shankar,11.0,3,{en},day,0.611,average
+OP10,S1,Anand Subramanian,16.0,3,{en},day,0.65,average

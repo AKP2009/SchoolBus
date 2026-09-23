@@ -1,0 +1,11 @@
+module_id,title,topic,format,duration_min,difficulty,content_path,target_metric,machine_types,languages,scenario
+TM-FUEL-01,Fuel-efficient operation,fuel,video,12,1,TM-FUEL-01/content.mp4,fuel_per_productive_hour,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-IDLE-01,Cutting idle time,fuel,document,8,1,TM-IDLE-01/content.pdf,idle_pct,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-SAFE-01,Blind spots and proximity,safety,video,15,1,TM-SAFE-01/content.mp4,proximity_breach,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-SAFE-02,Seatbelt and ROPS,safety,quiz,5,1,TM-SAFE-02/content.json,seatbelt_unfastened,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-SAFE-03,Working on slopes,safety,scenario,10,2,TM-SAFE-03/content.json,tip_risk,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}","{""steps"":[{""prompt"":""You are loading on a 12° side slope and the machine starts to lean."",""choices"":[""Swing the load uphill"",""Lower the bucket to the ground"",""Keep working""],""answer"":1},{""prompt"":""Roll angle warning is still on after lowering the bucket."",""choices"":[""Track downhill quickly"",""Stop and call the supervisor"",""Ignore it""],""answer"":1}]}"
+TM-SMTH-01,Smooth controls,technique,video,12,2,TM-SMTH-01/content.mp4,harsh_maneuver,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-HYD-01,Hydraulic system care,maintenance,document,10,2,TM-HYD-01/content.pdf,anomaly_count,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-FAT-01,Managing fatigue on night shifts,wellbeing,video,8,1,TM-FAT-01/content.mp4,fatigue_high,"{excavator,wheel_loader,dozer,articulated_truck}","{en,hi,ta}",
+TM-EXC-01,Excavator trenching technique,technique,instructor_session,60,3,,time_ratio,{excavator},"{en,hi,ta}",
+TM-TRK-01,Haul road discipline,safety,quiz,6,2,TM-TRK-01/content.json,overspeed,{articulated_truck},"{en,hi,ta}",
