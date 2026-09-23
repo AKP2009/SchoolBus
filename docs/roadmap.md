@@ -26,7 +26,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [ ] Confirm `api_contract.md`; D creates mock JSON files from it
 - [ ] Paper sketches for all P0 screens
 - [ ] Repo created with folder layout from `CLAUDE.md`; everyone can run `git pull`
-- [ ] Supabase project created, migration applied, demo users created (C)
+- [ ] Supabase project created, migration applied, demo users created (C) _(project `hjdxrhgqojlwpayoyfvc` linked, 001+002 pushed; demo users on hold)_
 - [ ] Webcam + YOLO fps test (B)
 
 **Checkpoint 0:** everyone can explain the demo story, the schema, and their first task.

@@ -61,10 +61,14 @@ VITE_WS_URL=ws://localhost:8000
 # backend/.env
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role>
-DATABASE_URL=postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres.<ref>:<pw-url-encoded>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
 LLM_API_KEY=<key>
 ```
 Commit `.env.example` files, never `.env`.
+
+Use the **Session pooler** URL (Dashboard → Connect), not `db.<ref>.supabase.co`: the direct host is
+IPv6-only on the free tier and unreachable from most home networks. URL-encode special characters
+in the password (`#` → `%23`).
 
 ### 4. Auth
 - Auth → Providers: enable Email, **disable email confirmation** for the demo.
