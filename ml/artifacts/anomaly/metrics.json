@@ -1,0 +1,463 @@
+{
+  "model_name": "anomaly",
+  "version": "v1",
+  "sklearn_version": "1.8.0",
+  "split": {
+    "train_days": [
+      1,
+      70
+    ],
+    "val_days": [
+      71,
+      80
+    ],
+    "test_days": [
+      81,
+      90
+    ]
+  },
+  "train_rows": {
+    "articulated_truck": 61048,
+    "dozer": 55112,
+    "excavator": 115600,
+    "wheel_loader": 103542
+  },
+  "train_excludes": "failure drift windows (engine hours, full W)",
+  "evaluated_types": [
+    "overheating",
+    "hydraulic_leak",
+    "excessive_idle",
+    "battery_fault",
+    "sensor_glitch",
+    "unsafe_operation"
+  ],
+  "event_tail_min": 5,
+  "targets": {
+    "recall": 0.8,
+    "median_delay_min": 5.0,
+    "met_by_model": {
+      "recall_ge_0.8": false,
+      "median_delay_le_5_min": true
+    }
+  },
+  "test": {
+    "rules": {
+      "per_type": {
+        "overheating": {
+          "events": 14,
+          "event_recall": 1.0,
+          "median_delay_min": 9.5,
+          "minute_precision": 0.066,
+          "minute_recall": 0.366,
+          "minute_f1": 0.112
+        },
+        "hydraulic_leak": {
+          "events": 14,
+          "event_recall": 0.929,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.08,
+          "minute_recall": 0.634,
+          "minute_f1": 0.143
+        },
+        "excessive_idle": {
+          "events": 21,
+          "event_recall": 1.0,
+          "median_delay_min": 10.0,
+          "minute_precision": 0.251,
+          "minute_recall": 0.795,
+          "minute_f1": 0.381
+        },
+        "battery_fault": {
+          "events": 8,
+          "event_recall": 1.0,
+          "median_delay_min": 4.0,
+          "minute_precision": 0.208,
+          "minute_recall": 0.923,
+          "minute_f1": 0.339
+        },
+        "sensor_glitch": {
+          "events": 19,
+          "event_recall": 0.0,
+          "median_delay_min": null,
+          "minute_precision": 0.0,
+          "minute_recall": 0.0,
+          "minute_f1": 0.0
+        },
+        "unsafe_operation": {
+          "events": 11,
+          "event_recall": 1.0,
+          "median_delay_min": 1.0,
+          "minute_precision": 0.032,
+          "minute_recall": 0.676,
+          "minute_f1": 0.061
+        }
+      },
+      "overall": {
+        "event_recall": 0.77,
+        "median_delay_min": 6.0,
+        "false_alerts_per_100_machine_h": 90.73,
+        "normal_minutes_alerting_pct": 3.12
+      }
+    },
+    "model": {
+      "per_type": {
+        "overheating": {
+          "events": 14,
+          "event_recall": 1.0,
+          "median_delay_min": 17.5,
+          "minute_precision": 0.104,
+          "minute_recall": 0.309,
+          "minute_f1": 0.155
+        },
+        "hydraulic_leak": {
+          "events": 14,
+          "event_recall": 0.5,
+          "median_delay_min": 12.0,
+          "minute_precision": 0.024,
+          "minute_recall": 0.091,
+          "minute_f1": 0.037
+        },
+        "excessive_idle": {
+          "events": 21,
+          "event_recall": 0.238,
+          "median_delay_min": 49.0,
+          "minute_precision": 0.012,
+          "minute_recall": 0.015,
+          "minute_f1": 0.014
+        },
+        "battery_fault": {
+          "events": 8,
+          "event_recall": 0.75,
+          "median_delay_min": 9.0,
+          "minute_precision": 0.031,
+          "minute_recall": 0.059,
+          "minute_f1": 0.041
+        },
+        "sensor_glitch": {
+          "events": 19,
+          "event_recall": 1.0,
+          "median_delay_min": 0.0,
+          "minute_precision": 1.0,
+          "minute_recall": 1.0,
+          "minute_f1": 1.0
+        },
+        "unsafe_operation": {
+          "events": 11,
+          "event_recall": 0.273,
+          "median_delay_min": 0.0,
+          "minute_precision": 0.018,
+          "minute_recall": 0.19,
+          "minute_f1": 0.032
+        }
+      },
+      "overall": {
+        "event_recall": 0.621,
+        "median_delay_min": 3.0,
+        "false_alerts_per_100_machine_h": 50.04,
+        "normal_minutes_alerting_pct": 1.61
+      }
+    },
+    "rules+model": {
+      "per_type": {
+        "overheating": {
+          "events": 14,
+          "event_recall": 1.0,
+          "median_delay_min": 9.5,
+          "minute_precision": 0.07,
+          "minute_recall": 0.589,
+          "minute_f1": 0.125
+        },
+        "hydraulic_leak": {
+          "events": 14,
+          "event_recall": 1.0,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.055,
+          "minute_recall": 0.641,
+          "minute_f1": 0.102
+        },
+        "excessive_idle": {
+          "events": 21,
+          "event_recall": 1.0,
+          "median_delay_min": 10.0,
+          "minute_precision": 0.184,
+          "minute_recall": 0.808,
+          "minute_f1": 0.3
+        },
+        "battery_fault": {
+          "events": 8,
+          "event_recall": 1.0,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.151,
+          "minute_recall": 0.945,
+          "minute_f1": 0.26
+        },
+        "sensor_glitch": {
+          "events": 19,
+          "event_recall": 1.0,
+          "median_delay_min": 0.0,
+          "minute_precision": 1.0,
+          "minute_recall": 1.0,
+          "minute_f1": 1.0
+        },
+        "unsafe_operation": {
+          "events": 11,
+          "event_recall": 1.0,
+          "median_delay_min": 1.0,
+          "minute_precision": 0.024,
+          "minute_recall": 0.752,
+          "minute_f1": 0.046
+        }
+      },
+      "overall": {
+        "event_recall": 1.0,
+        "median_delay_min": 2.0,
+        "false_alerts_per_100_machine_h": 138.26,
+        "normal_minutes_alerting_pct": 4.71
+      }
+    }
+  },
+  "validation": {
+    "rules": {
+      "per_type": {
+        "overheating": {
+          "events": 5,
+          "event_recall": 1.0,
+          "median_delay_min": 11.0,
+          "minute_precision": 0.027,
+          "minute_recall": 0.374,
+          "minute_f1": 0.051
+        },
+        "hydraulic_leak": {
+          "events": 13,
+          "event_recall": 0.923,
+          "median_delay_min": 1.5,
+          "minute_precision": 0.07,
+          "minute_recall": 0.602,
+          "minute_f1": 0.126
+        },
+        "excessive_idle": {
+          "events": 14,
+          "event_recall": 1.0,
+          "median_delay_min": 10.0,
+          "minute_precision": 0.181,
+          "minute_recall": 0.794,
+          "minute_f1": 0.295
+        },
+        "battery_fault": {
+          "events": 10,
+          "event_recall": 1.0,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.202,
+          "minute_recall": 0.919,
+          "minute_f1": 0.331
+        },
+        "sensor_glitch": {
+          "events": 21,
+          "event_recall": 0.0,
+          "median_delay_min": null,
+          "minute_precision": 0.0,
+          "minute_recall": 0.0,
+          "minute_f1": 0.0
+        },
+        "unsafe_operation": {
+          "events": 17,
+          "event_recall": 1.0,
+          "median_delay_min": 1.0,
+          "minute_precision": 0.051,
+          "minute_recall": 0.617,
+          "minute_f1": 0.094
+        }
+      },
+      "overall": {
+        "event_recall": 0.725,
+        "median_delay_min": 2.0,
+        "false_alerts_per_100_machine_h": 90.33,
+        "normal_minutes_alerting_pct": 3.09
+      }
+    },
+    "model": {
+      "per_type": {
+        "overheating": {
+          "events": 5,
+          "event_recall": 1.0,
+          "median_delay_min": 21.0,
+          "minute_precision": 0.027,
+          "minute_recall": 0.194,
+          "minute_f1": 0.048
+        },
+        "hydraulic_leak": {
+          "events": 13,
+          "event_recall": 0.385,
+          "median_delay_min": 10.0,
+          "minute_precision": 0.01,
+          "minute_recall": 0.042,
+          "minute_f1": 0.016
+        },
+        "excessive_idle": {
+          "events": 14,
+          "event_recall": 0.357,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.011,
+          "minute_recall": 0.021,
+          "minute_f1": 0.015
+        },
+        "battery_fault": {
+          "events": 10,
+          "event_recall": 0.5,
+          "median_delay_min": 8.0,
+          "minute_precision": 0.017,
+          "minute_recall": 0.032,
+          "minute_f1": 0.022
+        },
+        "sensor_glitch": {
+          "events": 21,
+          "event_recall": 1.0,
+          "median_delay_min": 0.0,
+          "minute_precision": 1.0,
+          "minute_recall": 1.0,
+          "minute_f1": 1.0
+        },
+        "unsafe_operation": {
+          "events": 17,
+          "event_recall": 0.059,
+          "median_delay_min": 0.0,
+          "minute_precision": 0.001,
+          "minute_recall": 0.006,
+          "minute_f1": 0.002
+        }
+      },
+      "overall": {
+        "event_recall": 0.525,
+        "median_delay_min": 0.0,
+        "false_alerts_per_100_machine_h": 50.35,
+        "normal_minutes_alerting_pct": 1.6
+      }
+    },
+    "rules+model": {
+      "per_type": {
+        "overheating": {
+          "events": 5,
+          "event_recall": 1.0,
+          "median_delay_min": 11.0,
+          "minute_precision": 0.025,
+          "minute_recall": 0.516,
+          "minute_f1": 0.048
+        },
+        "hydraulic_leak": {
+          "events": 13,
+          "event_recall": 1.0,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.051,
+          "minute_recall": 0.641,
+          "minute_f1": 0.094
+        },
+        "excessive_idle": {
+          "events": 14,
+          "event_recall": 1.0,
+          "median_delay_min": 8.0,
+          "minute_precision": 0.13,
+          "minute_recall": 0.813,
+          "minute_f1": 0.225
+        },
+        "battery_fault": {
+          "events": 10,
+          "event_recall": 1.0,
+          "median_delay_min": 2.0,
+          "minute_precision": 0.143,
+          "minute_recall": 0.919,
+          "minute_f1": 0.248
+        },
+        "sensor_glitch": {
+          "events": 21,
+          "event_recall": 1.0,
+          "median_delay_min": 0.0,
+          "minute_precision": 1.0,
+          "minute_recall": 1.0,
+          "minute_f1": 1.0
+        },
+        "unsafe_operation": {
+          "events": 17,
+          "event_recall": 1.0,
+          "median_delay_min": 1.0,
+          "minute_precision": 0.035,
+          "minute_recall": 0.622,
+          "minute_f1": 0.066
+        }
+      },
+      "overall": {
+        "event_recall": 1.0,
+        "median_delay_min": 1.0,
+        "false_alerts_per_100_machine_h": 138.25,
+        "normal_minutes_alerting_pct": 4.66
+      }
+    }
+  },
+  "tuning_round_validation": [
+    {
+      "train_quantile": 0.97,
+      "event_recall": 0.525,
+      "median_delay_min": 0.0,
+      "false_alerts_per_100_machine_h": 50.35,
+      "normal_minutes_alerting_pct": 1.6,
+      "recall_overheating": 1.0,
+      "recall_hydraulic_leak": 0.385,
+      "recall_excessive_idle": 0.357,
+      "recall_battery_fault": 0.5,
+      "recall_sensor_glitch": 1.0,
+      "recall_unsafe_operation": 0.059
+    },
+    {
+      "train_quantile": 0.95,
+      "event_recall": 0.55,
+      "median_delay_min": 0.0,
+      "false_alerts_per_100_machine_h": 72.5,
+      "normal_minutes_alerting_pct": 2.84,
+      "recall_overheating": 1.0,
+      "recall_hydraulic_leak": 0.462,
+      "recall_excessive_idle": 0.429,
+      "recall_battery_fault": 0.5,
+      "recall_sensor_glitch": 1.0,
+      "recall_unsafe_operation": 0.059
+    },
+    {
+      "train_quantile": 0.93,
+      "event_recall": 0.588,
+      "median_delay_min": 0.0,
+      "false_alerts_per_100_machine_h": 90.33,
+      "normal_minutes_alerting_pct": 4.09,
+      "recall_overheating": 1.0,
+      "recall_hydraulic_leak": 0.538,
+      "recall_excessive_idle": 0.429,
+      "recall_battery_fault": 0.6,
+      "recall_sensor_glitch": 1.0,
+      "recall_unsafe_operation": 0.118
+    },
+    {
+      "train_quantile": 0.9,
+      "event_recall": 0.662,
+      "median_delay_min": 0.0,
+      "false_alerts_per_100_machine_h": 111.32,
+      "normal_minutes_alerting_pct": 5.97,
+      "recall_overheating": 1.0,
+      "recall_hydraulic_leak": 0.538,
+      "recall_excessive_idle": 0.857,
+      "recall_battery_fault": 0.6,
+      "recall_sensor_glitch": 1.0,
+      "recall_unsafe_operation": 0.118
+    },
+    {
+      "train_quantile": 0.85,
+      "event_recall": 0.738,
+      "median_delay_min": 1.0,
+      "false_alerts_per_100_machine_h": 136.0,
+      "normal_minutes_alerting_pct": 9.53,
+      "recall_overheating": 1.0,
+      "recall_hydraulic_leak": 0.538,
+      "recall_excessive_idle": 1.0,
+      "recall_battery_fault": 0.6,
+      "recall_sensor_glitch": 1.0,
+      "recall_unsafe_operation": 0.353
+    }
+  ],
+  "decision": "kept the spec threshold (contamination=0.03); lower thresholds raise false alerts faster than recall"
+}

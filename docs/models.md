@@ -114,6 +114,32 @@ Stored as an `alerts` row (`source='anomaly_model'`, `category='behaviour'`) and
 **Evaluation** (against ground-truth `anomaly_label`): precision, recall, F1 per `anomaly_type`,
 and detection delay (minutes from anomaly start to first alert). Target: recall ≥ 0.8, median delay ≤ 5 min.
 
+**Implementation decisions (v1, `ml/01_anomaly.ipynb`, `ml/inference/anomaly.py`)**
+- Windows are trailing and time-based per machine (`5min`, `15min`, `30min`); the 15-min slope is
+  a least-squares slope in units per minute. `rpm_per_load` / `fuel_per_load` clip load at 0
+  (the sensor reads slightly negative at idle, which gave division by ~0).
+- "Before any known failure window" = training excludes every row within `drift_window_h` engine
+  hours before a failure. Engine hours advance by full shift length, so they are rebuilt from
+  `shifts` (matches the `pre_failure_*` labels on 37,142 of 37,143 rows).
+- Sensor glitch = exactly one signal outside its sensor validity range (`PLAUSIBLE_RANGE` in the
+  inference module; oil pressure only while rpm > 500) and plausible the minute before. Causal,
+  so live scoring labels it immediately. The reading is forward-filled before features so one
+  spike doesn't pollute 5 minutes of features. Real fault = model flag persisting ≥ 3 min, or
+  ≥ 2 distinct signals with |z| ≥ 3. Otherwise `kind='normal'`.
+- Output `kind` ∈ {`normal`, `machine_fault`, `sensor_glitch`}; `is_anomaly = kind != 'normal'`.
+  For a glitch, the first `top_signals` entry is the raw signal, with its z computed using that signal's `_mean5` scaler.
+- Evaluation: an event is caught if a correctly classified alert fires between its start and 5 minutes after its end.
+  Only injected types are evaluated.
+- **Result (test):** model alone recall 0.62 (target missed), median delay 3 min. Rules + model
+  recall 1.00, 2 min. The model's contribution is glitch-vs-fault separation; excessive_idle,
+  unsafe_operation (tilt needs pitch/roll/speed, not in the feature list) and hydraulic_leak are
+  weak. One threshold-tuning round on validation didn't help; spec threshold kept. Details in
+  `ml/artifacts/anomaly/README.md`.
+- Artifacts: `iforest_<type>.joblib`, `scaler_<type>.joblib`, `feature_list.json`, `config.json`
+  (thresholds, score min/max, machine map), `metrics.json`. The `.joblib` files are git-ignored:
+  run the notebook to create them. Not yet logged to `model_runs`; `metrics.json` has the
+  fields that table needs.
+
 **Stretch (P2) — LSTM autoencoder:** window 60 steps × 11 signals, encoder LSTM(64) → LSTM(16),
 RepeatVector, decoder LSTM(16) → LSTM(64) → TimeDistributed(Dense(11)). Adam lr 1e-3, batch 128,
 epochs 30–50, early stopping patience 5. Threshold = 99th percentile of reconstruction error on

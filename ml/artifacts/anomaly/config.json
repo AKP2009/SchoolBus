@@ -1,0 +1,54 @@
+{
+  "version": "v1",
+  "machine_types": [
+    "articulated_truck",
+    "dozer",
+    "excavator",
+    "wheel_loader"
+  ],
+  "machine_map": {
+    "M01": "excavator",
+    "M02": "excavator",
+    "M03": "wheel_loader",
+    "M04": "wheel_loader",
+    "M05": "dozer",
+    "M06": "articulated_truck",
+    "M07": "excavator",
+    "M08": "excavator",
+    "M09": "wheel_loader",
+    "M10": "wheel_loader",
+    "M11": "dozer",
+    "M12": "articulated_truck"
+  },
+  "score_scale": {
+    "articulated_truck": {
+      "min": 0.3674594075874411,
+      "max": 0.6729201853174271,
+      "threshold": 0.5465239508534193
+    },
+    "dozer": {
+      "min": 0.3657740248107402,
+      "max": 0.6450385366750159,
+      "threshold": 0.539695639890118
+    },
+    "excavator": {
+      "min": 0.36580843239891353,
+      "max": 0.6458312955701558,
+      "threshold": 0.5469247470370795
+    },
+    "wheel_loader": {
+      "min": 0.3620858810642825,
+      "max": 0.664073748498899,
+      "threshold": 0.5479635279582216
+    }
+  },
+  "isolation_forest": {
+    "n_estimators": 200,
+    "contamination": 0.03,
+    "max_samples": "auto",
+    "max_features": 1.0,
+    "random_state": 42
+  },
+  "persist_min": 3,
+  "multi_signal_z": 3.0
+}

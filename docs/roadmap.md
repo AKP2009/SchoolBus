@@ -45,7 +45,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 **Checkpoint 1:** sample data renders in at least one real screen; webcam shows distance to a person.
 
 ## Phase 2 — Models, vision, RAG, screens
-- [ ] **A:** anomaly model + result sheet
+- [x] **A:** anomaly model + result sheet (model alone misses recall target, see `ml/artifacts/anomaly/README.md`)
 - [ ] **A:** task time model (p10/p50/p90 + SHAP) + result sheet
 - [ ] **A:** clustering + result sheet
 - [ ] **A:** predictive maintenance + result sheet
