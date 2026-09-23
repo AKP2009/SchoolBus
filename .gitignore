@@ -8,13 +8,8 @@ data/output/*
 !data/output/.gitkeep
 # 1-day sample from generate.py --sample, shared for mocks
 !data/output/sample/
-ml/artifacts/**/*.joblib
-# anomaly models are small (~5 MB) and committed so the backend needs no retraining
-!ml/artifacts/anomaly/*.joblib
-# task time models are small (~2 MB) and committed too
-!ml/artifacts/task_time/*.joblib
-# clustering models are tiny (~16 KB) and committed too
-!ml/artifacts/clustering/*.joblib
+# Model artifacts in ml/artifacts/<model>/ are committed (each model < 20 MB) so the backend
+# needs no retraining. Anything larger goes elsewhere, not in git.
 
 # python
 __pycache__/

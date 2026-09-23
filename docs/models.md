@@ -278,6 +278,48 @@ Stored in `maintenance_predictions`. Risk bands: < 0.3 low, 0.3–0.6 medium, > 
 **Evaluation:** PR-AUC, recall at 0.5 threshold (target ≥ 0.75), and **lead time** — how many
 hours before failure the probability first crossed 0.6. Missing a failure costs more than a false alarm.
 
+**Implementation decisions (v2 + safety floor, `ml/04_predictive_maintenance.ipynb`, `ml/inference/maintenance.py`)**
+- One row per machine × engine-hour bin that has telemetry. The prediction is made at the bin's last minute,
+  and all windows trail it. Engine hours are rebuilt from `shifts`, cut at `maintenance_log` failures (not
+  truth files), and anchored to `machines.total_engine_hours`. They match the logged failure engine hours
+  within 0.05 h.
+- §3 features as listed: 24/72 h are **engine** hours, minute-weighted means and least-squares
+  slopes per engine hour; hydraulic pressure uses its hourly std. Sensor glitches are replaced first (model 1 rule).
+  Anomaly count = model-1 `machine_fault` events. Fault-code count = episodes (runs of one code); "7d" is
+  calendar days. Service features use scheduled services only.
+- Label: failure within (t, t + 48] engine hours. Rows between failure and repair are dropped, and so is the
+  censored last 48 h of each machine with no failure ahead.
+- **Days 81–90 hold only 2 failures**, so the main evaluation is forward-chaining, grouped time CV
+  by failure: boundaries on 2026-07-02 / 07-26 / 08-13 (no open pre-failure window), 48 h purge, and 15
+  held-out failures. The shipped model is trained on days 1–70 as usual.
+- **Tuning round (one):** v1 (§3 only) caught no cooling or undercarriage failure and 1/3 electrical, even
+  though the battery sat about 25 σ below normal. With 1–2 training failures per component, trees split
+  on levels of the components that failed in training and on machine type / age (machine identity). v2 keeps
+  the §3 features and parameters and adds: each signal's 24 h deviation from the machine's own baseline
+  (engine hours t−336…t−72) in per-type training-std units (`scales` in `config.json`), `worst_dev_z24`
+  and `worst_trend_z72` (component-agnostic), and vibration while travelling (> 2 km/h, undercarriage).
+  `predict_failure` takes the raw columns (`SPEC_FEATURES` + `RAW_EXTRA_COLUMNS`) and adds these itself.
+- Likely component = rule: the subsystem with the worst signed z (deviation or 72 h trend). Engine = oil
+  pressure + vibration, and undercarriage = travelling vibration beyond the overall vibration change. The
+  multiclass model was not trained: 2–3 examples per class.
+- Output adds `risk_band` (low / medium / high from the bands above). `top_factors` = XGBoost's exact
+  TreeSHAP (`pred_contribs`, log-odds): the top 3 contributions pushing the probability up.
+- **Result v2 (CV, 15 held-out failures):** PR-AUC 0.68 (prevalence 0.10; v1 0.57; baseline rule 0.25),
+  **recall at 0.5 per hour 0.44, target 0.75 missed**. 12/15 failures caught at 0.5 (v1 9/15), median
+  lead 37 h (target 12 h met, v1 21 h), 0.16 false alarms per machine-week. Missed: electrical M01, M02
+  and undercarriage M08 (max p ≤ 0.21). Engine hour-level recall fell from 0.67 to 0.47 in v2 (all 3 still caught).
+  Component rule right on 86 % of pre-failure hours (93 % in the last 12 h, undercarriage 27 %).
+  Details: `ml/artifacts/maintenance/README.md`.
+- **Safety floor (ships, added after acceptance, not a tuning round):** if any signal's 24 h deviation from
+  the machine's own normal is ≥ 6 σ the wrong way (`FLOOR_Z`), the probability is at least 0.35 (`FLOOR_P`,
+  medium) and `top_factors` lists that `<signal>_devz24` first. Same CV, **v2 + floor:** PR-AUC 0.69,
+  recall at 0.5 0.44, 12/15 caught at 0.5, median lead 37 h, 0.16 false alarms per machine-week. These are
+  unchanged, since the floor sits below 0.5 and 0.6. Medium band (p ≥ 0.3), v2 → v2 + floor: hour recall 0.51 → 0.72,
+  failures reaching medium 12/15 → **15/15** (M01 and M02 electrical, M08 undercarriage now medium), false medium
+  alerts 0.29 → 0.25 per machine-week (runs merge), normal hours at medium or above 2.4 % → 4.7 %.
+- Artifacts (≈ 0.4 MB, committed): `xgb_failure.joblib` (compress=3), `config.json`, `feature_list.json`,
+  `metrics.json`, `shap_importance.png`, `lead_time.png`. xgboost 2.1.4 pinned. Not yet logged to `model_runs`.
+
 ---
 
 ## 4. Fleet clustering and outliers (P1)

@@ -48,7 +48,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** anomaly model + result sheet (model alone misses recall target, see `ml/artifacts/anomaly/README.md`)
 - [x] **A:** task time model (p10/p50/p90 + SHAP) + result sheet (late-shift and night p50 optimistic, see `ml/artifacts/task_time/README.md`)
 - [x] **A:** clustering + result sheet (personality ARI 0.42 on holdout, below 0.5: efficient and average share a cluster, see `ml/artifacts/clustering/README.md`)
-- [ ] **A:** predictive maintenance + result sheet
+- [x] **A:** predictive maintenance + result sheet (hour-level recall 0.44 misses 0.75, 12/15 failures caught at 0.5 and 15/15 at medium with the 6σ safety floor, median lead 37 h; electrical/undercarriage weak, see `ml/artifacts/maintenance/README.md`)
 - [ ] **A:** `ml/inference/` functions importable by backend
 - [ ] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score)
 - [ ] **B:** phone detection
