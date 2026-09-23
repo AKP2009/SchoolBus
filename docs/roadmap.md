@@ -36,7 +36,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** master tables, weather, tasks with duration formula
 - [x] **A:** telemetry normal behaviour + drift + anomalies + labels
 - [x] **A:** fatigue, safety events, incidents, handover notes
-- [ ] **A:** validation notebook passes; 14 days loaded into Supabase _(notebook passes, 28/28 checks; loader `load_to_supabase.py` still to do)_
+- [x] **A:** validation notebook passes; 14 days loaded into Supabase _(28/28 checks; `load_to_supabase.py --days 14 --reset`, 2026-08-16 → 08-29, ~210k rows, 61 MB)_
 - [ ] **B:** proximity detection with tracking and distance on webcam
 - [x] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
 - [ ] **C:** knowledge base documents written (fault codes, FAQ, safety, tips)
