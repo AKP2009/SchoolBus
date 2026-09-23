@@ -72,6 +72,9 @@ python data/generator/load_to_supabase.py --days 14 --reset                     
 cd backend && uvicorn app.main:app --reload --port 8000
 # vision
 python vision/run.py --camera 0 --backend http://localhost:8000
+python vision/run.py calibrate --distance 3                                       # once per camera -> vision/calibration.json
+python vision/run.py --camera 0 --sector rear --machine-id M04 --dry-run          # print events; --source demo.mp4 as fallback
+cd vision && python -m pytest                                                     # vision tests (no camera needed)
 # web
 cd web && npm run dev
 # db

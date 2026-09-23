@@ -20,6 +20,10 @@ venv/
 .ruff_cache/
 .ipynb_checkpoints/
 
+# vision: YOLO weights download on first run; calibration is per camera
+vision/weights/
+vision/calibration.json
+
 # node / web
 node_modules/
 dist/

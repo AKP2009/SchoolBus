@@ -440,12 +440,35 @@ reading when available: `d = min(d_camera, d_ultrasonic)`.
 **Zones:** red < 3 m (critical), orange 3–7 m (warning), clear > 7 m.
 Low visibility or high fatigue adds 2 m to both limits.
 
-**Approaching:** tracked distance decreasing > 0.5 m/s over 1 s → severity +1 level.
+**Approaching:** tracked distance decreasing > 0.5 m/s over 1 s → severity +1 level, capped at critical.
 
 **Performance:** process every 2nd frame, 640 px (drop to 480 if laggy).
 
 **Output:** `safety_events` (`proximity_breach` or `blindspot_intrusion`, `distance_m`, `sector`,
 `approaching`) and an `alerts` row when orange or red.
+
+**Implementation decisions** (`vision/proximity.py`, `vision/run.py`)
+- Weights `yolo11n.pt`. Calibration: `python vision/run.py calibrate --distance 3` takes the median
+  person box height over 30 frames and saves `focal_px` + `frame_height_px` to `vision/calibration.json`
+  (per camera, git-ignored); f is rescaled if the frame height changes. Without the file the service
+  assumes f = 1.2 × frame height and says "UNCALIBRATED" on the overlay.
+- Approaching: closing speed = distance change between the newest sample and the oldest sample at
+  or before 1 s ago; no verdict with less than 0.7 s of history.
+- Severity: red → critical, orange → warning, approaching raises one level **capped at critical**
+  (orange → critical, red stays critical). Proximity never emits `emergency`: in `design.md` an
+  emergency alert notifies the site manager, and it is reserved for SOS and injuries.
+- Debounce, per track: post when the zone changes into red or orange, when severity rises inside the
+  same zone (the object starts approaching), and every 2 s while red. Going clear posts nothing
+  but resets the track, so re-entry posts again. A track unseen for 2 s is forgotten.
+- Zone hysteresis: entry limits are exact (3 m / 7 m), but leaving a zone outward needs 0.3 m extra,
+  otherwise a person standing at 3.0 m flips warning/critical every frame (seen on the webcam test).
+- Event type: `blindspot_intrusion` for sectors rear / left / right, else `proximity_breach`.
+- High fatigue widening: `FatigueStatus` is a stub (always false) until the backend has an endpoint
+  to poll; `--low-visibility` widens now.
+- Delivery: background thread, httpx, exponential backoff 0.5 → 10 s on connection errors and 5xx;
+  4xx and 501 are logged and dropped. Bounded queue of 200, oldest dropped first. `--dry-run` prints.
+- 640 → 480 px when the loop averages under 10 fps over 3 s (after a 3 s warm-up that starts at the
+  first processed frame, since torch start-up makes the first inference take seconds); it does not switch back.
 
 ---
 
