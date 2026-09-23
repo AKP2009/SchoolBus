@@ -81,7 +81,8 @@ python vision/run.py --mode fatigue --camera 0 --operator-id OP03 --dry-run     
 python vision/run.py --mode both --camera 1 --cab-camera 0 --dry-run              # proximity + fatigue; --cab-camera takes an index, URL or file
 cd vision && python -m pytest                                                     # vision tests (no camera needed)
 # web
-cd web && npm run dev
+cd web && npm run dev                                                             # /operator, /manager, /styleguide
+cd web && npm run build                                                           # tsc strict + vite build + PWA
 # db
 supabase db push
 ```
