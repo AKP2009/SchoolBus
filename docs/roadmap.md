@@ -26,7 +26,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [ ] Confirm `api_contract.md`; D creates mock JSON files from it
 - [ ] Paper sketches for all P0 screens
 - [ ] Repo created with folder layout from `CLAUDE.md`; everyone can run `git pull`
-- [ ] Supabase project created, migration applied, demo users created (C) _(project `hjdxrhgqojlwpayoyfvc` linked, 001+002 pushed; demo users on hold)_
+- [x] Supabase project created, migration applied, demo users created (C) _(project `hjdxrhgqojlwpayoyfvc` linked, 001+002 pushed; 5 demo users via `backend/scripts/create_demo_users.py`)_
 - [ ] Webcam + YOLO fps test (B)
 
 **Checkpoint 0:** everyone can explain the demo story, the schema, and their first task.
@@ -39,7 +39,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** validation notebook passes; 14 days loaded into Supabase _(28/28 checks; `load_to_supabase.py --days 14 --reset`, 2026-08-16 → 08-29, ~210k rows, 61 MB)_
 - [x] **B:** proximity detection with tracking and distance on webcam _(YOLO11n + ByteTrack, ~21–30 fps at 640 px on the laptop webcam, CPU; `vision/run.py`)_
 - [x] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
-- [ ] **C:** knowledge base documents written (fault codes, FAQ, safety, tips)
+- [x] **C:** knowledge base documents written (fault codes, FAQ, safety, tips) _(`backend/kb/`: 5 markdown docs, `scenarios.json` (12 scenarios), `rag_eval.json` (25 questions))_
 - [ ] **D:** tokens, Tailwind config, layouts, shared components
 
 **Checkpoint 1:** sample data renders in at least one real screen; webcam shows distance to a person.

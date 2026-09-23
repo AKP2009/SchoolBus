@@ -1,0 +1,188 @@
+{
+  "version": 1,
+  "module_id": "TM-SIM-01",
+  "title": "Safety scenario simulator pack",
+  "note": "Thresholds in these scenarios are our demo assumptions, not Caterpillar specifications. `answer` is the 0-based index of the correct choice.",
+  "steps": [
+    {
+      "id": "SC-01-blindspot",
+      "title": "Person in the blind spot",
+      "prompt": "You are reversing your wheel loader away from the stockpile. The rear camera sector turns orange, then red: \"Person behind you, 2.4 m, approaching\". You can't see anyone in your mirrors.",
+      "image_prompt": "View from inside a wheel loader cab looking at a tablet screen: the rear sector of a top-down machine diagram glows red with the label '2.4 m'. Through the rear window, a site worker in a hi-vis vest and helmet is walking toward the machine, partly hidden by the engine cover. Daylight, dusty construction site.",
+      "choices": [
+        "Keep reversing slowly, the person will see you and move",
+        "Stop all movement, sound the horn, and wait until you can see the person in a safe place",
+        "Turn the machine to the side so you miss the person",
+        "Speed up to get out of the way before they reach you"
+      ],
+      "answer": 1,
+      "explanation": "Red means someone is closer than 3 m, and 'approaching' means they are getting closer. Stop every movement first, then sound the horn. Don't move again until you can see the person and they are clear, or a spotter signals it is safe. Turning or speeding up guesses where the person will go, and a camera distance can be off by 20-30%.",
+      "module_id": "TM-SAFE-01"
+    },
+    {
+      "id": "SC-02-overheat-lifting",
+      "title": "Overheating while lifting",
+      "prompt": "Your excavator is holding a concrete pipe section in the air over a trench. The engine coolant warning comes on (above 100 °C) and after two minutes the app suggests economy mode. The temperature is still rising.",
+      "image_prompt": "Excavator on a highway widening site holding a large concrete pipe on chains over an open trench; workers stand clear at a distance. Inset: a cab tablet showing an orange 'Coolant high 103 °C' banner with a 'Switch to economy mode' suggestion. Afternoon heat haze.",
+      "choices": [
+        "Switch the engine off immediately to protect it",
+        "Keep going at full power to finish the lift quickly",
+        "Lower the pipe slowly into place or onto the ground, then idle the engine to cool and follow the safe shutdown steps",
+        "Open the radiator cap to check the coolant level"
+      ],
+      "answer": 2,
+      "explanation": "The load comes first: switching off with a pipe in the air can leave it hanging or dropping, and that is why our system never force-stops the machine. Lower the load under control, stop heavy work, idle for 3-5 minutes so the coolant cools, then shut down if it doesn't come down. Never open a hot radiator cap: pressurised coolant causes severe burns. Report it (code E-110) and call maintenance if it comes back.",
+      "module_id": "TM-HYD-01"
+    },
+    {
+      "id": "SC-03-slope",
+      "title": "Slope warning",
+      "prompt": "You are digging with an excavator on a side slope. The app shows 'Tilt 18° roll' as a warning, and you have a full bucket to swing to the truck, which is parked downhill.",
+      "image_prompt": "Excavator on a clay hillside with a visible side tilt, bucket full of earth raised; an articulated truck waits lower down the slope. Inset: cab tablet showing a machine outline tilted with 'Roll 18°' in orange and a warning icon.",
+      "choices": [
+        "Stop swinging, lower the bucket close to the ground, and move back to flatter ground or cut a level bench before continuing",
+        "Swing the full bucket downhill to the truck quickly before it gets worse",
+        "Raise the bucket higher to balance the machine",
+        "Keep working and watch whether it reaches 25°"
+      ],
+      "answer": 0,
+      "explanation": "Above 15° the machine is at risk of tipping (our assumed limit, critical at 25°). Swinging a full bucket downhill moves the weight to the low side, a common cause of excavator tip-overs. Raising the bucket makes it worse. Keep the load low, stop swinging, and get to flatter ground: tracks up and down the slope, or cut a level bench to work from. Ask for the truck to be repositioned uphill or level.",
+      "module_id": "TM-SAFE-03"
+    },
+    {
+      "id": "SC-04-night-fatigue",
+      "title": "Fatigue late in a night shift",
+      "prompt": "It is 01:15, seven hours into your night shift on a dozer. You catch yourself nodding. The app says 'Fatigue high' and suggests a 15-minute break. You have one grading task left.",
+      "image_prompt": "Night-time dozer cab lit by the tablet screen showing a red 'Fatigue high - take a 15 min break' card with a coffee cup icon. The operator rubs their eyes. Outside, work lights illuminate a graded road surface.",
+      "choices": [
+        "Open the window, turn up the radio and finish the last task",
+        "Drink a strong tea while you keep working",
+        "Ignore it, the camera often gets it wrong",
+        "Finish the current pass safely, lower the blade, park on level ground, take the break and tell your supervisor"
+      ],
+      "answer": 3,
+      "explanation": "Late in a night shift is when near misses rise most in our site data. Fresh air, music and tea don't remove fatigue. Make the machine safe, park, and take the break out of the cab. The app has already told the supervisor and will re-plan the last task around your break. If your eyes close for more than 2 seconds while moving, a critical alert sounds.",
+      "module_id": "TM-FAT-01"
+    },
+    {
+      "id": "SC-05-hydraulic-leak",
+      "title": "Hydraulic leak",
+      "prompt": "While loading trucks, your excavator suddenly feels weak. The app shows 'Hydraulic pressure drop - possible leak' (critical) and code E-360, low hydraulic oil level. You see a fine mist near the boom.",
+      "image_prompt": "Close-up of an excavator boom with a thin spray of oil mist coming from a hydraulic hose fitting; wet shiny patches on the arm and oil drops on the ground. Inset: cab tablet with a red 'Hydraulic pressure drop - possible leak' alert and code E-360.",
+      "choices": [
+        "Get out and run your hand along the hose to find the leak",
+        "Lower the boom and bucket slowly to the ground, shut down the engine, keep people away and call maintenance",
+        "Keep loading until the truck is full, then check",
+        "Top up the hydraulic oil and carry on"
+      ],
+      "answer": 1,
+      "explanation": "A sudden pressure drop with low oil level usually means a burst hose or fitting, which can drop a raised load. Lower the attachment under control, stop and shut down so the pump isn't damaged. Never feel for a leak with your hand: a pinhole jet can inject oil through the skin, which is a medical emergency. Keep people clear (slippery ground, fire risk) and report a spill if oil reaches the ground. Topping up without finding the leak just pumps more oil out.",
+      "module_id": "TM-HYD-01"
+    },
+    {
+      "id": "SC-06-seatbelt",
+      "title": "Seatbelt alarm",
+      "prompt": "You climbed back into your wheel loader after a quick check of the bucket. As you drive off, the seatbelt warning sounds. The next load is only 20 metres away.",
+      "image_prompt": "Wheel loader cab interior: an unbuckled seatbelt lying on the seat beside the operator, the tablet showing an orange 'Seatbelt not fastened' banner. The machine is starting to move across a gravel yard.",
+      "choices": [
+        "It's only 20 metres, fasten it after this load",
+        "Silence the alarm, you're a careful driver",
+        "Drive slowly so the warning doesn't escalate",
+        "Stop, fasten the seatbelt, then move off"
+      ],
+      "answer": 3,
+      "explanation": "The rollover protective structure (ROPS) only protects you if the belt keeps you inside it, and tip-overs happen at low speed too. The warning becomes critical after 30 seconds and your manager is notified (our assumed rule), but the real reason is your safety. Stop, buckle up, then go. If the belt is fastened and the alarm still sounds, the switch may be faulty (E-520): keep the belt on and report it.",
+      "module_id": "TM-SAFE-02"
+    },
+    {
+      "id": "SC-07-phone",
+      "title": "Phone call while working",
+      "prompt": "Your phone rings while you are travelling your excavator to the next dig location. It might be your family. The cab camera will flag phone use.",
+      "image_prompt": "Operator in an excavator cab glancing down at a ringing mobile phone in one hand while the other hand is on the joystick; the machine is tracking along a site road with a worker visible ahead. Cab tablet shows 'Phone use detected'.",
+      "choices": [
+        "Stop the machine, lower the attachment, set the lock or park brake, then take the call",
+        "Answer quickly and keep driving with one hand",
+        "Read the message at the next slow corner",
+        "Use the loudspeaker and keep the phone on the dashboard while working"
+      ],
+      "answer": 0,
+      "explanation": "Looking at or holding a phone takes your eyes and a hand off the machine, and a person can enter your path in seconds. Stop somewhere safe, lower the attachment and lock the controls, then use the phone. For machine questions, use the app's voice button instead of a phone.",
+      "module_id": "TM-SAFE-02"
+    },
+    {
+      "id": "SC-08-geofence",
+      "title": "Entering a no-go zone",
+      "prompt": "You are driving an articulated truck to the dump point. Road works have blocked your usual route, so you take a shortcut. The app warns: 'Entering no-go zone: overhead power line'.",
+      "image_prompt": "Articulated truck on a dirt track approaching a section marked with red cones, with overhead power lines crossing above. Inset: the site map on the cab tablet with a red shaded polygon labelled 'No-go: power line' and the truck icon at its edge.",
+      "choices": [
+        "Keep going, the body is down so it is low enough",
+        "Raise the dump body to drop the load here instead",
+        "Stop, check the map, and leave the zone the way you came; ask your supervisor for the right route",
+        "Drive through fast to spend less time in the zone"
+      ],
+      "answer": 2,
+      "explanation": "No-go zones are drawn by the site manager for a reason: power lines, open trenches or unstable ground. You don't know the clearance under this line, and raising the body could touch it. Stop, back out the way you came, and ask for the correct route. If the machine ever touches a power line, stay in the cab, warn others to keep away and press SOS.",
+      "module_id": "TM-TRK-01"
+    },
+    {
+      "id": "SC-09-rain",
+      "title": "Heavy rain on a haul road",
+      "prompt": "Heavy rain starts while you are hauling rock down a ramp in an articulated truck. The road is turning to mud and the app shows your tasks have been re-planned for rain.",
+      "image_prompt": "Articulated truck loaded with rock descending a muddy haul road ramp in heavy rain, wipers on, headlights on, water running in tyre ruts. Inset: tablet card 'Rain 9 mm/h - plan updated, task 5 moves to next shift'.",
+      "choices": [
+        "Keep the usual speed to stay on schedule",
+        "Use the service brakes hard on the way down to control speed",
+        "Park in the middle of the ramp until the rain stops",
+        "Slow down well below the limit, use the retarder downhill, keep extra distance and stay away from soft edges"
+      ],
+      "answer": 3,
+      "explanation": "Wet roads mean longer stopping distances and soft edges. Slow down, use the retarder rather than riding the brakes (hard braking on mud can jack-knife an articulated truck), and leave more space. Stopping in the middle of a ramp blocks others and is unsafe; if conditions get too bad, park on level ground off the road and call your supervisor. The re-planned schedule means you don't need to rush.",
+      "module_id": "TM-TRK-01"
+    },
+    {
+      "id": "SC-10-low-visibility",
+      "title": "Low visibility from dust",
+      "prompt": "At the quarry, a strong dry wind raises thick dust. You are loading trucks with a wheel loader and can barely see the truck's back wheels. The app has widened the proximity warning zones.",
+      "image_prompt": "Wheel loader at a quarry face in thick brown dust; a truck's outline is faint in front of it and a worker's hi-vis vest is barely visible to one side. Inset: tablet showing proximity zones labelled 'Low visibility: +2 m'.",
+      "choices": [
+        "Slow down, switch on work lights and beacon, and stop if you can't see the truck, the edge or people; ask for water spraying",
+        "Carry on at the same pace, the cameras will see everything",
+        "Load faster to finish before the dust gets worse",
+        "Rely only on the horn to warn people"
+      ],
+      "answer": 0,
+      "explanation": "In low visibility the app adds 2 m to the proximity zones, but dust can hide people from cameras too. Slow down, make yourself visible, and stop if you lose sight of the truck, the work edge or people nearby. Ask for dust control (water spraying) before continuing.",
+      "module_id": "TM-SAFE-01"
+    },
+    {
+      "id": "SC-11-glitch-vs-fault",
+      "title": "Sensor glitch or real fault?",
+      "prompt": "The hydraulic oil temperature on your excavator jumps to 150 °C for one minute, then goes straight back to 62 °C. Pressure, coolant and everything else stay normal and the machine feels fine. The app marks it 'possible sensor glitch'.",
+      "image_prompt": "Cab tablet showing a trend line for hydraulic oil temperature: flat around 62 °C with a single sharp one-minute spike to 150 °C, labelled 'Possible sensor glitch' in a grey info badge. Other gauges beside it show normal values.",
+      "choices": [
+        "Shut down and call for emergency help immediately",
+        "Ignore it and don't mention it to anyone",
+        "Carry on carefully, watch the readings, and report it in the app and handover so the sensor gets checked; stop if it comes back or other readings change",
+        "Keep working but disconnect the sensor so it doesn't happen again"
+      ],
+      "answer": 2,
+      "explanation": "One reading jumping to an impossible value for a single minute, with every other signal normal, is typical of a sensor glitch. A real fault lasts several minutes and usually moves more than one reading (for example oil temperature rising while pressure becomes unsteady). Still report it: a faulty sensor can hide a real problem later. If it returns, or other readings start to move, treat it as real and follow the safe steps.",
+      "module_id": "TM-HYD-01"
+    },
+    {
+      "id": "SC-12-sos",
+      "title": "When to press SOS",
+      "prompt": "While you are backfilling with a dozer, you see a worker near the trench edge slip and fall into the trench. The worker is not moving. Nobody else seems to have noticed.",
+      "image_prompt": "View from a dozer cab across a construction site: at the edge of an open trench, a hard hat lies on the ground where a worker has fallen in. The cab tablet shows a large red SOS button.",
+      "choices": [
+        "Finish the pass, then walk over to check",
+        "Stop the dozer and lower the blade, press SOS, then go to help only if it is safe, without driving near the trench edge",
+        "Drive the dozer to the trench edge to get a better look",
+        "Call a colleague on your phone to ask what to do"
+      ],
+      "answer": 1,
+      "explanation": "Someone injured or not moving is an emergency: stop, make the machine safe, and press SOS. It sends your location, machine and operator ID to the site manager in one tap. Never drive near the trench edge: the weight can collapse the wall onto the person. Help only if it's safe, and don't move an injured person unless they're in immediate danger.",
+      "module_id": "TM-SAFE-01"
+    }
+  ]
+}
