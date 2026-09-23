@@ -15,6 +15,7 @@ Ultralytics / OpenCV are imported lazily inside `Detector`.
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import os
@@ -378,6 +379,7 @@ class Detector:
             weights_path = weights_dir / weights_path.name
         self.model = YOLO(str(weights_path))
         self.imgsz = IMGSZ_FAST
+        self._plain: Any = None  # see _plain_model
 
     def track(self, frame: np.ndarray) -> list[Detection]:
         kwargs = {**TRACK_KWARGS, "imgsz": self.imgsz}
@@ -394,9 +396,35 @@ class Detector:
             for tid, c, conf, box in zip(ids, classes, confs, xyxy, strict=True)
         ]
 
+    def _plain_model(self) -> Any:
+        """The same loaded weights behind a separate predictor for plain (untracked) detection.
+
+        `model.track` registers ByteTrack callbacks on the model and its predictor; a later
+        `model.predict` on the same object would run them too, feeding cab-camera frames into the
+        proximity tracker and dropping unconfirmed detections. A shallow copy shares the network but
+        gets its own predictor and callbacks.
+        """
+        if self._plain is None:
+            from ultralytics.utils import callbacks
+
+            plain = copy.copy(self.model)
+            plain.predictor = None
+            plain.callbacks = callbacks.get_default_callbacks()
+            self._plain = plain
+        return self._plain
+
+    def phone_conf(self, frame: np.ndarray, conf: float, class_id: int) -> float | None:
+        """Best cell-phone confidence in the frame (models.md §5), or None if there is none."""
+        result = self._plain_model().predict(
+            frame, classes=[class_id], conf=conf, imgsz=self.imgsz, verbose=False
+        )[0]
+        if result.boxes is None or len(result.boxes) == 0:
+            return None
+        return float(result.boxes.conf.max())
+
     def detect_people(self, frame: np.ndarray) -> list[Detection]:
         """Plain detection (no tracking), used by calibration."""
-        result = self.model.predict(
+        result = self._plain_model().predict(
             frame, classes=[0], conf=TRACK_KWARGS["conf"], imgsz=self.imgsz, verbose=False
         )[0]
         if result.boxes is None:
