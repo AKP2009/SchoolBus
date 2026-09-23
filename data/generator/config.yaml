@@ -1,0 +1,19 @@
+seed: 42
+start_date: 2026-06-01
+days: 90
+future_days: 1       # planned-only days after the history (weather + shifts, no failures/services)
+telemetry_interval_min: 1
+sites:
+  - { site_id: S1, name: "NH-48 widening, Vellore", site_type: highway, lat: 12.9165, lon: 79.1325 }
+  - { site_id: S2, name: "Katpadi quarry", site_type: quarry, lat: 12.9692, lon: 79.1459 }
+machines:            # per site
+  excavator: 2
+  wheel_loader: 2
+  dozer: 1
+  articulated_truck: 1
+operators: 20
+shifts: { day: ["06:00", "14:00"], night: ["18:00", "02:00"] }
+tasks_per_shift: [4, 6]
+anomaly_rate: 0.03
+failures_total: 25
+output_dir: data/output
