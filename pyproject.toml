@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-operator-assistant"
+version = "0.1.0"
+description = "Smart Operator Assistant for CAT construction machines (Caterpillar hackathon)"
+requires-python = ">=3.12,<3.13"
+
+[tool.setuptools]
+packages = { find = { include = ["ml", "ml.*"] } }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]

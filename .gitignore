@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+
+# Secrets
+.env
+
+# Generated data and model artifacts
+data/output/
+ml/artifacts/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
