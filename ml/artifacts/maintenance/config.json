@@ -1,0 +1,293 @@
+{
+  "version": "v2",
+  "horizon_engine_h": 48.0,
+  "windows_engine_h": [
+    24,
+    72
+  ],
+  "baseline_engine_h": [
+    72,
+    336
+  ],
+  "travel_kmh": 2.0,
+  "high_load_pct": 80.0,
+  "risk_bands": {
+    "low": "< 0.3",
+    "medium": "0.3-0.6",
+    "high": "> 0.6"
+  },
+  "scales": {
+    "trend": {
+      "articulated_truck": {
+        "coolant_temp_c": {
+          "mean": 0.0002233630147824494,
+          "std": 0.1282279808260382
+        },
+        "oil_pressure_kpa": {
+          "mean": 0.2662315174843565,
+          "std": 2.534032734140498
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": 0.027367508154379428,
+          "std": 0.3618838169810918
+        },
+        "vibration_rms_g": {
+          "mean": -0.00021919398732148803,
+          "std": 0.004352072408723941
+        },
+        "battery_voltage": {
+          "mean": -0.0017742159661208671,
+          "std": 0.06802811420960375
+        },
+        "vibration_travel_g": {
+          "mean": -0.0007464035638848106,
+          "std": 0.0033906219427244214
+        }
+      },
+      "dozer": {
+        "coolant_temp_c": {
+          "mean": 0.006106686676279001,
+          "std": 0.17803831466518968
+        },
+        "oil_pressure_kpa": {
+          "mean": 0.6312782585555999,
+          "std": 3.1166025524884864
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": 0.0783547234598172,
+          "std": 0.5472434924285755
+        },
+        "hydraulic_pressure_bar_std": {
+          "mean": -0.044966009516048934,
+          "std": 2.6496819454741796
+        },
+        "vibration_rms_g": {
+          "mean": 0.0007198118544634564,
+          "std": 0.007981434561536905
+        },
+        "battery_voltage": {
+          "mean": 0.0006531030036911534,
+          "std": 0.01152792063920328
+        },
+        "vibration_travel_g": {
+          "mean": 0.0007222001392920032,
+          "std": 0.007098819161813601
+        }
+      },
+      "excavator": {
+        "coolant_temp_c": {
+          "mean": -0.007215890259518563,
+          "std": 0.06940318025546185
+        },
+        "oil_pressure_kpa": {
+          "mean": -0.09287940013359736,
+          "std": 1.0199069411701238
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": 0.0022943934300728255,
+          "std": 0.34361076887893316
+        },
+        "hydraulic_pressure_bar_std": {
+          "mean": -0.08793405557569488,
+          "std": 0.6093496836181359
+        },
+        "vibration_rms_g": {
+          "mean": 9.362254592027137e-05,
+          "std": 0.001448020177204319
+        },
+        "battery_voltage": {
+          "mean": 0.0001419561252221902,
+          "std": 0.014026568689200094
+        },
+        "vibration_travel_g": {
+          "mean": -0.0002618588406694836,
+          "std": 0.005189918888889879
+        }
+      },
+      "wheel_loader": {
+        "coolant_temp_c": {
+          "mean": 0.010745045158532881,
+          "std": 0.2919411716638164
+        },
+        "oil_pressure_kpa": {
+          "mean": 0.6075876457587024,
+          "std": 3.7076907096455547
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": 0.08633130063107596,
+          "std": 0.7280036318495373
+        },
+        "hydraulic_pressure_bar_std": {
+          "mean": 0.08451810825326668,
+          "std": 2.0764155038768863
+        },
+        "vibration_rms_g": {
+          "mean": 0.0002762030847971632,
+          "std": 0.009998266712775533
+        },
+        "battery_voltage": {
+          "mean": 0.00031772659754852466,
+          "std": 0.024694193895631104
+        },
+        "vibration_travel_g": {
+          "mean": -0.0009465985334243847,
+          "std": 0.008348265338327604
+        }
+      }
+    },
+    "dev": {
+      "articulated_truck": {
+        "coolant_temp_c": {
+          "mean": 0.41076392514310306,
+          "std": 1.9480449017094221
+        },
+        "oil_pressure_kpa": {
+          "mean": 0.691871642188135,
+          "std": 10.047761607802098
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": -0.2510555231777058,
+          "std": 2.423158355304299
+        },
+        "vibration_rms_g": {
+          "mean": 0.008852656640748104,
+          "std": 0.06086555105215111
+        },
+        "battery_voltage": {
+          "mean": -0.03598221167712207,
+          "std": 0.15985639424698728
+        },
+        "vibration_travel_g": {
+          "mean": 0.007482130867129518,
+          "std": 0.06999244610745875
+        }
+      },
+      "dozer": {
+        "coolant_temp_c": {
+          "mean": -0.23580008060484856,
+          "std": 1.3934762815418373
+        },
+        "oil_pressure_kpa": {
+          "mean": 7.418320689115027,
+          "std": 23.215671914279365
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": -0.4190839735604994,
+          "std": 2.3244730657356105
+        },
+        "hydraulic_pressure_bar_std": {
+          "mean": -4.241037512100887,
+          "std": 12.287984877826782
+        },
+        "vibration_rms_g": {
+          "mean": -0.026035188323531893,
+          "std": 0.07636848594679314
+        },
+        "battery_voltage": {
+          "mean": 0.012937944174146176,
+          "std": 0.09139776855301386
+        },
+        "vibration_travel_g": {
+          "mean": -0.02560731677422245,
+          "std": 0.08171140185893036
+        }
+      },
+      "excavator": {
+        "coolant_temp_c": {
+          "mean": 0.08439520468034668,
+          "std": 1.3471487545439431
+        },
+        "oil_pressure_kpa": {
+          "mean": -2.4455965413285106,
+          "std": 14.20666395983647
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": -1.594104448821509,
+          "std": 2.883560806365049
+        },
+        "hydraulic_pressure_bar_std": {
+          "mean": -9.179702986369046,
+          "std": 14.094921176409265
+        },
+        "vibration_rms_g": {
+          "mean": -0.002585943746303501,
+          "std": 0.03305754719504302
+        },
+        "battery_voltage": {
+          "mean": -0.010387080648890037,
+          "std": 0.11436151732946773
+        },
+        "vibration_travel_g": {
+          "mean": 0.002662780808084399,
+          "std": 0.030218346051247343
+        }
+      },
+      "wheel_loader": {
+        "coolant_temp_c": {
+          "mean": 0.16374263920998827,
+          "std": 1.5612735526241235
+        },
+        "oil_pressure_kpa": {
+          "mean": 0.9427711412963814,
+          "std": 21.53216717939908
+        },
+        "hydraulic_oil_temp_c": {
+          "mean": -0.35692487550127266,
+          "std": 2.9125041446470634
+        },
+        "hydraulic_pressure_bar_std": {
+          "mean": -8.2972589095951,
+          "std": 12.414001069080328
+        },
+        "vibration_rms_g": {
+          "mean": 0.016781503980450415,
+          "std": 0.09145257239170834
+        },
+        "battery_voltage": {
+          "mean": -0.002134895399736113,
+          "std": 0.2733677220704539
+        },
+        "vibration_travel_g": {
+          "mean": 0.010122087504776148,
+          "std": 0.089580151655346
+        }
+      }
+    }
+  },
+  "xgb_params": {
+    "n_estimators": 400,
+    "max_depth": 5,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 3,
+    "gamma": 0.1,
+    "eval_metric": "aucpr",
+    "random_state": 42
+  },
+  "scale_pos_weight": 7.586341463414634,
+  "trained_on_days": [
+    1,
+    70
+  ],
+  "component_method": "subsystem with the worst signed z (level deviation or 72 h trend)",
+  "subsystem_signals": {
+    "engine": [
+      "oil_pressure_kpa",
+      "vibration_rms_g"
+    ],
+    "cooling": [
+      "coolant_temp_c"
+    ],
+    "hydraulics": [
+      "hydraulic_oil_temp_c",
+      "hydraulic_pressure_bar_std"
+    ],
+    "electrical": [
+      "battery_voltage"
+    ],
+    "undercarriage": [
+      "vibration_travel_g"
+    ]
+  }
+}

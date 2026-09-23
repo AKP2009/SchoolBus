@@ -1,0 +1,871 @@
+{
+  "model_name": "predictive_maintenance",
+  "version": "v2",
+  "versions": {
+    "xgboost": "2.1.4",
+    "sklearn": "1.8.0",
+    "numpy": "2.3.1",
+    "pandas": "2.3.0"
+  },
+  "label": "failure (maintenance_log) within the next 48 engine hours; failure->repair and censored end hours dropped",
+  "split": {
+    "train_days": [
+      1,
+      70
+    ],
+    "val_days": [
+      71,
+      80
+    ],
+    "test_days": [
+      81,
+      90
+    ]
+  },
+  "split_counts": [
+    {
+      "split": "train",
+      "hours": 8801,
+      "positive_hours": 1025,
+      "failures": 23
+    },
+    {
+      "split": "val",
+      "hours": 1244,
+      "positive_hours": 102,
+      "failures": 4
+    },
+    {
+      "split": "test",
+      "hours": 733,
+      "positive_hours": 67,
+      "failures": 2
+    }
+  ],
+  "test_too_small": "2 failures in days 81-90; main evaluation = grouped time-based CV by failure",
+  "cv": {
+    "method": "forward-chaining, boundaries on days with no open 48 h pre-failure window, 48 engine h purge",
+    "boundaries": [
+      "2026-07-02",
+      "2026-07-26",
+      "2026-08-13"
+    ],
+    "folds": [
+      {
+        "fold": 1,
+        "train_hours": 3351,
+        "train_failures": 10,
+        "test_hours": 3053,
+        "test_failures": 5
+      },
+      {
+        "fold": 2,
+        "train_hours": 6406,
+        "train_failures": 14,
+        "test_hours": 2206,
+        "test_failures": 8
+      },
+      {
+        "fold": 3,
+        "train_hours": 8609,
+        "train_failures": 23,
+        "test_hours": 1608,
+        "test_failures": 2
+      }
+    ],
+    "results": {
+      "baseline": {
+        "hours": 6867,
+        "positive_hours": 718,
+        "failures": 15,
+        "pr_auc": 0.25461758133821877,
+        "prevalence": 0.10455803116353575,
+        "recall_at_0.5": 0.005571030640668524,
+        "failure_recall_0.5": 0.06666666666666667,
+        "median_lead_h": 0.0,
+        "median_lead_h_when_crossed": null,
+        "failures_crossing_0.6": 0,
+        "false_alarms": 14,
+        "machine_weeks": 95.6,
+        "false_alarms_per_machine_week": 0.14640705144166127,
+        "negative_hours_alarming_pct": 0.8944543828264758,
+        "per_component": {
+          "cooling": {
+            "failures": 2,
+            "pr_auc": 0.07589728228378245,
+            "recall_at_0.5": 0.0,
+            "failure_recall_0.5": 0.0,
+            "median_lead_h": 0.0
+          },
+          "electrical": {
+            "failures": 3,
+            "pr_auc": 0.23253751868296893,
+            "recall_at_0.5": 0.0,
+            "failure_recall_0.5": 0.0,
+            "median_lead_h": 0.0
+          },
+          "engine": {
+            "failures": 3,
+            "pr_auc": 0.03587467760404028,
+            "recall_at_0.5": 0.0,
+            "failure_recall_0.5": 0.0,
+            "median_lead_h": 0.0
+          },
+          "hydraulics": {
+            "failures": 5,
+            "pr_auc": 0.04727065688035699,
+            "recall_at_0.5": 0.0,
+            "failure_recall_0.5": 0.0,
+            "median_lead_h": 0.0
+          },
+          "undercarriage": {
+            "failures": 2,
+            "pr_auc": 0.07133881361775932,
+            "recall_at_0.5": 0.041666666666666664,
+            "failure_recall_0.5": 0.5,
+            "median_lead_h": 0.0
+          }
+        }
+      },
+      "xgb_v1": {
+        "hours": 6867,
+        "positive_hours": 718,
+        "failures": 15,
+        "pr_auc": 0.5694330108058371,
+        "prevalence": 0.10455803116353575,
+        "recall_at_0.5": 0.4178272980501393,
+        "failure_recall_0.5": 0.6,
+        "median_lead_h": 20.91666666666606,
+        "median_lead_h_when_crossed": 47.116666666667015,
+        "failures_crossing_0.6": 8,
+        "false_alarms": 25,
+        "machine_weeks": 95.6,
+        "false_alarms_per_machine_week": 0.26144116328868083,
+        "negative_hours_alarming_pct": 2.276792974467393,
+        "per_component": {
+          "cooling": {
+            "failures": 2,
+            "pr_auc": 0.0408277495871333,
+            "recall_at_0.5": 0.0,
+            "failure_recall_0.5": 0.0,
+            "median_lead_h": 0.0
+          },
+          "electrical": {
+            "failures": 3,
+            "pr_auc": 0.042358192254407394,
+            "recall_at_0.5": 0.006993006993006993,
+            "failure_recall_0.5": 0.3333333333333333,
+            "median_lead_h": 0.0
+          },
+          "engine": {
+            "failures": 3,
+            "pr_auc": 0.525929840812593,
+            "recall_at_0.5": 0.6736111111111112,
+            "failure_recall_0.5": 1.0,
+            "median_lead_h": 43.31666666666706
+          },
+          "hydraulics": {
+            "failures": 5,
+            "pr_auc": 0.7963294101887969,
+            "recall_at_0.5": 0.8416666666666667,
+            "failure_recall_0.5": 1.0,
+            "median_lead_h": 47.21666666666715
+          },
+          "undercarriage": {
+            "failures": 2,
+            "pr_auc": 0.01640676399486969,
+            "recall_at_0.5": 0.0,
+            "failure_recall_0.5": 0.0,
+            "median_lead_h": 0.0
+          }
+        }
+      },
+      "xgb_v2": {
+        "hours": 6867,
+        "positive_hours": 718,
+        "failures": 15,
+        "pr_auc": 0.6753929725100888,
+        "prevalence": 0.10455803116353575,
+        "recall_at_0.5": 0.4415041782729805,
+        "failure_recall_0.5": 0.8,
+        "median_lead_h": 37.31666666666706,
+        "median_lead_h_when_crossed": 41.76666666666688,
+        "failures_crossing_0.6": 12,
+        "false_alarms": 15,
+        "machine_weeks": 95.6,
+        "false_alarms_per_machine_week": 0.1568646979732085,
+        "negative_hours_alarming_pct": 1.593755082127175,
+        "per_component": {
+          "cooling": {
+            "failures": 2,
+            "pr_auc": 0.12559447132381316,
+            "recall_at_0.5": 0.29473684210526313,
+            "failure_recall_0.5": 1.0,
+            "median_lead_h": 29.516666666667334
+          },
+          "electrical": {
+            "failures": 3,
+            "pr_auc": 0.08438906116759598,
+            "recall_at_0.5": 0.06993006993006994,
+            "failure_recall_0.5": 0.3333333333333333,
+            "median_lead_h": 0.0
+          },
+          "engine": {
+            "failures": 3,
+            "pr_auc": 0.4684694782666719,
+            "recall_at_0.5": 0.4652777777777778,
+            "failure_recall_0.5": 1.0,
+            "median_lead_h": 37.31666666666706
+          },
+          "hydraulics": {
+            "failures": 5,
+            "pr_auc": 0.864757311635097,
+            "recall_at_0.5": 0.8541666666666666,
+            "failure_recall_0.5": 1.0,
+            "median_lead_h": 47.01666666666688
+          },
+          "undercarriage": {
+            "failures": 2,
+            "pr_auc": 0.06842012755332504,
+            "recall_at_0.5": 0.07291666666666667,
+            "failure_recall_0.5": 0.5,
+            "median_lead_h": 15.108333333333576
+          }
+        }
+      }
+    },
+    "per_failure": {
+      "baseline": [
+        {
+          "failure_ts": "2026-07-11 03:15:00+00:00",
+          "machine_id": "M07",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.126
+        },
+        {
+          "failure_ts": "2026-07-11 04:11:00+00:00",
+          "machine_id": "M04",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.084
+        },
+        {
+          "failure_ts": "2026-07-18 03:18:00+00:00",
+          "machine_id": "M08",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.13
+        },
+        {
+          "failure_ts": "2026-07-20 00:51:00+00:00",
+          "machine_id": "M02",
+          "component": "cooling",
+          "hours": 47,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.188
+        },
+        {
+          "failure_ts": "2026-07-25 00:51:00+00:00",
+          "machine_id": "M10",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.042
+        },
+        {
+          "failure_ts": "2026-08-01 17:00:00+00:00",
+          "machine_id": "M12",
+          "component": "cooling",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.189
+        },
+        {
+          "failure_ts": "2026-08-02 00:52:00+00:00",
+          "machine_id": "M06",
+          "component": "undercarriage",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.201
+        },
+        {
+          "failure_ts": "2026-08-02 02:37:00+00:00",
+          "machine_id": "M03",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.08
+        },
+        {
+          "failure_ts": "2026-08-04 04:10:00+00:00",
+          "machine_id": "M09",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.096
+        },
+        {
+          "failure_ts": "2026-08-09 03:20:00+00:00",
+          "machine_id": "M11",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.058
+        },
+        {
+          "failure_ts": "2026-08-11 01:33:00+00:00",
+          "machine_id": "M01",
+          "component": "electrical",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.291
+        },
+        {
+          "failure_ts": "2026-08-11 17:16:00+00:00",
+          "machine_id": "M04",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.041
+        },
+        {
+          "failure_ts": "2026-08-12 16:28:00+00:00",
+          "machine_id": "M02",
+          "component": "electrical",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.376
+        },
+        {
+          "failure_ts": "2026-08-22 05:01:00+00:00",
+          "machine_id": "M08",
+          "component": "undercarriage",
+          "hours": 48,
+          "recall_0.5": 0.083,
+          "caught": true,
+          "lead_h": 0.0,
+          "max_p": 0.5
+        },
+        {
+          "failure_ts": "2026-08-25 02:27:00+00:00",
+          "machine_id": "M04",
+          "component": "electrical",
+          "hours": 47,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.215
+        }
+      ],
+      "xgb_v1": [
+        {
+          "failure_ts": "2026-07-11 03:15:00+00:00",
+          "machine_id": "M07",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.542,
+          "caught": true,
+          "lead_h": 47.217,
+          "max_p": 0.946
+        },
+        {
+          "failure_ts": "2026-07-11 04:11:00+00:00",
+          "machine_id": "M04",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.771,
+          "caught": true,
+          "lead_h": 43.317,
+          "max_p": 0.904
+        },
+        {
+          "failure_ts": "2026-07-18 03:18:00+00:00",
+          "machine_id": "M08",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 1.0,
+          "caught": true,
+          "lead_h": 47.4,
+          "max_p": 0.998
+        },
+        {
+          "failure_ts": "2026-07-20 00:51:00+00:00",
+          "machine_id": "M02",
+          "component": "cooling",
+          "hours": 47,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.021
+        },
+        {
+          "failure_ts": "2026-07-25 00:51:00+00:00",
+          "machine_id": "M10",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.812,
+          "caught": true,
+          "lead_h": 47.8,
+          "max_p": 0.994
+        },
+        {
+          "failure_ts": "2026-08-01 17:00:00+00:00",
+          "machine_id": "M12",
+          "component": "cooling",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.275
+        },
+        {
+          "failure_ts": "2026-08-02 00:52:00+00:00",
+          "machine_id": "M06",
+          "component": "undercarriage",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.011
+        },
+        {
+          "failure_ts": "2026-08-02 02:37:00+00:00",
+          "machine_id": "M03",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.312,
+          "caught": true,
+          "lead_h": 20.917,
+          "max_p": 0.841
+        },
+        {
+          "failure_ts": "2026-08-04 04:10:00+00:00",
+          "machine_id": "M09",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.938,
+          "caught": true,
+          "lead_h": 47.817,
+          "max_p": 0.999
+        },
+        {
+          "failure_ts": "2026-08-09 03:20:00+00:00",
+          "machine_id": "M11",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.854,
+          "caught": true,
+          "lead_h": 40.817,
+          "max_p": 0.997
+        },
+        {
+          "failure_ts": "2026-08-11 01:33:00+00:00",
+          "machine_id": "M01",
+          "component": "electrical",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.011
+        },
+        {
+          "failure_ts": "2026-08-11 17:16:00+00:00",
+          "machine_id": "M04",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 1.0,
+          "caught": true,
+          "lead_h": 47.017,
+          "max_p": 1.0
+        },
+        {
+          "failure_ts": "2026-08-12 16:28:00+00:00",
+          "machine_id": "M02",
+          "component": "electrical",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.014
+        },
+        {
+          "failure_ts": "2026-08-22 05:01:00+00:00",
+          "machine_id": "M08",
+          "component": "undercarriage",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.01
+        },
+        {
+          "failure_ts": "2026-08-25 02:27:00+00:00",
+          "machine_id": "M04",
+          "component": "electrical",
+          "hours": 47,
+          "recall_0.5": 0.021,
+          "caught": true,
+          "lead_h": 0.0,
+          "max_p": 0.545
+        }
+      ],
+      "xgb_v2": [
+        {
+          "failure_ts": "2026-07-11 03:15:00+00:00",
+          "machine_id": "M07",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.583,
+          "caught": true,
+          "lead_h": 45.217,
+          "max_p": 0.964
+        },
+        {
+          "failure_ts": "2026-07-11 04:11:00+00:00",
+          "machine_id": "M04",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.271,
+          "caught": true,
+          "lead_h": 37.317,
+          "max_p": 0.784
+        },
+        {
+          "failure_ts": "2026-07-18 03:18:00+00:00",
+          "machine_id": "M08",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 1.0,
+          "caught": true,
+          "lead_h": 47.4,
+          "max_p": 0.999
+        },
+        {
+          "failure_ts": "2026-07-20 00:51:00+00:00",
+          "machine_id": "M02",
+          "component": "cooling",
+          "hours": 47,
+          "recall_0.5": 0.213,
+          "caught": true,
+          "lead_h": 42.717,
+          "max_p": 0.73
+        },
+        {
+          "failure_ts": "2026-07-25 00:51:00+00:00",
+          "machine_id": "M10",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.833,
+          "caught": true,
+          "lead_h": 47.8,
+          "max_p": 0.998
+        },
+        {
+          "failure_ts": "2026-08-01 17:00:00+00:00",
+          "machine_id": "M12",
+          "component": "cooling",
+          "hours": 48,
+          "recall_0.5": 0.375,
+          "caught": true,
+          "lead_h": 16.317,
+          "max_p": 0.924
+        },
+        {
+          "failure_ts": "2026-08-02 00:52:00+00:00",
+          "machine_id": "M06",
+          "component": "undercarriage",
+          "hours": 48,
+          "recall_0.5": 0.146,
+          "caught": true,
+          "lead_h": 30.217,
+          "max_p": 0.614
+        },
+        {
+          "failure_ts": "2026-08-02 02:37:00+00:00",
+          "machine_id": "M03",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.188,
+          "caught": true,
+          "lead_h": 0.917,
+          "max_p": 0.641
+        },
+        {
+          "failure_ts": "2026-08-04 04:10:00+00:00",
+          "machine_id": "M09",
+          "component": "engine",
+          "hours": 48,
+          "recall_0.5": 0.938,
+          "caught": true,
+          "lead_h": 47.817,
+          "max_p": 0.999
+        },
+        {
+          "failure_ts": "2026-08-09 03:20:00+00:00",
+          "machine_id": "M11",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 0.854,
+          "caught": true,
+          "lead_h": 40.817,
+          "max_p": 0.998
+        },
+        {
+          "failure_ts": "2026-08-11 01:33:00+00:00",
+          "machine_id": "M01",
+          "component": "electrical",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.211
+        },
+        {
+          "failure_ts": "2026-08-11 17:16:00+00:00",
+          "machine_id": "M04",
+          "component": "hydraulics",
+          "hours": 48,
+          "recall_0.5": 1.0,
+          "caught": true,
+          "lead_h": 47.017,
+          "max_p": 0.999
+        },
+        {
+          "failure_ts": "2026-08-12 16:28:00+00:00",
+          "machine_id": "M02",
+          "component": "electrical",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.073
+        },
+        {
+          "failure_ts": "2026-08-22 05:01:00+00:00",
+          "machine_id": "M08",
+          "component": "undercarriage",
+          "hours": 48,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.064
+        },
+        {
+          "failure_ts": "2026-08-25 02:27:00+00:00",
+          "machine_id": "M04",
+          "component": "electrical",
+          "hours": 47,
+          "recall_0.5": 0.213,
+          "caught": true,
+          "lead_h": 21.017,
+          "max_p": 0.802
+        }
+      ]
+    }
+  },
+  "component": {
+    "accuracy": {
+      "all_48h": 0.8593314763231198,
+      "last_12h": 0.9333333333333333
+    },
+    "per_component": {
+      "cooling": 0.78,
+      "electrical": 0.93,
+      "engine": 1.0,
+      "hydraulics": 1.0,
+      "undercarriage": 0.27
+    }
+  },
+  "spec_split": {
+    "val": {
+      "hours": 1244,
+      "positive_hours": 102,
+      "failures": 4,
+      "pr_auc": 0.6451997362690475,
+      "prevalence": 0.0819935691318328,
+      "recall_at_0.5": 0.47058823529411764,
+      "failure_recall_0.5": 0.75,
+      "median_lead_h": 15.966666666667152,
+      "median_lead_h_when_crossed": 16.21666666666715,
+      "failures_crossing_0.6": 3,
+      "false_alarms": 1,
+      "machine_weeks": 16.8,
+      "false_alarms_per_machine_week": 0.059359762560949755,
+      "negative_hours_alarming_pct": 1.3134851138353765,
+      "per_component": {
+        "electrical": {
+          "failures": 2,
+          "pr_auc": 0.7066546326584807,
+          "recall_at_0.5": 0.5094339622641509,
+          "failure_recall_0.5": 1.0,
+          "median_lead_h": 15.966666666667152
+        },
+        "hydraulics": {
+          "failures": 1,
+          "pr_auc": 1.0000000000000002,
+          "recall_at_0.5": 1.0,
+          "failure_recall_0.5": 1.0,
+          "median_lead_h": 20.01666666666688
+        },
+        "undercarriage": {
+          "failures": 1,
+          "pr_auc": 0.01736873675979355,
+          "recall_at_0.5": 0.0,
+          "failure_recall_0.5": 0.0,
+          "median_lead_h": 0.0
+        }
+      },
+      "per_failure": [
+        {
+          "failure_ts": "2026-08-11 01:33:00+00:00",
+          "machine_id": "M01",
+          "component": "electrical",
+          "hours": 17,
+          "recall_0.5": 1.0,
+          "caught": true,
+          "lead_h": 16.217,
+          "max_p": 0.996
+        },
+        {
+          "failure_ts": "2026-08-11 17:16:00+00:00",
+          "machine_id": "M04",
+          "component": "hydraulics",
+          "hours": 21,
+          "recall_0.5": 1.0,
+          "caught": true,
+          "lead_h": 20.017,
+          "max_p": 0.994
+        },
+        {
+          "failure_ts": "2026-08-12 16:28:00+00:00",
+          "machine_id": "M02",
+          "component": "electrical",
+          "hours": 36,
+          "recall_0.5": 0.278,
+          "caught": true,
+          "lead_h": 15.717,
+          "max_p": 0.888
+        },
+        {
+          "failure_ts": "2026-08-22 05:01:00+00:00",
+          "machine_id": "M08",
+          "component": "undercarriage",
+          "hours": 28,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.016
+        }
+      ]
+    },
+    "test": {
+      "hours": 733,
+      "positive_hours": 67,
+      "failures": 2,
+      "pr_auc": 0.752532617660563,
+      "prevalence": 0.09140518417462483,
+      "recall_at_0.5": 0.2835820895522388,
+      "failure_recall_0.5": 0.5,
+      "median_lead_h": 10.508333333333212,
+      "median_lead_h_when_crossed": 21.016666666666424,
+      "failures_crossing_0.6": 1,
+      "false_alarms": 0,
+      "machine_weeks": 11.6,
+      "false_alarms_per_machine_week": 0.0,
+      "negative_hours_alarming_pct": 0.0,
+      "per_component": {
+        "electrical": {
+          "failures": 1,
+          "pr_auc": 0.7341986113822564,
+          "recall_at_0.5": 0.40425531914893614,
+          "failure_recall_0.5": 1.0,
+          "median_lead_h": 21.016666666666424
+        },
+        "undercarriage": {
+          "failures": 1,
+          "pr_auc": 0.41995973965130406,
+          "recall_at_0.5": 0.0,
+          "failure_recall_0.5": 0.0,
+          "median_lead_h": 0.0
+        }
+      },
+      "per_failure": [
+        {
+          "failure_ts": "2026-08-22 05:01:00+00:00",
+          "machine_id": "M08",
+          "component": "undercarriage",
+          "hours": 20,
+          "recall_0.5": 0.0,
+          "caught": false,
+          "lead_h": 0.0,
+          "max_p": 0.161
+        },
+        {
+          "failure_ts": "2026-08-25 02:27:00+00:00",
+          "machine_id": "M04",
+          "component": "electrical",
+          "hours": 47,
+          "recall_0.5": 0.404,
+          "caught": true,
+          "lead_h": 21.017,
+          "max_p": 0.89
+        }
+      ]
+    }
+  },
+  "targets": {
+    "recall_at_0.5": 0.75,
+    "median_lead_h": 12.0,
+    "met": {
+      "recall_at_0.5_ge_0.75": false,
+      "median_lead_h_ge_12": true
+    }
+  },
+  "tuning_round": [
+    "machine-relative 24 h deviation z per signal (baseline t-336..t-72 engine h)",
+    "worst_dev_z24 and worst_trend_z72 across signals",
+    "vibration while travelling (> 2 km/h)"
+  ],
+  "shap_top": {
+    "worst_dev_z24": 2.3431999683380127,
+    "hydraulic_oil_temp_c_devz24": 0.7125999927520752,
+    "worst_trend_z72": 0.6776999831199646,
+    "hydraulic_oil_temp_c_mean24": 0.5074999928474426,
+    "coolant_temp_c_slope72": 0.5022000074386597,
+    "hydraulic_oil_temp_c_mean72": 0.43860000371932983,
+    "coolant_temp_c_devz24": 0.38420000672340393,
+    "high_load_hours_since_service": 0.3582000136375427,
+    "hydraulic_pressure_bar_std_mean72": 0.3472999930381775,
+    "age_years": 0.3301999866962433
+  }
+}
