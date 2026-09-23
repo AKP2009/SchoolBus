@@ -67,6 +67,7 @@ MediaPipe · faster-whisper, Piper TTS · Leaflet maps · Recharts.
 python data/generator/generate.py --config data/generator/config.yaml --sample   # 1 day, M01+M06 -> data/output/sample/
 python data/generator/generate.py --config data/generator/config.yaml            # full 90 days -> data/output/ (~30 s)
 python -m nbconvert --to notebook --execute --inplace data/generator/validation.ipynb           # all validation checks
+python data/generator/load_to_supabase.py --days 14 --reset                      # last 14 days -> Supabase (needs data/.env)
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
 # vision

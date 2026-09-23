@@ -22,6 +22,8 @@ and where the output is stored**. Column names match `docs/schema.md`.
 **General rules**
 - Split by **time**, not randomly: train on days 1–70, validate 71–80, test 81–90. Random splits
   leak the future and give inflated scores.
+- Inference functions select feature columns explicitly (never `select *`) and never read
+  `anomaly_label` or `anomaly_type`; those stay in `telemetry` only for the demo's detected-vs-actual view.
 - Fit scalers and encoders on train only. Save them with the model (`ml/artifacts/<model>/`).
 - Log each trained model into `model_runs` with params and metrics.
 - Every prediction shown to a user comes with a reason (SHAP factors, triggering signals, or rule).

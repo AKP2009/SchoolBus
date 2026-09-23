@@ -147,12 +147,29 @@ res = supabase.rpc("match_document_chunks",
 
 ### 9. Loading synthetic data
 ```bash
-python data/generator/load_to_supabase.py --days 14
+python data/generator/load_to_supabase.py --days 14 --reset   # ~35 s, ~60 MB
+python data/generator/load_to_supabase.py --estimate-only       # size check only
 ```
 Order matters because of foreign keys: sites → operators → machines → shifts → weather →
 tasks → maintenance_log → telemetry → safety_events → fatigue_log → incidents →
 training_modules → training_records. Use Postgres `COPY` via psycopg (`DATABASE_URL`) for
 telemetry — it is far faster than REST inserts.
+
+How the loader behaves:
+- One transaction: a failed run changes nothing. Needs the session pooler (5432), refuses 6543.
+- Master tables (sites, operators, machines, training_modules) are complete and **upserted**,
+  never truncated, so profiles and alerts that reference them survive a reload.
+- `--reset` truncates the other tables; without it the loader refuses if they already hold rows.
+- `shifts`, `maintenance_log` and `training_records` load complete (small; history predates the
+  window). tasks, telemetry and fatigue_log are filtered by shift; weather, safety_events and
+  incidents by timestamp. An incident's `linked_event_id` outside the window is set to null.
+- Event rows keep the generator's ids; identity sequences are moved past max(id) afterwards.
+- training_modules = the generator's 10 plus `TM-CYC-01` (time_ratio for load/haul/grade/backfill)
+  and `TM-SIM-01` (scenario pack for the 'needs safety coaching' cluster), so every trigger in
+  `models.md` §10 has a module.
+- Nothing from `data/output/truth/` is loaded. `telemetry.anomaly_label/anomaly_type` are loaded
+  because they are schema columns (evaluation only, never features).
+- Warns and stops if the projected database size is above 400 MB (`--force` overrides).
 
 **Free tier limits to respect:** 500 MB database, 1 GB storage. Load 14 days of telemetry
 (~100k rows), keep the full 90 days in Parquet for training. Don't store training videos
