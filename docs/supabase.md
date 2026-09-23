@@ -81,6 +81,19 @@ supabase.auth.admin.create_user({
 })
 ```
 - Create: 2–3 operators (one per demo persona), 1 manager, 1 admin.
+- Accounts (all password `demo1234`, run `python backend/scripts/create_demo_users.py`, idempotent):
+
+  | Email | Role | Name | operator_id | site | Language |
+  |---|---|---|---|---|---|
+  | ravi@demo.site | operator | Ravi Kumar | OP03 | S1 | en |
+  | naveen@demo.site | operator | Naveen Rao | OP07 | S1 | ta |
+  | vijay@demo.site | operator | Vijay Singh | OP11 | S2 | hi |
+  | priya@demo.site | manager | Priya Menon | – | S1 | en |
+  | admin@demo.site | admin | Demo Admin | – | – | en |
+
+  Operator names must match `operators` (the script checks, so load data first). The trigger only
+  fires on insert and doesn't set `preferred_language`, so the script also upserts each `profiles`
+  row and then verifies role, operator_id and site_id.
 
 ### 5. Row Level Security
 Enabled on every table in `001_init.sql`. Summary:

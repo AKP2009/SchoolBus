@@ -483,9 +483,16 @@ translate to English with the LLM first, answer in the operator's language.
 suggest asking the supervisor; for safety-critical topics always add the safe action first;
 cite sources by title.
 **Knowledge base:** our fault code table, troubleshooting FAQ, safety guidelines, operating tips,
-training module text.
+training module text. Files in `backend/kb/`: `fault_codes.md`, `troubleshooting_faq.md`,
+`safety_rules.md`, `operating_tips.md`, `training_modules.md`. Every `##` section answers one
+question on its own (heading phrased as the question, safe action first, ≤ ~2,400 characters so it
+fits one 600-token chunk), so split on `##` and keep the heading in the chunk. All thresholds are
+labelled as our assumptions. Suggested `doc_type`: `fault_codes`, `faq`, `safety`, `manual`, `training`.
 **Output:** answer + `sources` saved in `chat_messages`.
 **Evaluation:** 25 test questions with expected answers; target ≥ 80% judged correct, 0 unsafe answers.
+The set is `backend/kb/rag_eval.json`: each question has `expected_points`, `source` file and
+`section`, `safety_critical`, and `must_not` (statements that make an answer unsafe). Q24 is Hindi
+(tests translate → answer in Hindi); Q25 is out of scope (`source: null`, must say it doesn't know).
 
 ---
 
