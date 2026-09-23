@@ -181,6 +181,129 @@ Pick 1–3 based on what happened: "Hydraulic oil ran hot around {time}, kept lo
 - Anomaly rate 2.5–3.5%; 20–30 failures; every personality present.
 - Baseline check: a simple linear model on tasks should reach R² > 0.6 (else the signal is too weak).
 
+All of these run in `data/generator/validation.ipynb` (last cell fails if any check fails);
+the executed notebook is exported to `data/output/validation.html`.
+
 ## Output files
 `data/output/{table}.csv` for small tables, `telemetry.parquet` (full), plus
 `validation.html`. `load_to_supabase.py --days 14` loads the last 14 days.
+Ground truth that is not a schema table goes to `data/output/truth/` (never loaded, never a
+feature): `anomaly_events.csv` (one row per injected event and per labelled pre-failure window,
+with its fault code and details) and `failures.csv` (component, failure/repair time, engine
+hours, drift window W).
+
+## Sample mode
+`python data/generator/generate.py --config data/generator/config.yaml --sample` writes
+1 day for M01 (excavator) + M06 (articulated truck) at S1 to `data/output/sample/*.csv`:
+no anomalies, no failures, and a day and a night shift for both machines. Master data is built
+for the full config and then filtered, so IDs and attributes match the full dataset. Without
+`--sample` the CLI builds the full 90-day run (~30 s).
+
+## Implementation decisions (not specified above)
+- **CSV format.** Column names, order, enums and numeric scales are parsed from
+  `001_init.sql`, and every table is validated before it is written. Timestamps are ISO-8601 UTC.
+  Arrays are Postgres literals (`{en,ta}`), jsonb is a JSON string. `created_at`/`updated_at` are
+  left to DB defaults. Event tables carry an explicit `id` from 1 so `incidents.linked_event_id` can
+  point at a real safety event; the loader must `setval` the identity sequences after `COPY`.
+- **Seeds.** Each stage has its own stream, `default_rng([seed, crc32(stage)])`, so changing one
+  stage doesn't shift the others. Output is byte-identical across runs.
+- **Planner.** Quantities are sized to fill ~95% of the shift from what a planner knows: base
+  rate, material, slope and the operator's skill. Personality, rain, night, lateness, health and
+  noise are unknown to it. A task still running at shift end is `delayed` (no `actual_end`,
+  `actual_duration_min` null) and tasks never reached are `cancelled`. Only `completed` tasks
+  are training targets.
+- **Telemetry states.** Gaps between tasks are `travelling` (repositioning). A truck's queue at
+  the loader counts as `working`. If the work finishes early, the machine idles for 5 min and then
+  goes `off`, with no rows, so personality idle shares (efficient 6–10 % … idler 28–40 %) stay
+  separable. Idle is topped up to the personality's share with 2–8 min bursts.
+- **Idle share for aggressive and novice.** The spec gives no idle share for these two. The
+  sample used aggressive 12–18 % (same as average) and novice 14–20 %; in the full data
+  aggressive and average then have the same idle_pct, which fails "every personality has
+  distinct idle_pct". Now aggressive 9–13 % (keeps the machine busy) and novice 19–25 %
+  (hesitates). Measured operator means: efficient 8.9, aggressive 12.0, average 15.5,
+  novice 22.7, idler 35.3 %, with no overlap between personalities.
+- **Staffing.** Machines are staffed in a random order each shift. With a fixed order, the
+  ~30 days where operators run out (rest days, 10 h rest after a night shift) always left the
+  trucks unstaffed (75 day shifts vs 88 for the rest). The same shortage keeps night shifts at
+  ~30 % instead of 35 %.
+- **AR(1) speed.** α = 0.85 only for coolant and engine oil temperature (thermal mass), and 0.97
+  for hydraulic oil temperature. Throttle-following signals (rpm, load, pressures, fuel rate,
+  voltage, vibration, speed) use α = 0.3. With 0.85, a short idle spell shows 1300+ rpm and
+  6+ L/h, which is the `excessive_idle` anomaly signature.
+- **Seatbelt.** Unbuckled minutes happen while idle, in whole idle stretches, until the share is
+  1 % (novice 5 %). Each `seatbelt_unfastened` event (only while moving) also unbuckles
+  1–5 moving minutes in telemetry, so the rule engine has something to fire on.
+- **Fatigue.** yawns/min ~ Poisson(0.02 + 1.2·max(0, perclos − 0.08)), head-down/min ~
+  Poisson(0.005 + 0.8·max(0, perclos − 0.08)). With these rates, late night shifts reach `high`
+  often enough for the ×2.5 safety multiplier to show. A `fatigue_high` event fires when the level
+  turns high, at most once per 60 min.
+- **Safety event fields.** proximity/blindspot: distance U(0.8, 7) m, `critical` below 3 m
+  (models.md §6 zones), 40 % approaching. `phone_use` has sector `cab`. `tip_risk` is critical.
+  `harsh_maneuver` is 70 % info. All events are `resolved = true` with `alert_id` null (alerts come
+  from the backend rule engine at replay time).
+- **Maintenance.** Each machine gets one "last service" row before the start date. Scheduled
+  services use component `other`. Machine health (for `f_health`) =
+  clip(1 − 0.2·hours_since_service/interval − 0.4·p, 0.3, 1), where p is the drift progress of
+  the machine's next failure at shift start. `machines.csv` holds the end-of-run state (all
+  repaired, `active`).
+- **Failure placement.** 25 failures, component drawn from the mix, placed at random on a random
+  machine in engine-hour space (1–4 per machine). The whole drift window lies inside the run,
+  windows on one machine never overlap, the next window starts ≥ 48 engine hours after the
+  previous failure, and the last failure is ≥ 40 engine hours before the end (so the repair
+  finishes). The failure minute is 20 min to 60 % into a shift: telemetry stops there, the running
+  task becomes `delayed` and later tasks `cancelled`, both with delay_reason `machine breakdown`.
+  Shifts starting during the 4–24 h downtime are dropped. The `failure` row carries
+  `downtime_hours`; the `repair` row (at the end of downtime) carries `cost_inr` and the fix.
+- **Drift details.** Engine hours per telemetry row = shift start hours + minutes/60, the same
+  counting as maintenance. "Hydraulic pressure std × (1 + 2p)" scales the deviation from a
+  15-min moving mean. Trucks have no hydraulic pressure signal, so on a truck a hydraulics failure
+  shows only in oil temperature.
+- **Anomaly rate definition.** The 2.5–3.5 % target (and `anomaly_rate: 0.03`) is the share of
+  **all telemetry rows** carrying an **injected** anomaly (measured 3.00 %). `pre_failure_*`
+  labels come on top: 25 failures × 20 % of a 50–200 h window is ~5.7 % of rows, so
+  `anomaly_label` is true on ~8.7 % of rows. The anomaly model trains on data before failure
+  windows (models.md §1), so these rows don't inflate its contamination estimate.
+  **The anomaly model is evaluated on injected anomaly types only; pre_failure labels are
+  evaluated by the predictive maintenance model.**
+- **Anomaly placement.** Events are drawn by type share (overheating 18 %, hydraulic_leak 15 %,
+  excessive_idle 20 %, battery_fault 12 %, sensor_glitch 20 %, unsafe_operation 15 %), then placed
+  on a shift weighted by its length and the operator's personality (aggressive ×2 overheating and
+  hydraulic_leak, ×3 unsafe_operation; idler ×3 excessive_idle; novice ×2 unsafe_operation).
+  Each event keeps 15 normal minutes on both sides and never overlaps another event or a labelled
+  pre-failure window. Overheating, leaks and unsafe operation start on a working minute. No
+  hydraulic_leak on trucks. ~810 events per run.
+- **Anomaly shapes.** Every event returns to normal inside its labelled minutes (no unlabelled
+  tail). `overheating`: coolant climbs ≥ 1 °C/min to 105–112, then the last ~30 % (≥ 8 min) is an
+  idle cool-down (rpm ~900, `is_idle`) decaying back to normal; engine oil temperature follows at
+  0.6×. `hydraulic_leak`: pressure falls 35–60 % over 3 min and stays down; oil temperature rises
+  8–15 °C and falls back over the last 30 %. `excessive_idle`: `is_idle` with rpm 1300–1500,
+  fuel 6–8 L/h, load 10–20 %, fixed GPS. `battery_fault`: 3-min sag to 22.5–23.8 V (±0.08 V
+  noise), 3-min recovery. `sensor_glitch`: one minute, one of coolant 150 or 0, oil pressure 0,
+  battery 0 V, hydraulic oil 150 °C. `unsafe_operation`: trucks and half of the others tilt (roll
+  or pitch 15–22°) while moving fast (truck 25–35 km/h, others 3.5–6); the rest do harsh lever
+  work (load alternating 95–100 / 35–50 %, hydraulic pressure 340–380 bar, vibration 0.9–1.4 g).
+  Each unsafe_operation also logs a `tip_risk` or `harsh_maneuver` safety event. Fuel level is
+  recomputed after injection.
+- **Fault codes.** A coin flip per real fault (overheating, hydraulic_leak, battery_fault and
+  each failure) decides whether it carries a code; the measured share is ~55 %. The code is set
+  only on the rows past the fault threshold: E-110 while coolant > 105, E-360 from the 3rd minute
+  of a leak, E-410 while voltage < 24, and for failures the last 10 % of W (engine E-215, cooling
+  E-110, hydraulics E-365, electrical E-410, undercarriage none). sensor_glitch, excessive_idle
+  and unsafe_operation never get a code. E-520 is unused.
+- **Failure incidents.** One per failure, 5–30 min after it, `critical`, reported by `form`,
+  with a `root_cause` naming the drifting signal: `spill_leak` for hydraulics (20–120 L of
+  oil), `equipment_damage` otherwise.
+- **Correlation checks** use duration per unit of work (`actual_duration_min / base_min`),
+  because the planner already sizes quantity by skill: raw duration vs skill is only −0.05,
+  per-unit is −0.50.
+- **Speed.** AR(1) runs as `scipy.signal.lfilter` (same recurrence). The bounded random walks and
+  GPS stay per-minute loops over plain floats. Events and handover look up a shift's telemetry
+  rows through a groupby index. Full run ≈ 30 s (parquet + CSV writing ≈ 9 s).
+- **Handover.** The "ran hot" note fires above 78 °C hydraulic oil (top of the normal range; the
+  rule engine warns at 90). An extra template, "People walking near the machine, watch the {sector}
+  side.", is used after ≥ 2 proximity/blindspot events. `issues_reported` holds tags such as
+  `unfinished_task`. 25 % of shifts get one typo. A breakdown is always noted ("Machine broke
+  down at {time}, …", tag `breakdown`). Faults the operator sees on the dash are noted 70 % of the
+  time (`coolant_high`, `hydraulic_pressure_low`, `battery_low`), a sensor glitch 30 %
+  (`sensor_glitch_suspected`); behaviour anomalies (excessive idle, unsafe operation) never.
+- **Demo persona.** OP03 is always "Ravi Kumar" at S1, to match the demo login (supabase.md §4).

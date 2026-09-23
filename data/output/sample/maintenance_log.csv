@@ -1,0 +1,3 @@
+id,machine_id,event_date,engine_hours_at_event,component,event_type,downtime_hours,cost_inr,notes
+1,M01,2026-05-25T18:19:42Z,6705.9,other,scheduled_service,4.0,41748.17,"Scheduled service: engine oil, filters, hydraulic filter, greasing."
+2,M06,2026-05-29T15:04:17Z,6433.7,other,scheduled_service,2.5,27607.56,"Scheduled service: engine oil, filters, hydraulic filter, greasing."

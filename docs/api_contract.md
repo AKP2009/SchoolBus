@@ -111,6 +111,16 @@ Server → client messages, one JSON per line:
 ```
 Client → server: `{ "kind": "ping" }` every 20 s.
 
+## Shapes fixed during scaffolding
+These were not specified above. They are defined in `backend/app/schemas/` and can be changed there:
+- `POST /plan/accept` → `{ "shift_id": "SH-…", "applied": true }`
+- `POST /incidents/transcribe` request `{ "transcript": "…", "operator_id": "OP03", "machine_id": "M04" | null }`
+- `POST /analytics/cluster` → `{ "week_start": "2026-09-14", "rows_written": 42, "summary": "…" }`
+- `POST /replay/start`, `POST /replay/stop`, `GET /replay/status` → `{ "running": true, "machine_ids": [...], "speed": 1, "replay_ts": "…" | null }`
+- `POST /scenario/{name}` → `{ "scenario": "overheating", "machine_id": "M04", "started": true }`
+- `POST /events` accepts only the 5 alert types listed above plus `fatigue_sample`; any other `type` is a 400.
+
 ## Errors
 `{ "error": { "code": "MODEL_NOT_LOADED", "message": "Task time model is not loaded. Run ml/02 and restart." } }`
-HTTP 400 validation, 401 auth, 404 not found, 503 model/LLM unavailable.
+HTTP 400 validation (`VALIDATION_ERROR`), 401 auth, 404 not found, 501 not built yet (`NOT_IMPLEMENTED`),
+503 model/LLM unavailable.

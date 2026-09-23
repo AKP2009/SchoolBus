@@ -61,10 +61,14 @@ VITE_WS_URL=ws://localhost:8000
 # backend/.env
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role>
-DATABASE_URL=postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres.<ref>:<pw-url-encoded>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
 LLM_API_KEY=<key>
 ```
 Commit `.env.example` files, never `.env`.
+
+Use the **Session pooler** URL (Dashboard → Connect), not `db.<ref>.supabase.co`: the direct host is
+IPv6-only on the free tier and unreachable from most home networks. URL-encode special characters
+in the password (`#` → `%23`).
 
 ### 4. Auth
 - Auth → Providers: enable Email, **disable email confirmation** for the demo.
@@ -113,7 +117,12 @@ snapshots to the DB. This keeps Realtime traffic and DB size low.
 | `training-content` | yes | Videos, PDFs, scenario images | `{module_id}/…` |
 | `documents` | no | RAG source files | `{doc_type}/{file}` |
 
-Storage policies (add in `002_storage.sql`):
+Storage policies live in `supabase/migrations/002_storage.sql`:
+- `incident-media`: any signed-in user can upload and read.
+- `training-content`: public reads go through public URLs; only managers (`is_manager()`) can insert, update or delete.
+- `documents`: managers only, for select, insert, update and delete. RAG ingest uses the service role.
+
+The core of it:
 ```sql
 insert into storage.buckets (id, name, public) values
   ('incident-media','incident-media', false),
