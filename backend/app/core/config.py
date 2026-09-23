@@ -1,7 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
@@ -14,6 +17,8 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     llm_api_key: SecretStr | None = None
     cors_origins: str = "http://localhost:5173"
+    # Replay falls back to this file when Supabase telemetry is unreachable or empty.
+    telemetry_parquet: str = str(REPO_ROOT / "data" / "output" / "telemetry.parquet")
 
     @property
     def cors_origin_list(self) -> list[str]:

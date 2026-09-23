@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel
@@ -21,3 +22,5 @@ class ScenarioResponse(BaseModel):
     scenario: ScenarioName
     machine_id: str
     started: bool
+    start_ts: datetime | None = None  # replay (data) time the script starts at
+    duration_min: float | None = None  # data minutes until the script hands back the stream

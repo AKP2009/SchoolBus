@@ -61,6 +61,16 @@ Extra fields from `ml.inference.health.compute_health` (optional for clients): `
 `red` for overall), `subsystem_bands`, `reasons` = `[{ "subsystem", "source": "rule" | "anomaly" |
 "failure_probability", "penalty", "text" }]`, largest penalty first. Any of `anomaly_score`,
 `failure_probability`, `likely_component` is null when that input is missing.
+Served from the running replay (updated every data minute); without a replay, from the latest
+`v_machine_health_latest` row; 404 `NOT_FOUND` when neither exists.
+
+### `GET /machine/{machine_id}/state` (for the vision service)
+```json
+{ "machine_id": "M04", "moving": true, "ground_speed_kmh": 3.2, "ts": "2026-08-20T02:02:00Z" }
+```
+From the latest row of the replay stream (scripted scenario rows included). `moving` =
+`ground_speed_kmh > 0.5` (`moving_kmh` in `thresholds.yaml`, the same limit as the SEATBELT rule).
+`ts` is replay (data) time. 404 `NOT_FOUND` when the machine isn't in the running replay.
 
 ### `POST /events` (from vision service and voice)
 ```json
@@ -99,12 +109,19 @@ for the operator to confirm.
 ### `POST /analytics/cluster?week_start=2026-09-14` → writes `fleet_metrics_weekly`, returns summary.
 
 ### `POST /replay/start`
-`{ "machine_ids": ["M01","M04"], "from": "2026-09-10T06:00:00Z", "speed": 1 }`
+`{ "machine_ids": ["M01","M04"], "from": "2026-08-20T01:30:00Z", "speed": 1 }`
 `POST /replay/stop`, `GET /replay/status`
+Supabase holds 2026-08-16 → 08-29 (shifts 00:30–07:30 and 12:30–20:30 UTC). Starting again
+replaces the running replay. 404 `UNKNOWN_MACHINE`; 503 `NO_TELEMETRY_SOURCE` when neither
+Supabase nor `data/output/telemetry.parquet` has the data.
 
 ### `POST /scenario/{name}` (demo panel only)
 Names: `overheating`, `hydraulic_leak`, `fatigue`, `proximity`, `tip_risk`, `seatbelt`, `sos`.
 Body `{ "machine_id": "M04" }`. Injects a scripted signal sequence into the replay stream.
+Built into the replay: `overheating`, `hydraulic_leak`, `tip_risk`, `seatbelt` (timings in
+`backend/app/replay/scenarios.py`). `fatigue`, `proximity`, `sos` come from the vision service /
+voice via `POST /events` and return 501 here. 409 `REPLAY_NOT_RUNNING`, `MACHINE_NOT_IN_REPLAY`,
+`SCENARIO_RUNNING` (one scenario per machine at a time).
 
 ## WebSocket `GET /stream/{machine_id}`
 Server → client messages, one JSON per line:
@@ -118,13 +135,22 @@ Server → client messages, one JSON per line:
 ```
 Client → server: `{ "kind": "ping" }` every 20 s.
 
+Server behaviour (`backend/app/ws.py`): pings get no reply; any client message counts as a sign
+of life, and a client silent for 60 s (3 missed pings) is dropped. `telemetry` is sent for every
+replayed row (scenario rows included, 5 s apart during `seatbelt`), without `anomaly_label` /
+`anomaly_type`. `health` is sent once per data minute. `alert` is sent after the `alerts` row is
+written, on open, stage change, severity rise and resolve (`stage: "resolved"`), with the row's
+`id`; `id` is negative only if the database write failed.
+
 ## Shapes fixed during scaffolding
 These were not specified above. They are defined in `backend/app/schemas/` and can be changed there:
 - `POST /plan/accept` → `{ "shift_id": "SH-…", "applied": true }`
 - `POST /incidents/transcribe` request `{ "transcript": "…", "operator_id": "OP03", "machine_id": "M04" | null }`
 - `POST /analytics/cluster` → `{ "week_start": "2026-09-14", "rows_written": 42, "summary": "…" }`
-- `POST /replay/start`, `POST /replay/stop`, `GET /replay/status` → `{ "running": true, "machine_ids": [...], "speed": 1, "replay_ts": "…" | null }`
-- `POST /scenario/{name}` → `{ "scenario": "overheating", "machine_id": "M04", "started": true }`
+- `POST /replay/start`, `POST /replay/stop`, `GET /replay/status` → `{ "running": true, "machine_ids": [...], "speed": 1, "replay_ts": "…" | null,
+  "source": "supabase" | "parquet" | null, "scenarios": { "M04": "overheating" } }`
+- `POST /scenario/{name}` → `{ "scenario": "overheating", "machine_id": "M04", "started": true, "start_ts": "…", "duration_min": 26 }`
+  (`start_ts` is replay time)
 - `POST /events` accepts only the 5 alert types listed above plus `fatigue_sample`; any other `type` is a 400.
 
 ## Errors

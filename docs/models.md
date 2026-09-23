@@ -69,6 +69,45 @@ Never cut power automatically.
 
 **Output:** row in `alerts` (`source='rule'`, `alert_code`, `stage`, `evidence` = signal values).
 
+**Implementation decisions (v1, `backend/app/alerts/rules.py`, `thresholds.yaml`)**
+- One alert row per machine × `alert_code` while open (fault codes: per code, `alert_code='FAULT_CODE'`,
+  code in `evidence.fault_code`). Insert on open; update on stage change, severity rise and resolve.
+  Severity only rises while open. `evidence.stages` = `[{stage, ts, why?}]` is the stage history, and
+  `evidence.time_to_resolve_min` is set on resolve.
+- All times are **data time** (replay time), so speed 10 runs the 2/5/7-min stages in 12/30/42 s.
+- "for N min / N s" = the condition held on consecutive samples, each sample covering its own period
+  (60 s per telemetry minute, 5 s for the scripted seatbelt): "> 100 °C for 2 min" fires on the 2nd
+  minute, as in `health.rule_states_frame`. A gap > 2 min restarts holds. Stage timings are elapsed time
+  from the first critical sample: warn T, derate T+2, recommend_shutdown T+5, escalated T+7.
+- **Graded response** runs only while the alert is **critical** and `category='internal'` (COOLANT_CRITICAL,
+  HYD_OIL_HIGH > 95, OIL_PRESSURE_LOW, HYD_PRESSURE_DROP). Critical time pauses while it isn't critical
+  (no stage change then) and the stage never goes back. **"Value rising"** = the value got worse by
+  `rising_delta` (3 °C for coolant and hydraulic oil) over the last 3 min, at least 1 min into derate.
+  It moves derate → recommend_shutdown early. **"Operator ignores"** = `acknowledged_at` still null 2 min after
+  recommend_shutdown. The backend polls it once per data minute. Escalated alerts are `critical` on the manager feed.
+- Safety rules don't derate or shut down: **SEATBELT and TIP_RISK** go warn → escalated after 2 min
+  critical (`response: escalate`). COOLANT_HIGH, BATTERY_LOW, EXCESS_IDLE, OVERSPEED and warning-level
+  alerts stay at `warn` until resolved.
+- **Hysteresis band:** above-limit rules clear below limit × 0.95 and below-limit rules above limit × 1.05
+  (lowest / highest level's limit). SEATBELT clears when buckled or stopped (speed < 0.475 km/h and load
+  < 19 %). EXCESS_IDLE clears when not idle. A fault code clears when absent.
+- **HYD_PRESSURE_DROP is latched.** A leak's pressure stays down, so 3 min later the §R windows compare low
+  with low and the condition would drop. The baseline is kept from detection: the condition holds while the
+  2-min mean is < 65 % of it and clears above 68.25 % (5 % inside). The 6-min load window must cover 5+ min of data.
+- Glitch cleaning before the rules: model 1's single-minute glitch rule, applied per row and causally (same
+  `PLAUSIBLE_RANGE`; a test checks it against `anomaly.mark_glitches`). A glitched value is replaced by the
+  previous reading, so a 150 °C spike raises nothing.
+- Thresholds we chose (`thresholds.yaml`): speed limits by type (excavator 5.5, wheel loader 20, dozer
+  10, truck 40 km/h); a `speed_limited` geofence the machine is in overrides it when lower. Fault
+  code severities: all `warning` (E-520 `info`), matching `health.FAULT_CODE_SEVERITY`.
+- Model 1 outputs become alerts through the same state machine: `UNUSUAL_BEHAVIOUR` (`machine_fault`,
+  warning) and `SENSOR_GLITCH` (info), `source='anomaly_model'`, `category='behaviour'`, `anomaly_score` set,
+  resolved after 2 normal minutes.
+- Text: title = what + the number ("Engine overheating — 107 °C"), `recommended_action` changes per
+  stage (warn: rule's own; derate "Switch to economy mode and reduce load."; recommend_shutdown: the safe
+  shutdown steps; OIL_PRESSURE_LOW says shut down without idling). No raw codes in titles. The engine emits
+  no control command; the strongest step is a recommendation plus escalation.
+
 ---
 
 ## 1. Unusual behaviour / anomaly detection (P0)
@@ -552,6 +591,10 @@ undercarriage (vibration while travelling).
   alerts don't count; `emergency` = critical. failure_prob applies to `likely_component` (brakes/other: no subsystem).
 - `rule_states_frame(telemetry)` = stateless §R approximation for notebooks/tests (no hysteresis, stages or
   HYD_PRESSURE_DROP); the backend's rule engine supplies the real states.
+- **Live (backend replay):** every data minute per machine, `compute_health` gets the rule engine's open alerts
+  (`AlertInstance.health_state()`), model 1 on the trailing 60 min (one row per minute), `travelling` from the
+  latest row, and the latest `maintenance_predictions` row at or before the replay time (none loaded yet, so
+  null). Written to `machine_health_snapshots` and pushed as a `health` WebSocket message.
 - **Demo (test period):** M04 electrical failure 2026-08-25 is green until 23 engine h before, then red
   (probability 0.09 → 0.53 in one hour), orange/red after, 0.32 at the end. Details: `ml/artifacts/health/README.md`.
 

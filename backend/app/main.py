@@ -1,8 +1,12 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.replay.runtime import get_engine  # noqa: E402
 from app.routers import (
     analytics,
     chat,
@@ -19,7 +23,15 @@ from app.routers import (
     voice,
 )
 
-app = FastAPI(title="Smart Operator Assistant API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    yield
+    # stop the replay and flush pending alert / health writes
+    await get_engine().stop()
+
+
+app = FastAPI(title="Smart Operator Assistant API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

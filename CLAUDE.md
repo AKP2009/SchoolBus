@@ -70,6 +70,9 @@ python -m nbconvert --to notebook --execute --inplace data/generator/validation.
 python data/generator/load_to_supabase.py --days 14 --reset                      # last 14 days -> Supabase (needs data/.env)
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
+cd backend && python -m pytest                                                    # rule engine + scenario tests (no DB needed)
+curl -X POST localhost:8000/replay/start -H 'content-type: application/json'   -d '{"machine_ids":["M01","M02","M03","M04"],"from":"2026-08-20T01:30:00Z","speed":10}'
+curl -X POST localhost:8000/scenario/overheating -H 'content-type: application/json' -d '{"machine_id":"M04"}'
 # vision
 python vision/run.py --camera 0 --backend http://localhost:8000
 python vision/run.py calibrate --distance 3                                       # once per camera -> vision/calibration.json

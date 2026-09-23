@@ -17,3 +17,5 @@ class ReplayStatus(BaseModel):
     machine_ids: list[str] = Field(default_factory=list)
     speed: int | None = None
     replay_ts: datetime | None = None  # current position in the replayed data
+    source: Literal["supabase", "parquet"] | None = None  # where the telemetry is read from
+    scenarios: dict[str, str] = Field(default_factory=dict)  # machine_id -> running scenario

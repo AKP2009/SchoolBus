@@ -1,0 +1,210 @@
+# Alert rule engine thresholds (docs/models.md §R).
+# All values are illustrative, chosen by us, not Caterpillar specifications (docs/assumptions.md).
+# In production they would come from each machine model's service manual.
+#
+# Times are in minutes of DATA time (replay time), so at speed 10 "2 min" passes in 12 real seconds.
+# Operator-facing text follows docs/design.md: title = what (with the number), action = what to do.
+# Never show raw codes to operators; never cut power automatically.
+
+hysteresis:
+  inside_pct: 5          # an alert clears only when the signal is 5% inside the limit...
+  clear_hold_min: 2      # ...for 2 minutes
+
+# Graded response for critical internal alerts: warn -> derate -> recommend_shutdown -> escalated.
+graded:
+  derate_after_min: 2              # still critical after 2 min
+  recommend_shutdown_after_min: 5  # still critical after 5 min, or value still rising (below)
+  escalate_after_min: 7            # still critical after 7 min, or operator ignores (below)
+  rising_min_derate_min: 1         # "value rising" can skip ahead only after 1 min in derate
+  ignored_after_min: 2             # not acknowledged 2 min after recommend_shutdown = ignored
+  actions:
+    derate: "Switch to economy mode and reduce load."
+    recommend_shutdown: "Stop work safely: lower the attachment, move to level ground, idle 3 minutes to cool, then shut down."
+    escalated: "Stop work safely and shut down. Your site manager has been told."
+    resolved: "Back to normal. You can carry on."
+
+# Safety alerts don't derate or shut down (the operator fixes them); critical ones escalate to
+# the site manager if they last.
+escalate:
+  actions:
+    escalated: "{warn} Your site manager has been told."
+    resolved: "Back to normal. You can carry on."
+
+moving_kmh: 0.5          # "moving" for SEATBELT and GET /machine/{id}/state
+glitch_cleaning: true    # model 1's single-minute sensor glitch rule runs before the rules
+
+# Speed limit per machine type when no speed_limited geofence applies (km/h).
+speed_limit_kmh:
+  excavator: 5.5
+  wheel_loader: 20
+  dozer: 10
+  articulated_truck: 40
+
+rules:
+  COOLANT_HIGH:
+    kind: threshold
+    signal: coolant_temp_c
+    direction: above
+    levels:
+      warning: {limit: 100, hold_min: 2}
+    category: internal
+    response: none
+    title: "Engine coolant hot — {value:.0f} °C"
+    actions:
+      warn: "Reduce load and let the engine cool."
+
+  COOLANT_CRITICAL:
+    kind: threshold
+    signal: coolant_temp_c
+    direction: above
+    levels:
+      critical: {limit: 105}
+    category: internal
+    response: graded
+    rising_delta: 3.0          # +3 °C over the last 3 min counts as "value rising"
+    rising_window_min: 3
+    title: "Engine overheating — {value:.0f} °C"
+    actions:
+      warn: "Reduce load now and watch the temperature."
+
+  HYD_OIL_HIGH:
+    kind: threshold
+    signal: hydraulic_oil_temp_c
+    direction: above
+    levels:
+      warning: {limit: 90}
+      critical: {limit: 95}
+    category: internal
+    response: graded           # graded stages run only while critical
+    rising_delta: 3.0
+    rising_window_min: 3
+    title: "Hydraulic oil hot — {value:.0f} °C"
+    actions:
+      warn: "Switch to economy mode and reduce load."
+
+  OIL_PRESSURE_LOW:
+    kind: threshold
+    signal: oil_pressure_kpa
+    direction: below
+    gate: {signal: engine_rpm, above: 1200}   # only while engine_rpm > 1200
+    levels:
+      critical: {limit: 100}
+    category: internal
+    response: graded
+    title: "Engine oil pressure low — {value:.0f} kPa"
+    actions:
+      warn: "Lower the engine speed now."
+      recommend_shutdown: "Lower the attachment, move to level ground and shut down now. Don't idle: low oil pressure damages the engine."
+
+  BATTERY_LOW:
+    kind: threshold
+    signal: battery_voltage
+    direction: below
+    levels:
+      warning: {limit: 24.0, hold_min: 5}
+    category: internal
+    response: none
+    title: "Battery voltage low — {value:.1f} V"
+    actions:
+      warn: "Keep the engine running and tell maintenance at the end of the task."
+
+  HYD_PRESSURE_DROP:
+    kind: hyd_pressure_drop
+    signal: hydraulic_pressure_bar
+    recent_min: 2              # 2-min mean...
+    baseline_min: 3            # ...vs the 3-min mean...
+    baseline_gap_min: 3        # ...ending 3 min earlier
+    ratio: 0.65                # < 65% of baseline
+    min_baseline_bar: 100
+    load_pct: 40               # engine_load_pct > 40 for the last 6 min
+    load_min: 6
+    stationary_kmh: 2          # 3-min mean ground_speed_kmh < 2
+    stationary_min: 3
+    levels:
+      critical: {}
+    category: internal
+    response: graded
+    title: "Hydraulic pressure down {drop_pct:.0f}% — possible leak"
+    actions:
+      warn: "Stop moving the attachment. Check for oil under the machine."
+      recommend_shutdown: "Lower the attachment to the ground, shut down and don't restart until it's checked."
+
+  SEATBELT:
+    kind: seatbelt
+    load_pct: 20               # not fastened and (moving or load > 20%)
+    levels:
+      warning: {hold_s: 5}
+      critical: {hold_s: 30}
+    category: safety
+    response: escalate
+    escalate_after_min: 2      # critical for 2 min -> site manager
+    title: "Seatbelt not fastened"
+    actions:
+      warn: "Stop and fasten your seatbelt."
+
+  TIP_RISK:
+    kind: tilt
+    levels:
+      warning: {limit: 15}
+      critical: {limit: 25}
+    category: safety
+    response: escalate
+    escalate_after_min: 2
+    title: "Machine tilting — {value:.0f}°"
+    actions:
+      warn: "Slow down. Keep the attachment low and move to flatter ground."
+
+  EXCESS_IDLE:
+    kind: excess_idle
+    rpm_above: 1200            # mean engine_rpm over the idle run (high idle)
+    levels:
+      info: {over_min: 10}
+      warning: {over_min: 20}
+    category: behaviour
+    response: none
+    title: "Engine idling fast for {minutes:.0f} min"
+    actions:
+      warn: "Lower the engine speed, or switch off if the wait is long."
+
+  OVERSPEED:
+    kind: overspeed
+    levels:
+      warning: {}
+    category: safety
+    response: none
+    title: "Too fast — {value:.0f} km/h (limit {limit:.0f})"
+    actions:
+      warn: "Slow down to {limit:.0f} km/h."
+
+  FAULT_CODE:
+    kind: fault_code
+    levels:
+      info: {}
+      warning: {}
+      critical: {}
+    category: internal
+    response: graded           # graded only if a code's severity is critical (none are today)
+    title: "Fault {code} — {description}"
+    actions:
+      warn: "{action}"
+
+# Fault code table (docs/synthetic_data.md). The table has no severity column; we assign one here.
+# All are warning, matching ml.inference.health (FAULT_CODE_SEVERITY) except the unused E-520.
+fault_codes:
+  E-110: {description: "high coolant temperature", severity: warning, action: "Reduce load and let the engine cool."}
+  E-215: {description: "low engine oil pressure", severity: warning, action: "Lower the engine speed and tell maintenance."}
+  E-360: {description: "low hydraulic oil level", severity: warning, action: "Stop work, lower the attachment and check the hydraulic oil level."}
+  E-365: {description: "high hydraulic oil temperature", severity: warning, action: "Switch to economy mode and reduce load."}
+  E-410: {description: "low system voltage", severity: warning, action: "Keep the engine running and tell maintenance."}
+  E-520: {description: "seatbelt switch fault", severity: info, action: "Fasten your seatbelt and tell maintenance about the switch."}
+
+# Model 1 (anomaly) outputs become alerts too (models.md §1: source anomaly_model, category behaviour).
+anomaly:
+  UNUSUAL_BEHAVIOUR:
+    severity: warning
+    title: "Unusual {label}"
+    action: "Work gently and watch the gauges. Tell maintenance at the end of the task."
+  SENSOR_GLITCH:
+    severity: info
+    title: "Sensor reading ignored — {label}"
+    action: "No action needed. The sensor gave one impossible reading."

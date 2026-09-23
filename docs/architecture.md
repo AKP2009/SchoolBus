@@ -75,6 +75,12 @@ flowchart LR
 4. New or escalated alert → insert/update `alerts` → Realtime pushes it to operator and manager.
 5. Health score computed → `machine_health_snapshots` (digital twin updates via Realtime).
 
+Implementation (`backend/app/replay/`): telemetry is read, never written. Rules run inline on each
+row; model 1 + health run in the threadpool at the first row of each data minute. One ordered
+writer task does the DB writes, so an alert's insert (and its id) lands before its updates; the
+`alert` WebSocket message is sent after the write. A demo scenario takes over one machine's stream
+for its duration (recorded rows only refresh its template) and hands it back afterwards.
+
 ### Vision events
 1. Vision service detects person at 2.4 m, rear sector, approaching.
 2. `POST /events` with the event payload.

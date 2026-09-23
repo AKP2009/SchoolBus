@@ -61,17 +61,19 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 **Checkpoint 2:** `from ml.inference import …` works in the backend; every P0 screen exists.
 
 ## Phase 3 — Live backend
-- [ ] **C:** replay engine + WebSocket `/stream/{machine_id}`
-- [ ] **C:** rule engine + graded response state machine + hysteresis
-- [ ] **C + A:** anomaly scoring and health snapshots every minute in replay
+- [x] **C:** replay engine + WebSocket `/stream/{machine_id}`
+- [x] **C:** rule engine + graded response state machine + hysteresis
+- [x] **C + A:** anomaly scoring and health snapshots every minute in replay
 - [ ] **C:** `/events` writes safety_events / fatigue_log / alerts and forwards on WebSocket
 - [ ] **C:** `/predict/task-time` writes predictions to tasks
-- [ ] **C + A:** `/scenario/{name}` with overheating, hydraulic_leak, tip_risk, seatbelt
+- [x] **C + A:** `/scenario/{name}` with overheating, hydraulic_leak, tip_risk, seatbelt _(also `GET /machine/{id}/state` for vision; `backend/tests`, 39 passing)_
 - [ ] **C:** handover summary, incident transcript → draft
 - [ ] **B:** voice command pipeline (STT → intent → TTS)
 
 **Checkpoint 3:** start replay → an overheating scenario produces warn → derate → recommend
-shutdown → escalated alerts in the DB within the expected times.
+shutdown → escalated alerts in the DB within the expected times. _(met 2026-09-24 for the backend part:
+M01–M04 at speed 10 from Supabase, overheating on M04 → COOLANT_CRITICAL warn / derate +2 min /
+recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolved +15, data time)_
 
 ## Phase 4 — Connect frontend
 - [ ] **D:** live gauges from WebSocket
