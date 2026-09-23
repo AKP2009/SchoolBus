@@ -87,5 +87,11 @@ cd web && npm run build                                                         
 supabase db push
 ```
 
+## Virtual environments (Windows paths; not committed)
+- `backend/.venv` ← `backend/requirements.txt` — runs backend tests: `cd backend && .venv/Scripts/python -m pytest`
+- `ml/.venv` ← `ml/requirements.txt` — runs ml tests: `cd ml && .venv/Scripts/python -m pytest`
+- Both are built on Python 3.12.1 (the version that trained `ml/artifacts/`). Refresh with
+  `.venv/Scripts/python -m pip install -r requirements.txt`. Don't run tests with the system Python.
+
 ## When you finish a task
 Tick its checkbox in `docs/roadmap.md` and note any new decision in the relevant doc.
