@@ -320,3 +320,40 @@ def test_real_artifacts_load_and_predict(feats):
     assert all(set(o) == OUTPUT_KEYS for o in out)
     # A normal sample day: no machine should be high risk.
     assert max(o["failure_probability"] for o in out) < 0.6
+
+
+def test_safety_floor_raises_to_medium_and_names_signal(tiny_artifacts):
+    row = _synthetic_rows(1, seed=6)
+    row["battery_voltage_dev24"] = 1.0  # the tiny model's only real signal says "fine"
+    base = M.predict_failure(row[INPUT].iloc[0].to_dict())
+    assert base["failure_probability"] < M.FLOOR_P
+    row["coolant_temp_c_dev24"] = 20.0  # ~20 std hotter than this machine's normal
+    out = M.predict_failure(row[INPUT].iloc[0].to_dict())
+    assert out["failure_probability"] == pytest.approx(M.FLOOR_P)
+    assert out["risk_band"] == "medium"
+    assert out["top_factors"][0]["feature"] == "coolant_temp_c_devz24"
+    assert len(out["top_factors"]) <= M.TOP_N
+
+
+def test_safety_floor_needs_six_sigma_the_wrong_way():
+    df = _synthetic_rows(200)
+    scales = M.fit_scales(df)
+    rows = df.iloc[[0, 1, 2]].copy()
+    for c in df.columns:
+        if c.endswith("_dev24"):
+            rows[c] = 0.0
+    rows.iloc[0, rows.columns.get_loc("coolant_temp_c_dev24")] = 3.0  # < 6 std
+    rows.iloc[1, rows.columns.get_loc("battery_voltage_dev24")] = (
+        20.0  # higher voltage: fine
+    )
+    rows.iloc[2, rows.columns.get_loc("battery_voltage_dev24")] = (
+        -20.0
+    )  # sagging: floor
+    floor, signal = M.deviation_floor(rows, scales)
+    assert floor.tolist() == [0.0, 0.0, M.FLOOR_P]
+    assert signal.tolist() == [None, None, "battery_voltage"]
+    assert M.apply_floor(np.array([0.1, 0.1, 0.9]), rows, scales).tolist() == [
+        0.1,
+        0.1,
+        0.9,
+    ]

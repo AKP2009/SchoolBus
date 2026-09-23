@@ -278,7 +278,7 @@ Stored in `maintenance_predictions`. Risk bands: < 0.3 low, 0.3–0.6 medium, > 
 **Evaluation:** PR-AUC, recall at 0.5 threshold (target ≥ 0.75), and **lead time** — how many
 hours before failure the probability first crossed 0.6. Missing a failure costs more than a false alarm.
 
-**Implementation decisions (v2, `ml/04_predictive_maintenance.ipynb`, `ml/inference/maintenance.py`)**
+**Implementation decisions (v2 + safety floor, `ml/04_predictive_maintenance.ipynb`, `ml/inference/maintenance.py`)**
 - One row per machine × engine-hour bin that has telemetry. The prediction is made at the bin's last minute,
   and all windows trail it. Engine hours are rebuilt from `shifts`, cut at `maintenance_log` failures (not
   truth files), and anchored to `machines.total_engine_hours`. They match the logged failure engine hours
@@ -304,12 +304,19 @@ hours before failure the probability first crossed 0.6. Missing a failure costs 
   multiclass model was not trained: 2–3 examples per class.
 - Output adds `risk_band` (low / medium / high from the bands above). `top_factors` = XGBoost's exact
   TreeSHAP (`pred_contribs`, log-odds): the top 3 contributions pushing the probability up.
-- **Result (CV, 15 held-out failures):** PR-AUC 0.68 (prevalence 0.10; v1 0.57; baseline rule 0.25),
+- **Result v2 (CV, 15 held-out failures):** PR-AUC 0.68 (prevalence 0.10; v1 0.57; baseline rule 0.25),
   **recall at 0.5 per hour 0.44, target 0.75 missed**. 12/15 failures caught at 0.5 (v1 9/15), median
   lead 37 h (target 12 h met, v1 21 h), 0.16 false alarms per machine-week. Missed: electrical M01, M02
   and undercarriage M08 (max p ≤ 0.21). Engine hour-level recall fell from 0.67 to 0.47 in v2 (all 3 still caught).
   Component rule right on 86 % of pre-failure hours (93 % in the last 12 h, undercarriage 27 %).
   Details: `ml/artifacts/maintenance/README.md`.
+- **Safety floor (ships, added after acceptance, not a tuning round):** if any signal's 24 h deviation from
+  the machine's own normal is ≥ 6 σ the wrong way (`FLOOR_Z`), the probability is at least 0.35 (`FLOOR_P`,
+  medium) and `top_factors` lists that `<signal>_devz24` first. Same CV, **v2 + floor:** PR-AUC 0.69,
+  recall at 0.5 0.44, 12/15 caught at 0.5, median lead 37 h, 0.16 false alarms per machine-week. These are
+  unchanged, since the floor sits below 0.5 and 0.6. Medium band (p ≥ 0.3), v2 → v2 + floor: hour recall 0.51 → 0.72,
+  failures reaching medium 12/15 → **15/15** (M01 and M02 electrical, M08 undercarriage now medium), false medium
+  alerts 0.29 → 0.25 per machine-week (runs merge), normal hours at medium or above 2.4 % → 4.7 %.
 - Artifacts (≈ 0.4 MB, committed): `xgb_failure.joblib` (compress=3), `config.json`, `feature_list.json`,
   `metrics.json`, `shap_importance.png`, `lead_time.png`. xgboost 2.1.4 pinned. Not yet logged to `model_runs`.
 

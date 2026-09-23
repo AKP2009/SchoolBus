@@ -5,11 +5,15 @@ XGBoost (models.md §3 parameters, `scale_pos_weight` = neg/pos) predicting a fa
 the worst signal. Notebook: `ml/04_predictive_maintenance.ipynb`. Inference: `ml/inference/maintenance.py` →
 `predict_failure(features)`.
 
-**In plain words:** Across 15 held-out failures, the model warns before 12 of them, with a median
+**In plain words (v2 + safety floor, what ships):** Across 15 held-out failures, the model warns before 12 of them, with a median
 **37 engine hours** of warning (target 12 h ✓). It raises
 0.16 false alarms per machine-week. **Hour-by-hour recall at 0.5 is 0.44, missing the 0.75
 target ✗.** Once it catches a failure, it doesn't stay above 0.5 for all 48 hours:
 it rises as the drift builds. Hydraulics and engine are reliable. Electrical and undercarriage are not yet.
+With the safety floor, **15/15 failures reach at least medium risk**
+(12/15 without it). The cost is more normal hours at medium or above
+(2.4 % → 4.7 %), in 0.25 false medium alerts per
+machine-week (runs merge, so the count doesn't rise).
 
 ![Lead time](lead_time.png)
 
@@ -24,7 +28,8 @@ Result: 3 folds and 15 held-out failures. The first 10 (June) are training-only.
 |---|---|---|---|---|---|
 | Baseline rule (worst 72 h trend z, overdue service) | 0.25 | 0.01 | 1/15 | 0 h | 0.15 |
 | XGBoost v1 (§3 features) | 0.57 | 0.42 | 9/15 | 21 h | 0.26 |
-| **XGBoost v2 (ships)** | 0.68 | 0.44 | 12/15 | 37 h | 0.16 |
+| XGBoost v2 (tuned) | 0.68 | 0.44 | 12/15 | 37 h | 0.16 |
+| **XGBoost v2 + safety floor (ships)** | 0.69 | 0.44 | 12/15 | 37 h | 0.16 |
 
 Positive-hour prevalence is 10 %, which is also the PR-AUC of a random score. Lead time is capped at 48 h, and a failure
 that never crosses 0.6 counts as 0.
@@ -40,6 +45,18 @@ that never crosses 0.6 counts as 0.
 Missed at 0.5 (v2): M01 electrical (max p 0.21), M02 electrical (max p 0.07), M08 undercarriage (max p 0.06). Engine hour-level recall falls in v2
 (0.67 → 0.47, 3 failures, all still caught, but M03 only
 1 h before): with few examples the trees now split on the cross-signal summaries.
+
+## Safety floor (added after acceptance, not a tuning round)
+Any signal ≥ 6 σ worse than the machine's own normal (24 h mean vs engine hours t−336…t−72) → probability at least
+0.35 (medium), and `top_factors` names that signal first. The floor is below 0.5 and 0.6, so **recall at 0.5, lead time and false
+alarms at 0.5 are unchanged by design** (table above). The medium band (p ≥ 0.3) shows the effect:
+
+| CV, medium band (p ≥ 0.3) | Recall (hours) | Failures reaching medium | False medium alerts / machine-week | Normal hours at medium+ |
+|---|---|---|---|---|
+| v2 | 0.51 | 12/15 | 0.29 | 2.4 % |
+| **v2 + floor** | 0.72 | 15/15 | 0.25 | 4.7 % |
+
+Newly reaching medium with the floor: M01 electrical, M02 electrical, M08 undercarriage. Still below medium: none.
 
 ## Diagnosis before tuning (v1), and the one tuning round
 v1 caught every hydraulics and engine failure and **no cooling or undercarriage failure, and 1 of 3
@@ -59,7 +76,7 @@ now a feature, but the model still weighs it weakly. The fix is more failure his
 ≥ 6 σ worse than baseline → at least medium"). Not done: one tuning round only.
 
 ## Shipped model on the spec split (trained on days 1–70)
-Test (days 81–90): PR-AUC 0.75, recall @0.5 0.28, 1/2 failures caught,
+Test (days 81–90): PR-AUC 0.77, recall @0.5 0.28, 1/2 failures caught,
 median lead 11 h, 0.00 false alarms / machine-week (2 failures: anecdotal).
 
 ![SHAP](shap_importance.png)

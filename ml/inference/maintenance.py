@@ -129,6 +129,10 @@ SUBSYSTEM_SIGNALS = {
 }
 COMPONENTS = list(SUBSYSTEM_SIGNALS)
 
+# Safety floor (not learned): a signal this far from the machine's own normal is at least medium
+FLOOR_Z = 6.0
+FLOOR_P = 0.35
+
 RISK_BANDS = (
     (0.3, "low"),
     (0.6, "medium"),
@@ -568,6 +572,28 @@ def baseline_probability(feats: pd.DataFrame, scales: Mapping[str, Any]) -> np.n
     return np.where(overdue, np.maximum(p, 0.5), p)
 
 
+def deviation_floor(
+    feats: pd.DataFrame, scales: Mapping[str, Any]
+) -> tuple[np.ndarray, pd.Series]:
+    """Safety floor: where any signal's 24 h deviation from the machine's own baseline is
+    >= FLOOR_Z std the wrong way, the probability is at least FLOOR_P (medium risk).
+
+    Returns (floor per row: FLOOR_P or 0.0, name of the worst such signal or None)."""
+    dz = dev_z(feats, scales)
+    worst = dz.max(axis=1, skipna=True)
+    hit = worst.ge(FLOOR_Z).to_numpy()
+    signal = dz.fillna(-np.inf).idxmax(axis=1).astype(object).where(hit, None)
+    return np.where(hit, FLOOR_P, 0.0), signal
+
+
+def apply_floor(
+    proba: np.ndarray, feats: pd.DataFrame, scales: Mapping[str, Any]
+) -> np.ndarray:
+    """Model probability raised to the safety floor where it applies."""
+    floor, _ = deviation_floor(feats, scales)
+    return np.maximum(np.asarray(proba, dtype=float), floor)
+
+
 # ---------------------------------------------------------------------------------------------
 # Inference
 # ---------------------------------------------------------------------------------------------
@@ -612,7 +638,9 @@ def predict_failure(
     the saved scales. NaN (e.g. no baseline yet) is allowed: XGBoost treats it as missing.
     A mapping returns one dict, a frame a list.
     `top_factors` = the features with the largest SHAP values pushing the probability up
-    (log-odds), or the largest |SHAP| when nothing pushes it up.
+    (log-odds), or the largest |SHAP| when nothing pushes it up. Safety floor: if any signal's
+    deviation from the machine's normal is >= FLOOR_Z std, the probability is at least FLOOR_P
+    (medium) and that signal's `<signal>_devz24` is the first factor.
     """
     art = load_artifacts()
     df = _as_frame(features)
@@ -626,6 +654,7 @@ def predict_failure(
     proba = art["model"].predict_proba(X.to_numpy(dtype=float))[:, 1]
     contrib = shap_values(X, art["model"])[:, :-1]
     comp = likely_component(df, scales)
+    floor, floor_signal = deviation_floor(df, scales)
 
     results = []
     for i in range(len(df)):
@@ -636,7 +665,14 @@ def predict_failure(
             for j in order[:top_n]
             if (c[j] > 0) or not (c > 0).any()
         ]
-        p = float(proba[i])
+        p = float(max(proba[i], floor[i]))
+        if floor_signal.iloc[i] is not None:
+            # The floor fired: name the signal first, with its own SHAP value.
+            name = f"{floor_signal.iloc[i]}_devz24"
+            j = art["features"].index(name)
+            top = [{"feature": name, "shap": round(float(c[j]), 3)}] + [
+                f for f in top if f["feature"] != name
+            ][: top_n - 1]
         results.append(
             {
                 "machine_id": str(df.machine_id.iloc[i]),

@@ -1,5 +1,5 @@
 {
-  "version": "v2",
+  "version": "v2+floor",
   "horizon_engine_h": 48.0,
   "windows_engine_h": [
     24,
@@ -270,6 +270,10 @@
     1,
     70
   ],
+  "safety_floor": {
+    "dev_z": 6.0,
+    "probability": 0.35
+  },
   "component_method": "subsystem with the worst signed z (level deviation or 72 h trend)",
   "subsystem_signals": {
     "engine": [
