@@ -40,7 +40,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **B:** proximity detection with tracking and distance on webcam _(YOLO11n + ByteTrack, ~21–30 fps at 640 px on the laptop webcam, CPU; `vision/run.py`)_
 - [x] **C:** FastAPI skeleton, routers, config, Supabase client, `/health`
 - [ ] **C:** knowledge base documents written (fault codes, FAQ, safety, tips)
-- [ ] **D:** tokens, Tailwind config, layouts, shared components
+- [x] **D:** tokens, Tailwind config, layouts, shared components _(`web/`, Vite 7 + React 18 + Tailwind 3; every component on `/styleguide` in both modes; checked at 1280×800 and 1440)_
 
 **Checkpoint 1:** sample data renders in at least one real screen; webcam shows distance to a person.
 

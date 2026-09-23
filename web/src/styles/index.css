@@ -1,0 +1,35 @@
+@import './tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body { -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 3px solid var(--saffron-500); outline-offset: 2px; }
+  [data-mode='cab'] { font-size: 20px; line-height: 28px; }
+  [data-mode='office'] { font-size: 15px; line-height: 22px; }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+  .transition-state { transition: all 150ms ease-out; }
+}
+
+/* The only attention motion: takeover slides in, emergency border pulses at 1 Hz. */
+@keyframes takeover-in {
+  from { transform: translateY(-16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes emergency-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--critical); }
+  50% { box-shadow: 0 0 0 12px var(--tint-critical); }
+}
+.anim-takeover { animation: takeover-in 200ms ease-out; }
+.anim-emergency { animation: takeover-in 200ms ease-out, emergency-pulse 1s ease-in-out 200ms infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-takeover { animation: none; }
+  .anim-emergency { animation: none; box-shadow: 0 0 0 8px var(--critical); }
+  .transition-state { transition: none; }
+}

@@ -297,7 +297,16 @@ Translations (Hindi, Tamil) keep the same structure; keep strings in `web/src/i1
 body { background:var(--bg); color:var(--text); font-family:var(--font-sans); }
 .reading { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
 ```
-Set `data-mode="cab"` on `<html>` for `/operator` routes.
+Set `data-mode="cab"` on `<html>` for `/operator` routes and `data-mode="office"` for `/manager`
+(the layouts do this). `data-mode` also works on any element, which is how `/styleguide` shows both modes.
+
+**Added in `tokens.css` (web foundation):** `--on-status` (white text on a critical fill),
+`--on-header` / `--on-header-2` (text on the graphite header, = `cab-text` / `cab-text-2`),
+`--shadow-float`, `--series-1…6` and `--seq-1…3` (the data-vis colours above), and derived
+`--tint-<status>` (status at 14%) and `--band` (gauge normal range), declared on `:root, [data-mode]`
+so they resolve against the active palette. `tokens.css` is the only file in `web/src` with colour
+values; the PWA manifest (`vite.config.ts`) and `public/icon.svg` repeat `cab-base` / `saffron-500`
+because they can't read CSS variables.
 
 ### Tailwind (`tailwind.config.ts`)
 ```ts
@@ -315,6 +324,10 @@ theme: {
   },
 }
 ```
+The implemented config **replaces** Tailwind's `colors` (not `extend`) so default palette classes such as
+`bg-red-500` don't exist; it also adds the `cab-*` / `office-*` type scale as `text-cab-h1` etc.,
+`min-h-touch-cab` (64px) / `min-h-touch-office` (40px), `bg-tint-<status>`, `bg-band`, `series-1…6`
+and `header` / `header-ink` colours.
 Icons: `lucide-react`, stroke width 2, 24px office / 32px cab.
 
 ## Do / don't

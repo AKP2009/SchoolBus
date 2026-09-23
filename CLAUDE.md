@@ -76,7 +76,8 @@ python vision/run.py calibrate --distance 3                                     
 python vision/run.py --camera 0 --sector rear --machine-id M04 --dry-run          # print events; --source demo.mp4 as fallback
 cd vision && python -m pytest                                                     # vision tests (no camera needed)
 # web
-cd web && npm run dev
+cd web && npm run dev                                                             # /operator, /manager, /styleguide
+cd web && npm run build                                                           # tsc strict + vite build + PWA
 # db
 supabase db push
 ```
