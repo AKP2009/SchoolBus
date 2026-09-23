@@ -47,7 +47,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 ## Phase 2 — Models, vision, RAG, screens
 - [x] **A:** anomaly model + result sheet (model alone misses recall target, see `ml/artifacts/anomaly/README.md`)
 - [x] **A:** task time model (p10/p50/p90 + SHAP) + result sheet (late-shift and night p50 optimistic, see `ml/artifacts/task_time/README.md`)
-- [ ] **A:** clustering + result sheet
+- [x] **A:** clustering + result sheet (personality ARI 0.42 on holdout, below 0.5: efficient and average share a cluster, see `ml/artifacts/clustering/README.md`)
 - [ ] **A:** predictive maintenance + result sheet
 - [ ] **A:** `ml/inference/` functions importable by backend
 - [ ] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score)

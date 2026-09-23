@@ -1,0 +1,8 @@
+[
+  "fuel_per_productive_hour",
+  "idle_pct",
+  "productivity_per_hour",
+  "time_ratio",
+  "anomaly_per_10h",
+  "safety_per_10h"
+]

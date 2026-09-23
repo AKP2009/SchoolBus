@@ -311,6 +311,48 @@ lowest time_ratio + low fuel → "efficient", highest safety events → "needs s
 **Evaluation:** silhouette score; check that the hidden `operators.personality` groups are
 recovered (adjusted Rand index). This is our proof the clustering found real patterns.
 
+**Implementation decisions (v2, `ml/03_clustering.ipynb`, `ml/inference/clustering.py`)**
+- Weeks start on the Monday of `shift_date`. 2026-06-01 is a Monday, so weeks 1–10 = days 1–70 (fit:
+  scalers, KMeans, PCA, DBSCAN); weeks 11–13 (days 71–90, week 13 has 6 days) are the holdout.
+- Metrics per entity × week × machine_type ("segment"): productive_hours = non-idle engine-on hours
+  (one telemetry row = one minute); fuel_per_productive_hour = all fuel burnt ÷ productive hours;
+  idle_pct = idle ÷ engine-on minutes; productivity_per_hour = completed quantity ÷ productive hours;
+  anomaly and safety events per 10 **engine-on** hours (engine h = productive_hours ÷ (1 − idle_pct/100),
+  so the rate can be rebuilt from the stored columns).
+- **Within machine type:** every segment is z-scored against its entity_type × machine_type mean/std on
+  the fit weeks. Operators drive all four types, so an operator-week is the productive-hours-weighted
+  mean of their per-type z. The efficiency index and the |z| > 2.5 rule use these z. For operators the
+  stored `productivity_per_hour` mixes m³ and tons in weeks with a truck (the z don't).
+- `anomaly_count` = `machine_fault` events (runs of fault minutes) from `ml.inference.anomaly`, sensor
+  glitches excluded. Never `anomaly_label`. `safety_event_count` leaves out `fatigue_high`, because it
+  follows the roster (night shifts) rather than operating behaviour.
+- **time_ratio = Σ actual ÷ Σ fleet p50** over completed tasks. The fleet p50 is the task-time model
+  with `operator_avg_time_ratio` left unknown (`clustering.fleet_p50`). The planning p50
+  (`tasks.predicted_p50_min`) already contains the operator's usual pace, which hides the pace
+  differences between operators (week-to-week reliability 0.14 vs 0.72).
+- **Operator clustering weights each standardised feature by √ICC** (week-to-week reliability on the
+  fit weeks: idle 0.98, fuel 0.87, productivity 0.79, time_ratio 0.72, safety 0.26, anomalies 0.07),
+  so weekly Poisson noise in events doesn't set the cluster boundaries. Machines keep equal weights:
+  their ICCs are ~0 because a machine's week reflects who drove it. KMeans, DBSCAN and PCA all work
+  in this weighted space. Rows with < 4 productive hours are not fitted on.
+- Names: "needs safety coaching" (highest safety z ≥ 0.5), "idle-heavy" (highest idle z ≥ 0.5),
+  "efficient" (highest −z(time_ratio) − z(fuel)), then the strongest remaining trait ("low output", …)
+  or "average". DBSCAN eps = knee of the 5-NN distance curve; a new week is noise when no training
+  core point lies within eps. `outlier_reason` names the feature, its value, the type's typical value
+  and z.
+- `rank_in_site`: 1 = highest efficiency_index within entity_type × site × week.
+- **Result:** operators k = 4 (efficient, idle-heavy, needs safety coaching, low output), machines
+  k = 3. ARI vs personality: **0.45 fit weeks, 0.42 holdout** (spec as written: 0.37 / 0.36; one tuning
+  round). **Target 0.5 missed.** Aggressive → safety coaching, idler → idle-heavy, novice → low output
+  (100 % of fit weeks), efficient → efficient (98 %). Average splits 66 % efficient / 34 % low output:
+  with k = 4 the two largest groups share a cluster, and a perfect answer that merged only those two
+  would score 0.58. Efficiency index by personality: efficient +0.49 > average +0.09 > aggressive
+  −0.09 > idler −0.58 > novice −0.79. Details: `ml/artifacts/clustering/README.md`.
+- Artifacts (≈ 0.3 MB, committed): `model_<entity_type>.joblib` (scaler, weights, KMeans, PCA, DBSCAN
+  core points, eps), `config.json` (type scalers, cluster names), `feature_list.json`, `metrics.json`,
+  `pca_scatter.png`, `pca_points.json` (dashboard scatter), `k_distance.png`,
+  `fleet_metrics_weekly.csv` (13 weeks of output rows). Not yet logged to `model_runs`.
+
 ---
 
 ## 5. Fatigue and attention (P0, pretrained)
