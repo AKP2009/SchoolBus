@@ -306,4 +306,6 @@ for the full config and then filtered, so IDs and attributes match the full data
   down at {time}, …", tag `breakdown`). Faults the operator sees on the dash are noted 70 % of the
   time (`coolant_high`, `hydraulic_pressure_low`, `battery_low`), a sensor glitch 30 %
   (`sensor_glitch_suspected`); behaviour anomalies (excessive idle, unsafe operation) never.
-- **Demo persona.** OP03 is always "Ravi Kumar" at S1, to match the demo login (supabase.md §4).
+- **Demo persona.** OP03 is always "Ravi Kumar" at S1 (`master.py`). He was the first demo login,
+  but he has no night shift in the loaded 14 days, so the demo now uses OP02 Ganesh Nair on M05
+  (`demo_script.md`, "Demo data"; login in supabase.md §4). OP02's name comes from the generator.
