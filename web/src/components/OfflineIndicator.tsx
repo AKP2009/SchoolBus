@@ -2,6 +2,7 @@ import { Clock, Wifi, WifiOff } from 'lucide-react';
 import { cx } from '@/lib/cx';
 import { useMode } from '@/lib/mode';
 import { useConnection } from '@/stores/connection';
+import { useT } from '@/i18n';
 
 export interface OfflineIndicatorProps {
   /** Override the live navigator.onLine value (styleguide, demo "offline" scenario). */
@@ -16,6 +17,7 @@ export interface OfflineIndicatorProps {
 /** Status-bar connection state. Offline: wifi-off + "Offline — changes will sync" (design.md §Offline). */
 export function OfflineIndicator({ online, queued, onHeader, className }: OfflineIndicatorProps) {
   const mode = useMode();
+  const t = useT();
   const live = useConnection();
   const isOnline = online ?? live.online;
   const pending = queued ?? live.queued;
@@ -32,18 +34,18 @@ export function OfflineIndicator({ online, queued, onHeader, className }: Offlin
       {isOnline ? (
         <>
           <Wifi size={size} className="text-ok" aria-hidden />
-          <span>Online</span>
+          <span>{t('conn.online')}</span>
         </>
       ) : (
         <>
           <WifiOff size={size} className="text-offline" aria-hidden />
-          <span>Offline — changes will sync</span>
+          <span>{t('conn.offline')}</span>
         </>
       )}
       {pending > 0 && (
         <span className={cx('inline-flex items-center gap-1', onHeader ? 'text-header-ink-2' : 'text-ink-2')}>
           <Clock size={size - 4} aria-hidden />
-          <span className="reading">{pending}</span> queued
+          {t.rich('conn.queued', { n: <span className="reading">{pending}</span> })}
         </span>
       )}
     </span>

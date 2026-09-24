@@ -30,6 +30,13 @@ export function setCached<T>(key: string, update: (prev: T | undefined) => T): v
   listeners.get(key)?.forEach((l) => l());
 }
 
+/** Like setCached, but only when `key` is loaded (Realtime patches never create an empty entry). */
+export function patchCached<T>(key: string, update: (prev: T) => T): void {
+  const entry = cache.get(key);
+  if (!entry) return;
+  setCached<T>(key, (prev) => update(prev as T));
+}
+
 export function getCached<T>(key: string): T | undefined {
   return cache.get(key)?.data as T | undefined;
 }

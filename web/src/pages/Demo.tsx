@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CloudOff, Droplets, Eye, Flame, Mountain, Pause, Play, RotateCcw, ShieldAlert, Siren, Square, UserRound, Wifi } from 'lucide-react';
+import { CloudOff, Droplets, Eye, Flame, Languages, Mountain, Pause, Play, RotateCcw, ShieldAlert, Siren, Square, UserRound, Wifi } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@/components/Button';
 import { StatusBadge } from '@/components/StatusBadge';
-import { USE_MOCKS } from '@/data/config';
+import { useAuth } from '@/data/auth';
+import { DEMO_REPLAY, USE_MOCKS } from '@/data/config';
 import { sendDemo } from '@/data/demoBus';
 import { useWorld } from '@/data/hooks';
-import { mockReplay, useLive, useLiveStream } from '@/data/live';
+import { mockReplay, setReplayStatus, useLive, useLiveStream } from '@/data/live';
 import * as api from '@/data/api';
+import { LANGS, useLanguage } from '@/i18n';
 import { fmtTime } from '@/lib/format';
 import { ModeProvider, useDocumentMode } from '@/lib/mode';
 import { useConnection } from '@/stores/connection';
@@ -58,21 +60,32 @@ function simulated(name: Scenario): Array<StreamMessage & { offsetS: number }> {
 export function Demo() {
   useDocumentMode('office');
   const world = useWorld();
-  const machineId = world.data?.machine.machine_id ?? null;
-  useLiveStream(machineId);
+  const manager = useAuth((s) => s.office.profile);
+  const lang = useLanguage();
+  // Mock: the recorded stream's machine. Live: the scenario target (M05, Ganesh's dozer, by default).
+  const [target, setTarget] = useState(DEMO_REPLAY.machineId);
+  const machineId = USE_MOCKS ? (world.data?.machine.machine_id ?? null) : target.trim() || null;
+  useLiveStream(USE_MOCKS ? machineId : null);
   const [t, endS, playing, speed, fromMs, clock] = useLive(useShallow((s) => [s.t, s.endS, s.playing, s.speed, s.fromMs, s.clock] as const));
   const offline = useConnection((s) => s.forcedOffline);
   const [log, setLog] = useState<string[]>([]);
   const [status, setStatus] = useState<ReplayStatus | null>(null);
-  const [from, setFrom] = useState('2026-08-19T15:15:00Z');
-  const [ids, setIds] = useState('M01,M02,M03,M04,M05,M06');
-  const [realSpeed, setRealSpeed] = useState(1);
+  const [from, setFrom] = useState(DEMO_REPLAY.from);
+  const [ids, setIds] = useState(DEMO_REPLAY.machineIds.join(','));
+  const [realSpeed, setRealSpeed] = useState(DEMO_REPLAY.speed);
 
   const note = (s: string) => setLog((l) => [`${new Date().toLocaleTimeString()} ${s}`, ...l].slice(0, 12));
 
   useEffect(() => {
     if (USE_MOCKS) return;
-    const poll = () => void api.replayStatus().then(setStatus).catch(() => setStatus(null));
+    const poll = () =>
+      void api
+        .replayStatus()
+        .then((s) => {
+          setStatus(s);
+          setReplayStatus(s);
+        })
+        .catch(() => setStatus(null));
     poll();
     const id = window.setInterval(poll, 5000);
     return () => window.clearInterval(id);
@@ -84,7 +97,7 @@ export function Demo() {
       try {
         if (name === 'fatigue' || name === 'proximity' || name === 'sos') {
           // These come from the vision service / voice in the real system: post the event it would send.
-          const base = { machine_id: machineId, operator_id: world.data?.operator.operator_id, ts: new Date().toISOString() };
+          const base = { machine_id: machineId, operator_id: DEMO_REPLAY.operatorId, ts: new Date().toISOString() };
           const body =
             name === 'proximity'
               ? { ...base, type: 'proximity_breach', severity: 'critical', distance_m: 2.4, sector: 'rear', approaching: true, details: { class: 'person', conf: 0.9 } }
@@ -128,7 +141,8 @@ export function Demo() {
           <div>
             <h1 className="text-office-h1">Demo panel</h1>
             <p className="text-office-body text-ink-2">
-              Controls every open tab of this app. {USE_MOCKS ? 'Mock mode: replays the recorded stream in the browser.' : 'Backend mode: calls /replay and /scenario.'}
+              Controls every open tab of this app.{' '}
+              {USE_MOCKS ? 'Mock mode: replays the recorded stream in the browser.' : `Backend mode: calls /replay and /scenario as ${manager?.full_name ?? 'the signed-in manager'}.`}
             </p>
           </div>
           <nav className="flex gap-4 text-office-body">
@@ -223,14 +237,28 @@ export function Demo() {
                         .replayStart({ machine_ids: ids.split(',').map((s) => s.trim()).filter(Boolean), from, speed: realSpeed })
                         .then((s) => {
                           setStatus(s);
-                          note('Replay started');
+                          setReplayStatus(s);
+                          note(`Replay started: ${s.machine_ids.join(', ')} from ${fmtTime(s.replay_ts)} at ${s.speed}×`);
                         })
                         .catch((e: Error) => note(`Start failed: ${e.message}`))
                     }
                   >
                     Start replay
                   </Button>
-                  <Button variant="secondary" icon={Square} onClick={() => void api.replayStop().then(setStatus).catch((e: Error) => note(`Stop failed: ${e.message}`))}>
+                  <Button
+                    variant="secondary"
+                    icon={Square}
+                    onClick={() =>
+                      void api
+                        .replayStop()
+                        .then((s) => {
+                          setStatus(s);
+                          setReplayStatus(s);
+                          note('Replay stopped');
+                        })
+                        .catch((e: Error) => note(`Stop failed: ${e.message}`))
+                    }
+                  >
                     Stop
                   </Button>
                 </div>
@@ -254,6 +282,16 @@ export function Demo() {
             <Button variant={offline ? 'primary' : 'secondary'} icon={offline ? Wifi : CloudOff} onClick={() => sendDemo({ type: 'offline', on: !offline })}>
               {offline ? 'Go back online' : 'Go offline'}
             </Button>
+            <h2 className="mt-2 flex items-center gap-2 text-office-h2">
+              <Languages size={20} aria-hidden /> Cab language
+            </h2>
+            <div className="flex gap-2">
+              {LANGS.map((l) => (
+                <Button key={l} variant={lang === l ? 'primary' : 'secondary'} aria-pressed={lang === l} onClick={() => sendDemo({ type: 'lang', lang: l })} lang={l}>
+                  {l === 'en' ? 'English' : l === 'hi' ? 'हिन्दी' : 'தமிழ்'}
+                </Button>
+              ))}
+            </div>
             <h2 className="mt-2 text-office-h2">Log</h2>
             <ul className="reading flex flex-col gap-1 text-office-small text-ink-2" aria-live="polite">
               {log.length === 0 && <li>Nothing yet.</li>}
@@ -264,7 +302,15 @@ export function Demo() {
           </section>
 
           <section className="col-span-12 flex flex-col gap-3 rounded-md border bg-surface p-4" aria-label="Scenarios">
-            <h2 className="text-office-h2">Scenarios on {machineId ?? '…'}</h2>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h2 className="text-office-h2">Scenarios on {machineId ?? '…'}</h2>
+              {!USE_MOCKS && (
+                <label className="flex items-center gap-2 text-office-small text-ink-2">
+                  Machine
+                  <input className="min-h-touch-office w-24 rounded-sm border px-2 font-mono text-office-body text-ink" value={target} onChange={(e) => setTarget(e.target.value.toUpperCase())} />
+                </label>
+              )}
+            </div>
             <div className="grid grid-cols-4 gap-3">
               {SCENARIOS.map((s) => (
                 <button

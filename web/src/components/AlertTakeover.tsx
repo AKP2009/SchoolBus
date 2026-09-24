@@ -4,6 +4,7 @@ import { useMode } from '@/lib/mode';
 import { STATUS } from '@/lib/status';
 import type { Alert } from '@/types/domain';
 import { HoldButton } from './Button';
+import { useT } from '@/i18n';
 
 export interface AlertTakeoverProps {
   /** Every open critical/emergency alert. Only the first (emergency first, then oldest) is shown. */
@@ -27,6 +28,7 @@ export function orderTakeovers(queue: Alert[]): Alert[] {
  */
 export function AlertTakeover({ queue, onAcknowledge, className }: AlertTakeoverProps) {
   const mode = useMode();
+  const t = useT();
   const ordered = orderTakeovers(queue);
   const alert = ordered[0];
   const panel = useRef<HTMLDivElement>(null);
@@ -61,7 +63,7 @@ export function AlertTakeover({ queue, onAcknowledge, className }: AlertTakeover
         <div className="flex items-start justify-between gap-4">
           <div className={cx('flex items-center gap-3 rounded-md px-3 py-2', meta.tint)}>
             <Icon size={cab ? 48 : 32} strokeWidth={2} className={meta.text} aria-hidden />
-            <span className={cx('font-bold', cab ? 'text-cab-h2' : 'text-office-h2')}>{meta.word}</span>
+            <span className={cx('font-bold', cab ? 'text-cab-h2' : 'text-office-h2')}>{t(`status.${alert.severity}`)}</span>
           </div>
           {waiting > 0 && (
             <span
@@ -70,7 +72,7 @@ export function AlertTakeover({ queue, onAcknowledge, className }: AlertTakeover
                 cab ? 'text-cab-small' : 'text-office-small',
               )}
             >
-              <span className="reading text-ink">+{waiting}</span> more waiting
+              {t.rich('alert.moreWaiting', { n: <span className="reading text-ink">+{waiting}</span> })}
             </span>
           )}
         </div>
@@ -90,7 +92,7 @@ export function AlertTakeover({ queue, onAcknowledge, className }: AlertTakeover
         <div className="flex items-center justify-between gap-4">
           {emergency ? (
             <p className={cx('text-ink-2', cab ? 'text-cab-body' : 'text-office-body')}>
-              Site manager notified. They will resolve this emergency.
+              {t('alert.managerNotified')}
             </p>
           ) : (
             <>
@@ -100,7 +102,7 @@ export function AlertTakeover({ queue, onAcknowledge, className }: AlertTakeover
                 </span>
               )}
               <HoldButton variant="destructive" onConfirm={() => onAcknowledge(alert.id)} className="ml-auto">
-                Acknowledge
+                {t('alert.acknowledge')}
               </HoldButton>
             </>
           )}

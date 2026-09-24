@@ -4,6 +4,7 @@ import { useMode } from '@/lib/mode';
 import type { Task, TaskStatus } from '@/types/domain';
 import { Button } from './Button';
 import { StatusBadge } from './StatusBadge';
+import { useT, type Key } from '@/i18n';
 
 export interface TaskCardProps {
   task: Task;
@@ -16,26 +17,18 @@ export interface TaskCardProps {
   className?: string;
 }
 
-const TYPE_WORD: Record<Task['task_type'], string> = {
-  dig: 'Dig',
-  trench: 'Trench',
-  load: 'Load',
-  haul: 'Haul',
-  grade: 'Grade',
-  backfill: 'Backfill',
-};
+const UNIT_KEY = { m3: 'unit.m3', tons: 'unit.t' } as const;
 
-const UNIT_WORD: Record<Task['unit'], string> = { m3: 'm³', tons: 't' };
-
-const STATUS_BADGE: Partial<Record<TaskStatus, { status: 'ok' | 'warning' | 'offline'; label: string }>> = {
-  completed: { status: 'ok', label: 'Done' },
-  delayed: { status: 'warning', label: 'Delayed' },
-  cancelled: { status: 'offline', label: 'Cancelled' },
+const STATUS_BADGE: Partial<Record<TaskStatus, { status: 'ok' | 'warning' | 'offline'; label: Key }>> = {
+  completed: { status: 'ok', label: 'task.done' },
+  delayed: { status: 'warning', label: 'task.delayed' },
+  cancelled: { status: 'offline', label: 'task.cancelled' },
 };
 
 /** Title · quantity · predicted time with range · top factor chips · state button (design.md §Task card). */
 export function TaskCard({ task, position, onStart, onComplete, pendingSync, className }: TaskCardProps) {
   const mode = useMode();
+  const t = useT();
   const cab = mode === 'cab';
   const factors = [...(task.prediction_factors ?? [])]
     .sort((a, b) => Math.abs(b.impact_min) - Math.abs(a.impact_min))
@@ -56,10 +49,10 @@ export function TaskCard({ task, position, onStart, onComplete, pendingSync, cla
         <div className="min-w-0">
           <h3 className={cab ? 'text-cab-h2' : 'text-office-h3'}>
             {position != null && <span className="reading mr-2 text-ink-2">{position}.</span>}
-            {TYPE_WORD[task.task_type]} {task.material_type}
+            {t(`taskType.${task.task_type}`)} {t(`material.${task.material_type}`)}
           </h3>
           <p className={cx('text-ink-2', cab ? 'text-cab-body' : 'text-office-body')}>
-            <span className="reading">{task.quantity}</span> {UNIT_WORD[task.unit]}
+            <span className="reading">{task.quantity}</span> {t(UNIT_KEY[task.unit])}
             <span className={cx('reading ml-3', cab ? 'text-cab-small' : 'text-office-small')}>{task.task_id}</span>
           </p>
         </div>
@@ -67,22 +60,25 @@ export function TaskCard({ task, position, onStart, onComplete, pendingSync, cla
           <p className={cx('reading font-medium', cab ? 'text-cab-display' : 'text-office-kpi')}>
             {p50 == null ? '—' : Math.round(p50)}
             <span className={cx('ml-1 font-sans font-normal text-ink-2', cab ? 'text-cab-body' : 'text-office-body')}>
-              min
+              {t('unit.min')}
             </span>
           </p>
           {task.predicted_p10_min != null && task.predicted_p90_min != null && (
             <p className={cx('text-ink-2', cab ? 'text-cab-small' : 'text-office-small')}>
-              usually{' '}
-              <span className="reading">
-                {Math.round(task.predicted_p10_min)}–{Math.round(task.predicted_p90_min)}
-              </span>
+              {t.rich('task.usually', {
+                range: (
+                  <span className="reading">
+                    {Math.round(task.predicted_p10_min)}–{Math.round(task.predicted_p90_min)}
+                  </span>
+                ),
+              })}
             </p>
           )}
         </div>
       </div>
 
       {factors.length > 0 && (
-        <ul className="flex flex-wrap gap-2" aria-label="Biggest factors in this estimate">
+        <ul className="flex flex-wrap gap-2" aria-label={t('task.factorsAria')}>
           {factors.map((f) => (
             <li
               key={f.feature}
@@ -94,7 +90,7 @@ export function TaskCard({ task, position, onStart, onComplete, pendingSync, cla
               {f.label}{' '}
               <span className="reading">
                 {f.impact_min >= 0 ? '+' : '−'}
-                {Math.abs(Math.round(f.impact_min))} min
+                {Math.abs(Math.round(f.impact_min))} {t('unit.min')}
               </span>
             </li>
           ))}
@@ -105,22 +101,22 @@ export function TaskCard({ task, position, onStart, onComplete, pendingSync, cla
         {pendingSync ? (
           <span className={cx('flex items-center gap-2 text-ink-2', cab ? 'text-cab-small' : 'text-office-small')}>
             <Clock size={cab ? 24 : 16} aria-hidden />
-            Waiting to sync
+            {t('task.waitingSync')}
           </span>
         ) : (
           <span />
         )}
         {task.status === 'scheduled' && (
           <Button icon={Play} onClick={() => onStart?.(task.task_id)}>
-            Start task
+            {t('task.start')}
           </Button>
         )}
         {task.status === 'in_progress' && (
           <Button icon={CircleCheck} onClick={() => onComplete?.(task.task_id)}>
-            Complete task
+            {t('task.complete')}
           </Button>
         )}
-        {badge && <StatusBadge status={badge.status} label={badge.label} />}
+        {badge && <StatusBadge status={badge.status} label={t(badge.label)} />}
       </div>
     </article>
   );

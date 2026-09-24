@@ -7,6 +7,7 @@ import { useConnection } from '@/stores/connection';
 import type { Resource } from '@/data/resource';
 import { Button } from './Button';
 import { EmptyState, Skeleton } from './EmptyState';
+import { useT } from '@/i18n';
 
 export interface DataStateProps<T> {
   res: Resource<T>;
@@ -28,10 +29,11 @@ export interface DataStateProps<T> {
 export function DataState<T>({ res, isEmpty, empty, errorTitle, skeleton, children, className }: DataStateProps<T>) {
   const cab = useMode() === 'cab';
   const online = useConnection((s) => s.online);
+  const t = useT();
 
   if (res.status === 'loading') {
     return (
-      <div className={cx('flex flex-col', cab ? 'gap-4' : 'gap-3', className)} aria-busy="true" aria-label="Loading">
+      <div className={cx('flex flex-col', cab ? 'gap-4' : 'gap-3', className)} aria-busy="true" aria-label={t('data.loading')}>
         {skeleton ?? (
           <>
             <Skeleton className={cab ? 'h-10 w-1/2' : 'h-7 w-1/3'} />
@@ -48,10 +50,10 @@ export function DataState<T>({ res, isEmpty, empty, errorTitle, skeleton, childr
       <EmptyState
         icon={CloudOff}
         title={errorTitle}
-        hint={online ? `${res.error ?? 'The server did not answer.'} Try again in a moment.` : 'You are offline. Check the connection, then try again.'}
+        hint={online ? t('data.tryLater', { error: res.error ?? t('data.noAnswer') }) : t('data.offlineHint')}
         action={
           <Button variant="secondary" icon={RotateCw} onClick={res.reload}>
-            Try again
+            {t('data.tryAgain')}
           </Button>
         }
         className={className}
@@ -68,7 +70,7 @@ export function DataState<T>({ res, isEmpty, empty, errorTitle, skeleton, childr
       {(res.stale || !online) && res.loadedAt != null && (
         <p className={cx('flex items-center gap-2 text-ink-2', cab ? 'text-cab-small' : 'text-office-small')}>
           <CloudOff size={cab ? 22 : 16} aria-hidden />
-          Offline — showing what was saved at <span className="reading">{fmtTime(res.loadedAt)}</span>
+          {t.rich('data.savedAt', { time: <span className="reading">{fmtTime(res.loadedAt)}</span> })}
         </p>
       )}
       {children(data as NonNullable<T>)}

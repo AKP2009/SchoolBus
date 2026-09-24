@@ -1,19 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { USE_MOCKS } from '@/data/config';
 import { useOpenAlerts, useWorld } from '@/data/hooks';
-import { useLive, useLiveStream } from '@/data/live';
+import { useDataNow, useLiveStream } from '@/data/live';
 import { OfficeLayout } from '@/layouts/OfficeLayout';
 
-/** Data time now: the mock replay clock, else the wall clock. */
+/** Data time now: the mock replay clock; live, the running replay's clock (data/live.ts). */
 export function useOfficeNow(): number {
-  const clock = useLive((s) => s.clock);
-  const [wall, setWall] = useState(Date.now());
-  useEffect(() => {
-    if (USE_MOCKS) return;
-    const id = window.setInterval(() => setWall(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-  return USE_MOCKS && clock ? clock : wall;
+  return useDataNow();
 }
 
 export function useSiteId(): string | undefined {

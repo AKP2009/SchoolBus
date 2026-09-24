@@ -1,37 +1,29 @@
-// Hand-written until the generated types exist (web/src/types/supabase.ts, see CLAUDE.md).
-// Enum values and column names follow supabase/migrations/001_init.sql; API shapes follow
-// docs/api_contract.md. Mocks in web/src/mocks/ are built to these shapes by scripts/build_mocks.py.
+// Table rows come from the generated web/src/types/supabase.ts (the migration is the source of truth).
+// This file keeps only what differs from a plain row: jsonb columns narrowed to their real shape,
+// UI subsets, and the FastAPI / WebSocket / mock shapes of docs/api_contract.md.
+import type { Enums, Tables } from './supabase';
 
-export type SeverityLevel = 'info' | 'warning' | 'critical' | 'emergency';
-export type AlertStage = 'warn' | 'derate' | 'recommend_shutdown' | 'escalated' | 'resolved';
-export type TaskType = 'dig' | 'trench' | 'load' | 'haul' | 'grade' | 'backfill';
-export type MaterialType = 'clay' | 'sand' | 'gravel' | 'rock' | 'topsoil';
-export type TaskStatus = 'scheduled' | 'in_progress' | 'completed' | 'delayed' | 'cancelled';
-export type CameraSector = 'front' | 'rear' | 'left' | 'right' | 'cab';
-export type FatigueLevel = 'low' | 'medium' | 'high';
-export type MachineType = 'excavator' | 'wheel_loader' | 'dozer' | 'articulated_truck';
-export type MachineStatus = 'active' | 'idle' | 'maintenance' | 'down';
-export type ShiftType = 'day' | 'night';
-export type AlertSource = 'rule' | 'anomaly_model' | 'predictive_model' | 'vision' | 'operator' | 'system';
-export type AlertCategory = 'internal' | 'safety' | 'maintenance' | 'behaviour' | 'emergency';
-export type SafetyEventType =
-  | 'seatbelt_unfastened'
-  | 'proximity_breach'
-  | 'blindspot_intrusion'
-  | 'fatigue_high'
-  | 'phone_use'
-  | 'tip_risk'
-  | 'geofence_breach'
-  | 'harsh_maneuver'
-  | 'overspeed'
-  | 'sos';
-export type MachineComponent = 'engine' | 'hydraulics' | 'cooling' | 'electrical' | 'brakes' | 'undercarriage' | 'other';
-export type IncidentType = 'near_miss' | 'collision' | 'injury' | 'equipment_damage' | 'spill_leak' | 'other';
-export type IncidentStatus = 'open' | 'investigating' | 'closed';
-export type ReportChannel = 'form' | 'voice' | 'auto';
-export type GeofenceType = 'no_go' | 'pedestrian' | 'power_line' | 'trench' | 'speed_limited';
-export type TrainingFormat = 'video' | 'document' | 'quiz' | 'scenario' | 'instructor_session';
-export type RecommendationStatus = 'pending' | 'accepted' | 'dismissed' | 'completed';
+export type SeverityLevel = Enums<'severity_level'>;
+export type AlertStage = Enums<'alert_stage'>;
+export type TaskType = Enums<'task_type'>;
+export type MaterialType = Enums<'material_type'>;
+export type TaskStatus = Enums<'task_status'>;
+export type CameraSector = Enums<'camera_sector'>;
+export type FatigueLevel = Enums<'fatigue_level'>;
+export type MachineType = Enums<'machine_type'>;
+export type MachineStatus = Enums<'machine_status'>;
+export type ShiftType = Enums<'shift_type'>;
+export type AlertSource = Enums<'alert_source'>;
+export type AlertCategory = Enums<'alert_category'>;
+export type SafetyEventType = Enums<'safety_event_type'>;
+export type MachineComponent = Enums<'machine_component'>;
+export type IncidentType = Enums<'incident_type'>;
+export type IncidentStatus = Enums<'incident_status'>;
+export type ReportChannel = Enums<'report_channel'>;
+export type GeofenceType = Enums<'geofence_type'>;
+export type TrainingFormat = Enums<'training_format'>;
+export type RecommendationStatus = Enums<'recommendation_status'>;
+export type UserRole = Enums<'user_role'>;
 export type Band = 'green' | 'orange' | 'red';
 export type Subsystem = 'engine' | 'cooling' | 'hydraulics' | 'electrical' | 'undercarriage';
 
@@ -42,37 +34,18 @@ export interface PredictionFactor {
   impact_min: number;
 }
 
-/** The fields TaskCard needs; `TaskRow` is the full `tasks` row. */
-export interface Task {
-  task_id: string;
-  task_type: TaskType;
-  material_type: MaterialType;
-  quantity: number;
+/** A `tasks` row; jsonb `prediction_factors` and the checked `unit` / `priority` narrowed. */
+export type TaskRow = Omit<Tables<'tasks'>, 'unit' | 'priority' | 'prediction_factors'> & {
   unit: 'm3' | 'tons';
-  predicted_p10_min: number | null;
-  predicted_p50_min: number | null;
-  predicted_p90_min: number | null;
-  prediction_factors: PredictionFactor[] | null;
-  status: TaskStatus;
-}
-
-export interface TaskRow extends Task {
-  site_id: string;
-  shift_id: string;
-  machine_id: string;
-  operator_id: string;
-  sequence_no: number;
-  task_date: string;
-  terrain_slope_deg: number;
-  haul_distance_m: number | null;
   priority: 1 | 2 | 3;
-  scheduled_start: string | null;
-  actual_start: string | null;
-  actual_end: string | null;
-  actual_duration_min: number | null;
-  delay_reason: string | null;
-  updated_at: string;
-}
+  prediction_factors: PredictionFactor[] | null;
+};
+
+/** The fields TaskCard needs. */
+export type Task = Pick<
+  TaskRow,
+  'task_id' | 'task_type' | 'material_type' | 'quantity' | 'unit' | 'predicted_p10_min' | 'predicted_p50_min' | 'predicted_p90_min' | 'prediction_factors' | 'status'
+>;
 
 /** POST /predict/task-time → predictions[] */
 export interface TaskPrediction {
@@ -99,28 +72,11 @@ export interface Alert {
   steps?: string[];
 }
 
-/** An `alerts` / `v_open_alerts` row. */
-export interface AlertRow extends Alert {
-  site_id: string;
-  operator_id: string | null;
-  source: AlertSource;
-  category: AlertCategory;
-  alert_code: string;
-  anomaly_score: number | null;
-  evidence: Record<string, unknown> | null;
-  acknowledged_by: string | null;
-  acknowledged_at: string | null;
-  resolved_at: string | null;
-}
+/** An `alerts` / `v_open_alerts` row (jsonb `evidence` as an object). */
+export type AlertRow = Omit<Tables<'alerts'>, 'evidence'> & { evidence: Record<string, unknown> | null; steps?: string[] };
 
 /** Subsystem scores from `machine_health_snapshots`, 0–1, null when unknown. */
-export interface HealthScores {
-  engine_score: number | null;
-  cooling_score: number | null;
-  hydraulics_score: number | null;
-  electrical_score: number | null;
-  undercarriage_score: number | null;
-}
+export type HealthScores = Pick<Tables<'machine_health_snapshots'>, 'engine_score' | 'cooling_score' | 'hydraulics_score' | 'electrical_score' | 'undercarriage_score'>;
 
 export interface HealthReason {
   subsystem: Subsystem;
@@ -143,32 +99,8 @@ export interface MachineHealth {
   reasons?: HealthReason[];
 }
 
-/** A `telemetry` row as streamed (never anomaly_label / anomaly_type). */
-export interface Telemetry {
-  ts: string;
-  machine_id: string;
-  operator_id: string | null;
-  shift_id: string | null;
-  engine_rpm: number | null;
-  engine_load_pct: number | null;
-  coolant_temp_c: number | null;
-  engine_oil_temp_c: number | null;
-  oil_pressure_kpa: number | null;
-  hydraulic_pressure_bar: number | null;
-  hydraulic_oil_temp_c: number | null;
-  fuel_rate_lph: number | null;
-  fuel_level_pct: number | null;
-  battery_voltage: number | null;
-  vibration_rms_g: number | null;
-  ground_speed_kmh: number | null;
-  pitch_deg: number | null;
-  roll_deg: number | null;
-  gps_lat: number | null;
-  gps_lon: number | null;
-  seatbelt_fastened: boolean | null;
-  is_idle: boolean | null;
-  fault_code: string | null;
-}
+/** A `telemetry` row as streamed (never anomaly_label / anomaly_type, CLAUDE.md rule 1). */
+export type Telemetry = Omit<Tables<'telemetry'>, 'id' | 'anomaly_label' | 'anomaly_type'>;
 
 // -- WebSocket /stream/{machine_id} ------------------------------------------------------------
 export interface StreamAlert {
@@ -209,14 +141,7 @@ export interface TelemetryStream {
 }
 
 // -- People, machines, shifts ------------------------------------------------------------------
-export interface Site {
-  site_id: string;
-  name: string;
-  site_type?: string;
-  lat?: number;
-  lon?: number;
-  timezone?: string;
-}
+export type Site = Pick<Tables<'sites'>, 'site_id' | 'name'> & Partial<Pick<Tables<'sites'>, 'site_type' | 'lat' | 'lon' | 'timezone'>>;
 
 export interface World {
   now: string;
@@ -253,15 +178,9 @@ export interface World {
   };
 }
 
-export interface ShiftRow {
-  shift_id: string;
-  operator_id: string;
-  machine_id: string;
-  shift_type: ShiftType;
-  shift_date: string;
-  start_time: string;
-  end_time: string;
-}
+/** The `shifts` columns the site views select. */
+export type ShiftRow = Pick<Tables<'shifts'>, 'shift_id' | 'operator_id' | 'machine_id' | 'shift_type' | 'shift_date' | 'start_time' | 'end_time'>;
+export type ShiftFull = Tables<'shifts'>;
 
 export interface LogAlert {
   alert_code: string;
@@ -317,57 +236,13 @@ export interface MachineLogs {
   shifts: MachineLogShift[];
 }
 
-export interface SafetyEventRow {
-  id: number;
-  ts: string;
-  site_id: string;
-  machine_id: string | null;
-  operator_id: string | null;
-  event_type: SafetyEventType;
-  severity: SeverityLevel;
-  distance_m: number | null;
-  sector: CameraSector | null;
-  approaching: boolean | null;
-  details: Record<string, unknown> | null;
-  alert_id: number | null;
-  resolved: boolean;
-}
+/** A `safety_events` row (jsonb `details` as an object). */
+export type SafetyEventRow = Omit<Tables<'safety_events'>, 'details'> & { details: Record<string, unknown> | null };
 
-export interface FatigueRow {
-  ts: string;
-  operator_id: string;
-  shift_id: string | null;
-  ear_avg: number | null;
-  perclos_60s: number | null;
-  yawn_count: number;
-  head_down_events: number;
-  phone_detected: boolean;
-  fatigue_score: number;
-  fatigue_level: FatigueLevel;
-}
+/** A `fatigue_log` row (mocks leave out `id`). */
+export type FatigueRow = Omit<Tables<'fatigue_log'>, 'id'> & { id?: number };
 
-export interface IncidentRow {
-  id: number;
-  client_id: string;
-  ts: string;
-  site_id: string;
-  machine_id: string | null;
-  operator_id: string | null;
-  incident_type: IncidentType;
-  severity: SeverityLevel;
-  description: string;
-  injury: boolean;
-  damage_description: string | null;
-  root_cause: string | null;
-  reported_via: ReportChannel;
-  voice_transcript: string | null;
-  ai_summary: string | null;
-  linked_alert_id: number | null;
-  linked_event_id: number | null;
-  media_paths: string[];
-  status: IncidentStatus;
-  created_by: string | null;
-}
+export type IncidentRow = Tables<'incidents'>;
 
 export interface GeoPolygon {
   type: 'Polygon';
@@ -375,17 +250,8 @@ export interface GeoPolygon {
   coordinates: number[][][];
 }
 
-export interface Geofence {
-  id: number;
-  site_id: string;
-  name: string;
-  zone_type: GeofenceType;
-  polygon: GeoPolygon;
-  speed_limit_kmh: number | null;
-  active: boolean;
-  created_by: string | null;
-  created_at: string;
-}
+/** A `geofences` row (jsonb `polygon` as GeoJSON). */
+export type Geofence = Omit<Tables<'geofences'>, 'polygon'> & { polygon: GeoPolygon };
 
 export interface FleetMachine {
   machine_id: string;
@@ -419,40 +285,13 @@ export interface Fleet {
   geofences: Geofence[];
 }
 
-export interface MaintenancePrediction {
-  id: number;
-  machine_id: string;
-  predicted_at: string;
-  horizon_hours: number;
-  failure_probability: number;
-  likely_component: MachineComponent | null;
+/** Latest `maintenance_predictions` row per machine (jsonb `top_factors` narrowed, `risk_band` added). */
+export type MaintenancePrediction = Omit<Tables<'maintenance_predictions'>, 'top_factors'> & {
   top_factors: Array<{ feature: string; shap: number; label?: string }>;
-  model_version: string;
   risk_band?: 'low' | 'medium' | 'high';
-}
+};
 
-export interface FleetMetricRow {
-  id: number;
-  entity_type: 'operator' | 'machine';
-  entity_id: string;
-  site_id: string;
-  week_start: string;
-  productive_hours: number | null;
-  fuel_per_productive_hour: number | null;
-  idle_pct: number | null;
-  productivity_per_hour: number | null;
-  time_ratio: number | null;
-  anomaly_count: number;
-  safety_event_count: number;
-  efficiency_index: number | null;
-  cluster_id: number | null;
-  cluster_label: string | null;
-  is_outlier: boolean;
-  outlier_reason: string | null;
-  rank_in_site: number | null;
-  verified_by: string | null;
-  verified_at: string | null;
-}
+export type FleetMetricRow = Tables<'fleet_metrics_weekly'>;
 
 export interface PcaPoint {
   entity_id: string;
@@ -484,39 +323,13 @@ export interface ScenarioStep {
   explanation?: string;
   module_id?: string;
 }
-export interface TrainingModule {
-  module_id: string;
-  title: string;
-  topic: string;
-  format: TrainingFormat;
-  duration_min: number | null;
-  difficulty: number | null;
-  content_path: string | null;
-  target_metric: string | null;
+/** A `training_modules` row (jsonb `scenario` narrowed). */
+export type TrainingModule = Omit<Tables<'training_modules'>, 'scenario' | 'machine_types'> & {
   machine_types: MachineType[];
-  languages: string[];
   scenario: { steps: ScenarioStep[] } | null;
-}
-export interface TrainingRecord {
-  id: number;
-  client_id: string;
-  operator_id: string;
-  module_id: string;
-  started_at: string;
-  completed_at: string | null;
-  score: number | null;
-  passed: boolean | null;
-}
-export interface TrainingRecommendation {
-  id: number;
-  operator_id: string;
-  module_id: string;
-  reason: string;
-  trigger_metric: string | null;
-  trigger_value: number | null;
-  status: RecommendationStatus;
-  created_at: string;
-}
+};
+export type TrainingRecord = Tables<'training_records'>;
+export type TrainingRecommendation = Tables<'training_recommendations'>;
 export interface Training {
   modules: TrainingModule[];
   records: TrainingRecord[];
@@ -528,10 +341,12 @@ export interface ChatSource {
   title: string;
   chunk_index: number;
 }
-/** POST /chat response */
+/** POST /chat response. The backend also sends `cached` and `pre_generated`; the UI ignores them. */
 export interface ChatAnswer {
   answer: string;
   sources: ChatSource[];
+  cached?: boolean;
+  pre_generated?: boolean;
 }
 export interface ChatExamples {
   session_id: string;

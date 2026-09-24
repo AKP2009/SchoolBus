@@ -1,28 +1,34 @@
+import { t, type Key } from '@/i18n';
 import type { AlertStage, MachineType } from '@/types/domain';
 
-// Takeover steps are UI-side (Alert.steps). They follow the graded response in docs/models.md and
-// thresholds.yaml: never cut power, lower the attachment, reach level ground, cool down, then stop.
+// Takeover steps are UI-side (Alert.steps), in the cab's language. They follow the graded response in
+// docs/models.md and thresholds.yaml: never cut power, lower the attachment, reach level ground, cool
+// down, then stop.
 
-const ATTACHMENT: Record<MachineType, string> = {
-  excavator: 'Lower the bucket to the ground',
-  wheel_loader: 'Lower the bucket to the ground',
-  dozer: 'Lower the blade to the ground',
-  articulated_truck: 'Stop and apply the parking brake',
+const ATTACHMENT: Record<MachineType, Key> = {
+  excavator: 'step.lowerBucket',
+  wheel_loader: 'step.lowerBucket',
+  dozer: 'step.lowerBlade',
+  articulated_truck: 'step.parkingBrake',
 };
 
 const SHUTDOWN_CODES = /^(COOLANT|HYD_OIL|OIL_PRESSURE|HYD_PRESSURE|FAULT_CODE)/;
 
-export function stepsFor(alertCode: string, stage: AlertStage, machineType: MachineType | string | undefined): string[] | undefined {
+function keysFor(alertCode: string, stage: AlertStage, machineType: MachineType | string | undefined): Key[] | undefined {
   const first = ATTACHMENT[(machineType ?? 'excavator') as MachineType] ?? ATTACHMENT.excavator;
   if (SHUTDOWN_CODES.test(alertCode) && (stage === 'recommend_shutdown' || stage === 'escalated')) {
-    if (alertCode.startsWith('OIL_PRESSURE')) return [first, 'Move to level ground', 'Shut down now. Do not idle'];
-    if (alertCode.startsWith('HYD_PRESSURE')) return [first, 'Shut down', 'Do not restart until it is checked'];
-    return [first, 'Move to level ground', 'Idle for 3 minutes to cool', 'Shut down'];
+    if (alertCode.startsWith('OIL_PRESSURE')) return [first, 'step.levelGround', 'step.shutDownNow'];
+    if (alertCode.startsWith('HYD_PRESSURE')) return [first, 'step.shutDown', 'step.noRestart'];
+    return [first, 'step.levelGround', 'step.idleCool', 'step.shutDown'];
   }
-  if (SHUTDOWN_CODES.test(alertCode) && stage === 'derate') return ['Switch to economy mode', 'Reduce the load'];
-  if (alertCode === 'TIP_RISK') return ['Slow down', 'Keep the attachment low', 'Move to flatter ground'];
-  if (alertCode === 'EYES_CLOSED') return ['Stop the machine safely', 'Lower the attachment', 'Take a break before you carry on'];
-  if (alertCode.startsWith('PROXIMITY') || alertCode.startsWith('BLINDSPOT')) return ['Stop all movement', 'Sound the horn', 'Wait until you can see them clear'];
-  if (alertCode === 'SEATBELT') return ['Stop the machine', 'Fasten your seatbelt'];
+  if (SHUTDOWN_CODES.test(alertCode) && stage === 'derate') return ['step.economy', 'step.reduceLoad'];
+  if (alertCode === 'TIP_RISK') return ['step.slowDown', 'step.attachmentLow', 'step.flatterGround'];
+  if (alertCode === 'EYES_CLOSED') return ['step.stopSafely', 'step.lowerAttachment', 'step.takeBreak'];
+  if (alertCode.startsWith('PROXIMITY') || alertCode.startsWith('BLINDSPOT')) return ['step.stopMovement', 'step.horn', 'step.waitClear'];
+  if (alertCode === 'SEATBELT') return ['step.stopMachine', 'step.fastenBelt'];
   return undefined;
+}
+
+export function stepsFor(alertCode: string, stage: AlertStage, machineType: MachineType | string | undefined): string[] | undefined {
+  return keysFor(alertCode, stage, machineType)?.map((k) => t(k));
 }

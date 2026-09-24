@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import type {
   CameraSector,
@@ -8,9 +8,12 @@ import type {
   StreamMessage,
   StreamSafety,
   Telemetry,
+  ReplayStatus,
   TelemetryStream,
 } from '@/types/domain';
-import { USE_MOCKS, WS_URL, urlNumber } from './config';
+import { replayStatus } from './api';
+import { accessToken, refreshToken } from './auth';
+import { DATA_NOW, USE_MOCKS, WS_URL, urlNumber } from './config';
 import { mock } from './mocks';
 
 /**
@@ -203,66 +206,191 @@ export const mockReplay = {
 };
 
 // ---------------------------------------------------------------------------------------------
-// Real WebSocket
+// Real WebSocket: ws /stream/{machine_id}?token=<Supabase access token>
 // ---------------------------------------------------------------------------------------------
 let ws: WebSocket | null = null;
 let ping: number | null = null;
 let retry: number | null = null;
+let attempts = 0;
 
-function openWs(machineId: string) {
-  closeWs();
-  useLive.setState({ ...EMPTY, machineId, connected: false, source: 'ws' });
-  const sock = new WebSocket(`${WS_URL}/stream/${encodeURIComponent(machineId)}`);
+/** Why the stream is down, for the status bar (null while connected or connecting normally). */
+export type StreamProblem = 'no_session' | 'forbidden' | null;
+export const useStreamProblem = create<{ problem: StreamProblem }>(() => ({ problem: null }));
+
+function scheduleRetry(machineId: string, delayMs?: number) {
+  if (retry != null) window.clearTimeout(retry);
+  // 1 s, 2 s, 4 s … capped at 30 s, with jitter so a site's tablets don't reconnect in lockstep.
+  const wait = delayMs ?? Math.min(30_000, 1000 * 2 ** attempts) * (0.75 + Math.random() * 0.5);
+  attempts++;
+  retry = window.setTimeout(() => void openWs(machineId), wait);
+}
+
+async function openWs(machineId: string) {
+  if (current !== machineId) return;
+  if (!navigator.onLine) return; // the 'online' listener below reconnects
+  const token = await accessToken();
+  if (current !== machineId) return;
+  if (!token) {
+    useStreamProblem.setState({ problem: 'no_session' });
+    scheduleRetry(machineId);
+    return;
+  }
+  const sock = new WebSocket(`${WS_URL}/stream/${encodeURIComponent(machineId)}?token=${encodeURIComponent(token)}`);
   ws = sock;
   sock.onopen = () => {
+    attempts = 0;
+    useStreamProblem.setState({ problem: null });
     useLive.setState({ connected: true });
+    if (ping != null) window.clearInterval(ping);
     ping = window.setInterval(() => sock.readyState === WebSocket.OPEN && sock.send(JSON.stringify({ kind: 'ping' })), 20_000);
   };
   sock.onmessage = (ev) => {
     for (const line of String(ev.data).split('\n')) {
       if (!line.trim()) continue;
-      const msg = JSON.parse(line) as StreamMessage;
+      let msg: StreamMessage;
+      try {
+        msg = JSON.parse(line) as StreamMessage;
+      } catch {
+        continue;
+      }
       const s = useLive.getState();
       const at = msg.kind === 'telemetry' ? Date.parse(msg.data.ts) : s.clock || Date.now();
       useLive.setState({ ...applyMessage(s, msg, at), clock: Math.max(s.clock, at) });
     }
   };
-  sock.onclose = () => {
-    useLive.setState({ connected: false });
+  sock.onclose = (ev) => {
     if (ping != null) window.clearInterval(ping);
-    if (ws === sock) retry = window.setTimeout(() => openWs(machineId), 3000);
+    ping = null;
+    if (ws !== sock) return; // replaced or closed on purpose
+    ws = null;
+    useLive.setState({ connected: false });
+    if (ev.code === 4403) {
+      useStreamProblem.setState({ problem: 'forbidden' }); // not allowed on this machine: don't hammer
+      return;
+    }
+    if (ev.code === 4401) {
+      // Token expired or rejected: refresh once, then reconnect straight away.
+      void refreshToken().then((t) => (t ? scheduleRetry(machineId, 0) : (useStreamProblem.setState({ problem: 'no_session' }), scheduleRetry(machineId))));
+      return;
+    }
+    scheduleRetry(machineId);
   };
 }
 
 function closeWs() {
   if (retry != null) window.clearTimeout(retry);
   if (ping != null) window.clearInterval(ping);
+  retry = ping = null;
+  attempts = 0;
   const sock = ws;
   ws = null;
   sock?.close();
 }
 
+if (typeof window !== 'undefined' && !USE_MOCKS) {
+  window.addEventListener('online', () => {
+    if (current && !ws) {
+      attempts = 0;
+      void openWs(current);
+    }
+  });
+}
+
 let users = 0;
 let current: string | null = null;
+let closeTimer: number | null = null;
+/** Moving between cab screens unmounts one shell and mounts the next: keep the socket across that. */
+const CLOSE_GRACE_MS = 3000;
 
 /** Keeps the stream for `machineId` open while mounted (both layouts mount it). */
 export function useLiveStream(machineId: string | null): void {
   useEffect(() => {
     if (!machineId) return;
     users++;
+    if (closeTimer != null) {
+      window.clearTimeout(closeTimer);
+      closeTimer = null;
+    }
     if (current !== machineId) {
-      current = machineId;
-      if (USE_MOCKS) void openMock(machineId);
-      else openWs(machineId);
+      if (USE_MOCKS) {
+        current = machineId;
+        void openMock(machineId);
+      } else {
+        closeWs();
+        current = machineId;
+        useLive.setState({ ...EMPTY, machineId, connected: false, source: 'ws', clock: 0 });
+        void openWs(machineId);
+      }
     }
     return () => {
       users--;
       if (users === 0 && !USE_MOCKS) {
-        closeWs();
-        current = null;
+        closeTimer = window.setTimeout(() => {
+          closeTimer = null;
+          if (users > 0) return;
+          current = null;
+          closeWs();
+        }, CLOSE_GRACE_MS);
       }
     };
   }, [machineId]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Data time (live mode)
+// ---------------------------------------------------------------------------------------------
+interface ReplayClock {
+  /** Replay data time (ms) at `at` (wall ms), advancing at `speed`; null when no replay runs. */
+  ts: number | null;
+  at: number;
+  speed: number;
+  running: boolean;
+  machineIds: string[];
+}
+export const useReplayClock = create<ReplayClock>(() => ({ ts: null, at: 0, speed: 1, running: false, machineIds: [] }));
+
+export function setReplayStatus(s: ReplayStatus | null): void {
+  useReplayClock.setState(
+    s?.running && s.replay_ts
+      ? { ts: Date.parse(s.replay_ts), at: Date.now(), speed: s.speed ?? 1, running: true, machineIds: s.machine_ids }
+      : { ts: null, at: Date.now(), speed: 1, running: false, machineIds: s?.machine_ids ?? [] },
+  );
+}
+
+/** Data time now (ms), outside React. Mock: the replay clock. Live: stream → running replay → VITE_DATA_NOW → wall. */
+export function dataNowMs(): number {
+  const { clock } = useLive.getState();
+  if (clock) return clock;
+  if (USE_MOCKS) return Date.now();
+  const r = useReplayClock.getState();
+  if (r.running && r.ts != null) return r.ts + (Date.now() - r.at) * r.speed;
+  return DATA_NOW ?? Date.now();
+}
+
+let pollers = 0;
+let pollTimer: number | null = null;
+const pollReplay = () => void replayStatus().then(setReplayStatus, () => undefined);
+
+/** Data time now, re-rendered every `everyMs`; live mode also polls GET /replay/status while mounted. */
+export function useDataNow(everyMs = 30_000): number {
+  const clock = useLive((s) => s.clock);
+  useReplayClock((s) => s.ts); // re-render when the replay starts, stops or seeks
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => tick((n) => n + 1), everyMs);
+    return () => window.clearInterval(id);
+  }, [everyMs]);
+  useEffect(() => {
+    if (USE_MOCKS) return;
+    if (pollers++ === 0) {
+      pollReplay();
+      pollTimer = window.setInterval(pollReplay, 15_000);
+    }
+    return () => {
+      if (--pollers === 0 && pollTimer != null) window.clearInterval(pollTimer);
+    };
+  }, []);
+  return clock || dataNowMs();
 }
 
 /** Sector readings still fresh at the current data time, in the SafetyPanel shape. */

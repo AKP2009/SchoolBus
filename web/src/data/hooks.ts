@@ -1,16 +1,19 @@
 /**
  * The only data entry point for screens. Every hook picks mocks (web/src/mocks, built by
- * scripts/build_mocks.py) or the real source (Supabase + FastAPI in ./api.ts) from
- * VITE_USE_MOCKS, so switching to real data touches nothing outside web/src/data/.
+ * scripts/build_mocks.py) or the real source (Supabase + FastAPI in ./api.ts, Realtime in
+ * ./realtime.ts, the stream in ./live.ts) from VITE_USE_MOCKS, so switching to real data touches
+ * nothing outside web/src/data/. Live mode works in data time (./live.ts `dataNowMs`).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { enqueue, flush, type QueuedWrite } from '@/lib/offlineQueue';
+import { getLanguage, setLanguage, t, useLanguage } from '@/i18n';
+import { enqueue, flush, queuedIds, refreshCount, type QueuedWrite } from '@/lib/offlineQueue';
 import { stepsFor } from '@/lib/alertSteps';
-import { supabase } from '@/lib/supabase';
+import { asApp, currentApp } from '@/lib/supabase';
 import { STAGE_RANK, useAlertOverlay, useAlerts } from '@/stores/alerts';
 import { useConnection } from '@/stores/connection';
 import { useSession } from '@/stores/session';
+import type { TablesInsert } from '@/types/supabase';
 import type {
   Alert,
   AlertRow,
@@ -22,12 +25,16 @@ import type {
   Geofence,
   Handover,
   IncidentRow,
+  LogAlert,
   MachineHealth,
   MachineLogs,
   MachineSignals,
+  MachineType,
   MaintenancePrediction,
   PlanResult,
   SafetyEventRow,
+  SafetyEventType,
+  SeverityLevel,
   ShiftRow,
   TaskPrediction,
   TaskRow,
@@ -36,9 +43,11 @@ import type {
   World,
 } from '@/types/domain';
 import * as api from './api';
+import { signInWithRole, useAuth, type Profile } from './auth';
 import { MOCK_LATENCY_MS, USE_MOCKS } from './config';
-import { streamAlertIds, useLive } from './live';
+import { dataNowMs, setReplayStatus, streamAlertIds, useLive } from './live';
 import { mock } from './mocks';
+import { fleetKeys, useRealtimeAlerts } from './realtime';
 import { getCached, setCached, useResource, type Resource } from './resource';
 
 const wait = <T,>(v: T | Promise<T>) =>
@@ -53,35 +62,66 @@ export function uuid(): string {
   return crypto.randomUUID();
 }
 
+const iso = (ms: number) => new Date(ms).toISOString();
+
+/** The signed-in office profile's site (live), else S1. */
+function officeSite(): string {
+  return useAuth.getState().office.profile?.site_id ?? 'S1';
+}
+
 // ---------------------------------------------------------------------------------------------
 // World / session
 // ---------------------------------------------------------------------------------------------
-/** Site, demo operator/machine/shift, weather now. Real mode assembles it from the cab session. */
+/** Site, demo operator/machine/shift, weather now. Live mode assembles it from the cab session / office profile. */
 export function useWorld(): Resource<World> {
   const cab = useSession((s) => s.cab);
+  const office = useAuth((s) => s.office.profile);
+  const app = currentApp();
+  const who = app === 'cab' ? (cab?.shiftId ?? null) : (office?.id ?? null);
   return useResource<World>(
-    'world',
+    USE_MOCKS ? 'world' : who ? `world:${app}:${who}` : null,
     pick(
       () => mock('world'),
       async () => {
-        if (!supabase) throw new Error('Supabase is not configured.');
-        const site = cab?.siteId ?? 'S1';
-        const [sites, weather] = await Promise.all([
-          supabase.from('sites').select('*'),
-          supabase.from('weather').select('*').eq('site_id', site).order('ts', { ascending: false }).limit(1),
+        const inCab = app === 'cab' && !!cab;
+        const site = inCab ? cab.siteId : (office?.site_id ?? 'S1');
+        const [sites, weather, op, m] = await Promise.all([
+          api.sites(),
+          api.weatherAt(site, iso(dataNowMs())),
+          inCab ? api.operator(cab.operatorId) : Promise.resolve(null),
+          inCab ? api.machine(cab.machineId) : Promise.resolve(null),
         ]);
-        const s = (sites.data ?? []) as World['sites'];
         return {
-          now: new Date().toISOString(),
-          stream_from: new Date().toISOString(),
+          now: iso(dataNowMs()),
+          stream_from: iso(dataNowMs()),
           stream_minutes: 0,
-          site: s.find((x) => x.site_id === site) ?? { site_id: site, name: site },
-          sites: s,
-          operator: { operator_id: cab?.operatorId ?? '', full_name: cab?.operatorName ?? '', experience_years: 0, certification_level: 0, languages: ['en'], preferred_shift: cab?.shiftType ?? 'day' },
-          manager: { name: '', role: 'manager', site_id: site },
-          machine: { machine_id: cab?.machineId ?? '', machine_type: (cab?.machineType ?? 'excavator') as World['machine']['machine_type'], model: '', serial_no: '', year: 0 },
-          shift: { shift_id: cab?.shiftId ?? '', shift_type: cab?.shiftType ?? 'day', shift_date: '', start_time: cab?.shiftStart ?? '', end_time: cab?.shiftEnd ?? '', fuel_start_pct: cab?.fuelStartPct ?? 0 },
-          weather: ((weather.data ?? [])[0] ?? {}) as World['weather'],
+          site: sites.find((x) => x.site_id === site) ?? { site_id: site, name: site },
+          sites,
+          operator: {
+            operator_id: cab?.operatorId ?? '',
+            full_name: op?.full_name ?? cab?.operatorName ?? '',
+            experience_years: Number(op?.experience_years ?? 0),
+            certification_level: op?.certification_level ?? 0,
+            languages: op?.languages ?? ['en'],
+            preferred_shift: op?.preferred_shift ?? cab?.shiftType ?? 'day',
+          },
+          manager: { name: office?.full_name ?? 'Site manager', role: office?.role ?? 'manager', site_id: site },
+          machine: {
+            machine_id: m?.machine_id ?? cab?.machineId ?? '',
+            machine_type: (m?.machine_type ?? cab?.machineType ?? 'excavator') as MachineType,
+            model: m?.model ?? '',
+            serial_no: m?.serial_no ?? '',
+            year: m?.year ?? 0,
+          },
+          shift: {
+            shift_id: cab?.shiftId ?? '',
+            shift_type: cab?.shiftType ?? 'day',
+            shift_date: cab?.shiftStart.slice(0, 10) ?? '',
+            start_time: cab?.shiftStart ?? '',
+            end_time: cab?.shiftEnd ?? '',
+            fuel_start_pct: cab?.fuelStartPct ?? 0,
+          },
+          weather: (weather ?? { ts: iso(dataNowMs()), temp_c: 0, humidity_pct: 0, rain_mm: 0, wind_kmh: 0, visibility_m: 0, dust_index: 0 }) as World['weather'],
         };
       },
     ),
@@ -89,13 +129,18 @@ export function useWorld(): Resource<World> {
   );
 }
 
-/** Sign in: mock accepts the demo operator; real uses Supabase Auth and the operator's latest shift. */
-export async function signInOperator(email: string, password: string): Promise<void> {
-  const signIn = useSession.getState().signIn;
+/**
+ * Sign in. Mock: accepts the demo operator, as before. Live: Supabase Auth, and `profiles.role`
+ * decides where the account goes (the caller routes with `homeFor`). An operator gets the cab
+ * session for their shift at data time (the running replay's clock, else VITE_DATA_NOW), so Ganesh
+ * lands on SH-2026-08-19-M05-N for the demo window.
+ */
+export async function signIn(email: string, password: string): Promise<Profile['role']> {
+  const signInCab = useSession.getState().signIn;
   if (USE_MOCKS) {
     const w = await wait(mock('world'));
     if (password.length < 4) throw new Error('Wrong email or password.');
-    signIn({
+    signInCab({
       operatorId: w.operator.operator_id,
       operatorName: w.operator.full_name,
       machineId: w.machine.machine_id,
@@ -108,18 +153,25 @@ export async function signInOperator(email: string, password: string): Promise<v
       fuelStartPct: w.shift.fuel_start_pct,
       handoverSeen: false,
     });
-    return;
+    return 'operator';
   }
-  const profile = await api.signIn(email, password);
-  if (profile.role !== 'operator' || !profile.operator_id) throw new Error('This account is not an operator account.');
-  const shift = await api.currentShift(profile.operator_id);
-  if (!shift) throw new Error('No shift is assigned to you. Ask your supervisor.');
-  const { data: m } = await supabase!.from('machines').select('machine_type').eq('machine_id', shift.machine_id).single();
-  signIn({
-    operatorId: profile.operator_id,
-    operatorName: profile.full_name ?? profile.operator_id,
+  const profile = await signInWithRole(email, password);
+  if (profile.role !== 'operator') return profile.role;
+  if (!profile.operator_id) throw new Error('This operator account has no operator ID. Ask the site admin.');
+  setLanguage(profile.preferred_language);
+  const operatorId = profile.operator_id;
+  const { shift, m, name } = await asApp('cab', async () => {
+    await api.replayStatus().then(setReplayStatus, () => undefined); // data time from a running replay
+    const shift = await api.shiftAt(operatorId, iso(dataNowMs()));
+    if (!shift) throw new Error('No shift is assigned to you. Ask your supervisor.');
+    const m = await api.machine(shift.machine_id);
+    return { shift, m, name: profile.full_name ?? (await api.operatorName(operatorId)) };
+  });
+  signInCab({
+    operatorId,
+    operatorName: name ?? operatorId,
     machineId: shift.machine_id,
-    machineType: (m as { machine_type: string } | null)?.machine_type ?? 'excavator',
+    machineType: m.machine_type,
     shiftId: shift.shift_id,
     shiftType: shift.shift_type,
     shiftStart: shift.start_time,
@@ -128,6 +180,12 @@ export async function signInOperator(email: string, password: string): Promise<v
     fuelStartPct: shift.fuel_start_pct,
     handoverSeen: false,
   });
+  return 'operator';
+}
+
+/** Mock QA `?as=OP02`: signs the cab in as the demo operator. */
+export async function signInOperator(email: string, password: string): Promise<void> {
+  await signIn(email, password);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -139,7 +197,7 @@ export function useTasks(shiftId: string | undefined): Resource<TaskRow[]> {
     shiftId ? `tasks:${shiftId}` : null,
     pick(
       () => mock('tasks'),
-      () => api.tasks(cab!.operatorId, cab!.shiftStart.slice(0, 10)),
+      () => api.tasks(cab!.operatorId, shiftId!),
     ),
     [],
   );
@@ -182,6 +240,10 @@ export async function updateTask(shiftId: string, taskId: string, patch: TaskPat
   return { queued: await write({ client_id: uuid(), table: 'tasks', payload: { task_id: taskId, ...patch } }) };
 }
 
+function logAlerts(rows: AlertRow[]): LogAlert[] {
+  return rows.map((a) => ({ alert_code: a.alert_code, title: a.title, severity: a.severity, max_stage: a.stage, ts: a.ts, resolved_at: a.resolved_at }));
+}
+
 export function useHandover(machineId: string | undefined, shiftStart: string | undefined): Resource<Handover | null> {
   return useResource<Handover | null>(
     machineId ? `handover:${machineId}:${shiftStart}` : null,
@@ -190,12 +252,18 @@ export function useHandover(machineId: string | undefined, shiftStart: string | 
       async () => {
         const s = await api.handoverShift(machineId!, shiftStart!);
         if (!s) return null;
-        const summary = s.handover_summary ?? (await api.generateHandover(s.shift_id).then((r) => r.summary).catch(() => null));
+        const [summary, name, unfinished, alerts, events] = await Promise.all([
+          s.handover_summary ? Promise.resolve(s.handover_summary) : api.generateHandover(s.shift_id).then((r) => r.summary, () => null),
+          api.operatorName(s.operator_id),
+          api.unfinishedTasks(s.shift_id),
+          api.machineAlerts(machineId!, s.start_time, s.end_time),
+          api.machineSafetyEvents(machineId!, s.start_time, s.end_time),
+        ]);
         return {
           shift_id: s.shift_id,
           machine_id: s.machine_id,
           operator_id: s.operator_id,
-          operator_name: null,
+          operator_name: name,
           shift_type: s.shift_type,
           start_time: s.start_time,
           end_time: s.end_time,
@@ -204,10 +272,10 @@ export function useHandover(machineId: string | undefined, shiftStart: string | 
           handover_notes: s.handover_notes,
           issues_reported: s.issues_reported ?? [],
           handover_summary: summary,
-          handover_generated_at: null,
-          unfinished_tasks: [],
-          alerts: [],
-          safety_event_count: 0,
+          handover_generated_at: s.handover_generated_at,
+          unfinished_tasks: unfinished as Handover['unfinished_tasks'],
+          alerts: logAlerts(alerts),
+          safety_event_count: events.length,
         };
       },
     ),
@@ -224,29 +292,36 @@ export function useMachineLogs(machineId: string | undefined): Resource<MachineL
         return logs.machine_id === machineId ? logs : null;
       },
       async () => {
-        const since = new Date(Date.now() - 7 * 864e5).toISOString();
-        const [shifts, alerts, incidents] = await Promise.all([
-          api.machineShifts(machineId!, since),
-          api.machineAlerts(machineId!, since),
-          api.machineIncidents(machineId!, since),
+        const now = dataNowMs();
+        const [since, until] = [iso(now - 7 * 864e5), iso(now)];
+        const [shifts, alerts, incidents, events] = await Promise.all([
+          api.machineShifts(machineId!, since, until),
+          api.machineAlerts(machineId!, since, until),
+          api.machineIncidents(machineId!, since, until),
+          api.machineSafetyEvents(machineId!, since, until),
+        ]);
+        const [tasks, names] = await Promise.all([
+          api.shiftTaskStatus(shifts.map((s) => s.shift_id)),
+          api.operatorNames([...new Set(shifts.map((s) => s.operator_id))]),
         ]);
         return {
           machine_id: machineId!,
           from: since,
-          to: new Date().toISOString(),
+          to: until,
           shifts: shifts.map((s) => {
             const inside = (ts: string) => ts >= s.start_time && ts < s.end_time;
+            const mine = tasks.filter((t) => t.shift_id === s.shift_id);
+            const counts: Partial<Record<SafetyEventType, number>> = {};
+            for (const e of events) if (inside(e.ts)) counts[e.event_type] = (counts[e.event_type] ?? 0) + 1;
             return {
               ...s,
-              operator_name: null,
-              in_progress: Date.parse(s.end_time) > Date.now(),
+              operator_name: names.get(s.operator_id) ?? null,
+              in_progress: Date.parse(s.end_time) > now,
               issues_reported: s.issues_reported ?? [],
-              tasks_completed: 0,
-              tasks_total: 0,
-              alerts: alerts
-                .filter((a) => inside(a.ts))
-                .map((a) => ({ alert_code: a.alert_code, title: a.title, severity: a.severity, max_stage: a.stage, ts: a.ts, resolved_at: a.resolved_at })),
-              safety_events: {},
+              tasks_completed: mine.filter((t) => t.status === 'completed').length,
+              tasks_total: mine.length,
+              alerts: logAlerts(alerts.filter((a) => inside(a.ts))),
+              safety_events: counts,
               incidents: incidents.filter((i) => inside(i.ts)),
             };
           }),
@@ -277,7 +352,7 @@ export function useFleetHealth(): Resource<MachineHealth[]> {
             electrical: Number(h.electrical_score ?? 1),
             undercarriage: Number(h.undercarriage_score ?? 1),
           },
-          anomaly_score: (h.anomaly_score as number | null) ?? null,
+          anomaly_score: h.anomaly_score,
           failure_probability: null,
           likely_component: null,
         })),
@@ -324,12 +399,7 @@ export function useOpenAlerts(siteId: string | undefined): Resource<AlertRow[]> 
   const res = useResource<AlertRow[]>(siteId ? `alerts:${siteId}` : null, pick(() => mock('alerts_open'), () => api.openAlerts(siteId!)), []);
   const [liveAlerts, clock, liveMachine] = useLive(useShallow((s) => [s.alerts, s.clock, s.machineId] as const));
   const overlay = useAlertOverlay();
-  const [realtime, setRealtime] = useState<Record<number, AlertRow>>({});
-
-  useEffect(() => {
-    if (USE_MOCKS || !siteId) return;
-    return api.subscribeAlerts(siteId, (row) => setRealtime((r) => ({ ...r, [row.id]: row })));
-  }, [siteId]);
+  const realtime = useRealtimeAlerts((s) => s.rows);
 
   const data = useMemo(() => {
     if (!res.data) return res.data;
@@ -369,8 +439,8 @@ export function useOpenAlerts(siteId: string | undefined): Resource<AlertRow[]> 
       }
     } else {
       const merged = new Map(res.data.map((r) => [r.id, r]));
-      for (const r of Object.values(realtime)) merged.set(r.id, r);
-      rows = [...merged.values()].filter((r) => !r.resolved_at);
+      for (const r of Object.values(realtime)) if (r.site_id === siteId) merged.set(r.id, r);
+      rows = [...merged.values()].filter((r) => !r.resolved_at && r.stage !== 'resolved');
     }
     return rows
       .filter((r) => !overlay.resolved[r.id])
@@ -397,25 +467,59 @@ export interface CabAlerts {
   dismiss: (a: Alert) => void;
 }
 
-/** The cab's alert queue: stream alerts for this machine + local ones (SOS), minus what was handled. */
+type CodedAlert = Alert & { alert_code: string };
+
+/**
+ * The cab's alert queue: stream alerts for this machine + local ones (SOS), minus what was handled.
+ * Live mode also merges the machine's open alerts at sign-in and its Realtime alert rows (by id, the
+ * furthest stage wins), so an alert still reaches the cab while the stream reconnects.
+ */
 export function useCabAlerts(machineType: string | undefined): CabAlerts {
   const live = useLive((s) => s.alerts);
+  const machineId = useSession((s) => s.cab?.machineId);
+  const open = useResource<AlertRow[]>(!USE_MOCKS && machineId ? `cab-alerts:${machineId}` : null, () => api.openMachineAlerts(machineId!), []);
+  const realtime = useRealtimeAlerts((s) => s.rows);
   const { local, acked, dismissed, acknowledge, dismiss } = useAlerts();
+  const lang = useLanguage(); // takeover steps are in the cab's language
   return useMemo(() => {
+    const merged = new Map<number, CodedAlert>();
+    const put = (a: CodedAlert) => {
+      const prev = merged.get(a.id);
+      if (!prev || STAGE_RANK[a.stage] >= STAGE_RANK[prev.stage]) merged.set(a.id, a);
+    };
+    if (!USE_MOCKS) {
+      for (const r of [...(open.data ?? []), ...Object.values(realtime)]) {
+        if (r.machine_id !== machineId) continue;
+        put({
+          id: r.id,
+          ts: r.ts,
+          machine_id: r.machine_id,
+          title: r.title,
+          message: r.message,
+          recommended_action: r.recommended_action,
+          severity: r.severity,
+          stage: r.resolved_at ? 'resolved' : r.stage,
+          alert_code: r.alert_code,
+        });
+      }
+    }
+    for (const a of Object.values(live)) {
+      put({
+        id: a.id,
+        ts: new Date(a.at).toISOString(),
+        machine_id: null,
+        title: a.title,
+        message: a.title,
+        recommended_action: a.recommended_action,
+        severity: a.severity,
+        stage: a.stage,
+        alert_code: a.alert_code,
+      });
+    }
     const all: Alert[] = [
-      ...Object.values(live)
+      ...[...merged.values()]
         .filter((a) => a.stage !== 'resolved')
-        .map((a) => ({
-          id: a.id,
-          ts: new Date(a.at).toISOString(),
-          machine_id: null,
-          title: a.title,
-          message: a.title,
-          recommended_action: a.recommended_action,
-          severity: a.severity,
-          stage: a.stage,
-          steps: stepsFor(a.alert_code, a.stage, machineType),
-        })),
+        .map(({ alert_code, ...a }) => ({ ...a, steps: stepsFor(alert_code, a.stage, machineType) })),
       ...local,
     ];
     const handled = (a: Alert, rec: Record<number, Alert['stage']>) => rec[a.id] != null && STAGE_RANK[a.stage] <= STAGE_RANK[rec[a.id]!];
@@ -430,20 +534,21 @@ export function useCabAlerts(machineType: string | undefined): CabAlerts {
       },
       dismiss: (a) => dismiss(a.id, a.stage),
     };
-  }, [live, local, acked, dismissed, acknowledge, dismiss, machineType]);
+  }, [live, open.data, realtime, machineId, local, acked, dismissed, acknowledge, dismiss, machineType, lang]);
 }
 
 // ---------------------------------------------------------------------------------------------
 // Safety, fatigue, incidents
 // ---------------------------------------------------------------------------------------------
-const WEEK_AGO = () => new Date(Date.now() - 14 * 864e5).toISOString();
+/** The last 14 days of data time. */
+const window14 = (): [string, string] => [iso(dataNowMs() - 14 * 864e5), iso(dataNowMs())];
 
 export function useSafetyEvents(siteId: string | undefined): Resource<SafetyEventRow[]> {
-  return useResource<SafetyEventRow[]>(siteId ? `safety:${siteId}` : null, pick(() => mock('safety_events'), () => api.safetyEvents(siteId!, WEEK_AGO())), []);
+  return useResource<SafetyEventRow[]>(siteId ? `safety:${siteId}` : null, pick(() => mock('safety_events'), () => api.safetyEvents(siteId!, ...window14())), []);
 }
 
 export function useShifts(siteId: string | undefined): Resource<ShiftRow[]> {
-  return useResource<ShiftRow[]>(siteId ? `shifts:${siteId}` : null, pick(() => mock('shifts'), () => api.shifts(siteId!, WEEK_AGO())), []);
+  return useResource<ShiftRow[]>(siteId ? `shifts:${siteId}` : null, pick(() => mock('shifts'), () => api.shifts(siteId!, ...window14())), []);
 }
 
 export function useFatigue(shiftId: string | undefined): Resource<FatigueRow[]> {
@@ -459,10 +564,11 @@ export type NewIncident = Pick<IncidentRow, 'incident_type' | 'severity' | 'desc
 
 /** Returns the stored row; queued (and synced later) when offline. Idempotent by client_id. */
 export async function reportIncident(input: NewIncident): Promise<{ row: IncidentRow; queued: boolean }> {
+  const now = new Date().toISOString();
   const row: IncidentRow = {
     id: -Date.now(),
     client_id: uuid(),
-    ts: new Date().toISOString(),
+    ts: now,
     damage_description: null,
     root_cause: null,
     reported_via: 'form',
@@ -472,17 +578,14 @@ export async function reportIncident(input: NewIncident): Promise<{ row: Inciden
     linked_event_id: null,
     media_paths: [],
     status: 'open',
-    created_by: null,
+    created_by: useAuth.getState().cab.profile?.id ?? null,
+    created_at: now,
     ...input,
   };
   setCached<IncidentRow[]>(`incidents:${input.site_id}`, (prev) => [row, ...(prev ?? [])]);
-  const queued = await write({ client_id: row.client_id, table: 'incidents', payload: stripLocal(row) });
+  const { id: _id, created_at: _created, ...payload } = row;
+  const queued = await write({ client_id: row.client_id, table: 'incidents', payload });
   return { row, queued };
-}
-
-function stripLocal(row: IncidentRow): Record<string, unknown> {
-  const { id: _id, ...rest } = row;
-  return rest;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -496,8 +599,8 @@ export function isPending(clientId: string): boolean {
 
 async function send(w: QueuedWrite): Promise<void> {
   if (USE_MOCKS) return;
-  if (w.table === 'incidents') await api.upsertIncident(w.payload);
-  else if (w.table === 'training_records') await api.upsertTrainingRecord(w.payload);
+  if (w.table === 'incidents') await api.upsertIncident(w.payload as TablesInsert<'incidents'>);
+  else if (w.table === 'training_records') await api.upsertTrainingRecord(w.payload as TablesInsert<'training_records'>);
   else {
     const { task_id, ...patch } = w.payload as { task_id: string } & TaskPatch;
     await api.updateTask(task_id, patch);
@@ -511,7 +614,7 @@ async function write(w: Omit<QueuedWrite, 'queued_at'>): Promise<boolean> {
       await send({ ...w, queued_at: new Date().toISOString() });
       return false;
     } catch {
-      /* fall through to the queue */
+      /* network or server trouble: fall through to the queue, nothing is lost */
     }
   }
   pendingIds.add(w.client_id);
@@ -519,64 +622,94 @@ async function write(w: Omit<QueuedWrite, 'queued_at'>): Promise<boolean> {
   return true;
 }
 
-/** Replays the queue when the connection comes back. Mount once (App). */
+const SYNC_EVERY_MS = 30_000;
+
+/**
+ * Replays the queue at start, when the connection comes back, and every 30 s while online
+ * (docs/supabase.md "Offline sync pattern"). Mount once (App).
+ */
 export function useOfflineSync(): void {
   const online = useConnection((s) => s.online);
   useEffect(() => {
+    void refreshCount();
+    void queuedIds().then(
+      (ids) => ids.forEach((id) => pendingIds.add(id)),
+      () => undefined,
+    );
+  }, []);
+  useEffect(() => {
     if (!online) return;
-    void flush(async (w) => {
-      await send(w);
-      pendingIds.delete(w.client_id);
-    }).catch(() => undefined);
+    const run = () =>
+      void flush(async (w) => {
+        await send(w);
+        pendingIds.delete(w.client_id);
+      }).catch(() => undefined);
+    run();
+    const id = window.setInterval(run, SYNC_EVERY_MS);
+    return () => window.clearInterval(id);
   }, [online]);
 }
 
 // ---------------------------------------------------------------------------------------------
 // Manager: fleet, maintenance, clusters, geofences
 // ---------------------------------------------------------------------------------------------
+const SEVERITY_RANK: Record<SeverityLevel, number> = { info: 0, warning: 1, critical: 2, emergency: 3 };
+
 export function useFleet(siteId: string | undefined): Resource<Fleet | null> {
-  return useResource<Fleet | null>(
-    siteId ? `fleet:${siteId}` : null,
+  const key = siteId ? `fleet:${siteId}` : null;
+  useEffect(() => {
+    if (key) fleetKeys.add(key);
+  }, [key]);
+  const res = useResource<Fleet | null>(
+    key,
     pick(
       async () => {
         const f = await mock('fleet');
         return { ...f, machines: f.machines.filter((m) => m.site_id === siteId) };
       },
       async () => {
-        const [machines, latest, health, fences, alerts] = await Promise.all([
+        const now = dataNowMs();
+        const [machines, health, fences, names] = await Promise.all([
           api.machines(siteId!),
-          api.latestTelemetry(),
           api.healthLatest(),
           api.geofences(siteId!),
-          api.openAlerts(siteId!),
+          api.operatorNamesAtSite(siteId!),
         ]);
-        const rank = { info: 0, warning: 1, critical: 2, emergency: 3 } as const;
+        const latest = await api.telemetryAt(
+          machines.map((m) => m.machine_id),
+          iso(now),
+        );
         return {
-          now: new Date().toISOString(),
+          now: iso(now),
           geofences: fences,
-          machines: machines.map((m): FleetMachine => {
-            const id = String(m.machine_id);
-            const l = latest.find((x) => x.machine_id === id);
-            const h = health.find((x) => x.machine_id === id);
-            const mine = alerts.filter((a) => a.machine_id === id);
-            const onShift = !!l && Date.now() - Date.parse(String(l.ts)) < 5 * 60_000;
+          machines: machines.map((m, i): FleetMachine => {
+            const l = latest[i];
+            const h = health.find((x) => x.machine_id === m.machine_id);
+            const onShift = !!l && now - Date.parse(l.ts) < 5 * 60_000;
             return {
-              ...(m as unknown as FleetMachine),
+              machine_id: m.machine_id,
+              site_id: m.site_id,
+              machine_type: m.machine_type,
+              model: m.model,
+              status: m.status,
+              total_engine_hours: Number(m.total_engine_hours),
+              hours_since_service: Number(m.hours_since_service),
+              service_interval_hours: Number(m.service_interval_hours),
               live: {
-                ts: (l?.ts as string) ?? null,
+                ts: l?.ts ?? null,
                 on_shift: onShift,
-                operator_id: onShift ? ((l?.operator_id as string) ?? null) : null,
-                operator_name: null,
-                shift_id: (l?.shift_id as string) ?? null,
-                gps_lat: (l?.gps_lat as number) ?? null,
-                gps_lon: (l?.gps_lon as number) ?? null,
-                fuel_level_pct: (l?.fuel_level_pct as number) ?? null,
-                ground_speed_kmh: (l?.ground_speed_kmh as number) ?? null,
-                is_idle: (l?.is_idle as boolean) ?? null,
+                operator_id: onShift ? (l?.operator_id ?? null) : null,
+                operator_name: onShift && l?.operator_id ? (names.get(l.operator_id) ?? null) : null,
+                shift_id: l?.shift_id ?? null,
+                gps_lat: l?.gps_lat ?? null,
+                gps_lon: l?.gps_lon ?? null,
+                fuel_level_pct: l?.fuel_level_pct ?? null,
+                ground_speed_kmh: l?.ground_speed_kmh ?? null,
+                is_idle: l?.is_idle ?? null,
               },
-              health_overall: h ? Number(h.overall_score) : null,
-              open_alerts: mine.length,
-              worst_severity: mine.reduce<FleetMachine['worst_severity']>((w, a) => (!w || rank[a.severity] > rank[w] ? a.severity : w), null),
+              health_overall: h?.overall_score != null ? Number(h.overall_score) : null,
+              open_alerts: 0,
+              worst_severity: null,
             };
           }),
         };
@@ -584,10 +717,35 @@ export function useFleet(siteId: string | undefined): Resource<Fleet | null> {
     ),
     null,
   );
+  // Live: alert counts follow the open-alerts feed (v_open_alerts + Realtime), so M05 turns red on the map as it happens.
+  const alerts = useOpenAlerts(USE_MOCKS ? undefined : siteId);
+  const data = useMemo(() => {
+    if (USE_MOCKS || !res.data) return res.data;
+    const open = alerts.data ?? [];
+    return {
+      ...res.data,
+      machines: res.data.machines.map((m) => {
+        const mine = open.filter((a) => a.machine_id === m.machine_id);
+        return {
+          ...m,
+          open_alerts: mine.length,
+          worst_severity: mine.reduce<SeverityLevel | null>((w, a) => (!w || SEVERITY_RANK[a.severity] > SEVERITY_RANK[w] ? a.severity : w), null),
+        };
+      }),
+    };
+  }, [res.data, alerts.data]);
+  return { ...res, data };
 }
 
 export function useMaintenance(): Resource<MaintenancePrediction[]> {
-  return useResource<MaintenancePrediction[]>('maintenance', pick(() => mock('maintenance_predictions'), () => api.maintenance()), []);
+  return useResource<MaintenancePrediction[]>(
+    'maintenance',
+    pick(
+      () => mock('maintenance_predictions'),
+      async () => api.maintenance((await api.machines(officeSite())).map((m) => m.machine_id)),
+    ),
+    [],
+  );
 }
 
 export function useClusters(): Resource<Clusters | null> {
@@ -596,7 +754,7 @@ export function useClusters(): Resource<Clusters | null> {
     pick(
       () => mock('clusters'),
       // PCA points only exist in ml/artifacts/clustering (no endpoint yet): metrics are live, the scatter is the artifact's.
-      async () => ({ ...(await mock('clusters')), metrics: await api.fleetMetrics() }),
+      async () => ({ ...(await mock('clusters')), metrics: await api.fleetMetrics(officeSite()) }),
     ),
     null,
   );
@@ -671,9 +829,9 @@ export async function saveTrainingResult(operatorId: string, moduleId: string, s
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9ऀ-ॿ ]/g, ' ').split(/\s+/).filter((w) => w.length > 2);
 
-/** POST /chat. Mock: the cached answer whose question shares the most words, else "not in the manuals". */
+/** POST /chat in the cab's language. Mock: the cached answer whose question shares the most words, else "not in the manuals". */
 export async function sendChat(operatorId: string, message: string, sessionId: string): Promise<ChatAnswer> {
-  if (!USE_MOCKS) return api.chat({ session_id: sessionId, operator_id: operatorId, message, language: 'en' });
+  if (!USE_MOCKS) return api.chat({ session_id: sessionId, operator_id: operatorId, message, language: getLanguage() });
   const { examples } = await wait(mock('chat'));
   const words = new Set(norm(message));
   const codes = message.match(/E-\d{3}/gi)?.map((c) => c.toUpperCase()) ?? [];
@@ -689,8 +847,16 @@ export async function sendChat(operatorId: string, message: string, sessionId: s
   return { answer: "That isn't in the manuals I have. Ask your supervisor or maintenance before you go ahead.", sources: [] };
 }
 
+/**
+ * The backend's own words when the chatbot is rate-limited (503 CHAT_BUSY, e.g. "Chatbot busy, try
+ * again in a minute"); null for any other failure, which the chat shows as a generic error.
+ */
+export function chatBusyMessage(e: unknown): string | null {
+  return e instanceof api.ApiError && e.status === 503 && e.code === 'CHAT_BUSY' ? e.message : null;
+}
+
 export async function chatSuggestions(): Promise<string[]> {
-  if (!USE_MOCKS) return ['What does E-365 mean?', 'Someone walked behind my machine. What do I do?', 'I feel very sleepy on night shift.'];
+  if (!USE_MOCKS) return [t('chat.suggest1'), t('chat.suggest2'), t('chat.suggest3')];
   return (await mock('chat')).examples.map((e) => e.question);
 }
 

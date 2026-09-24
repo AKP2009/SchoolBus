@@ -8,29 +8,30 @@ import { Gauge, type Trend } from '@/components/Gauge';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useMachineHealth, useMachineSignals } from '@/data/hooks';
 import { useLive } from '@/data/live';
-import { COMPONENT_WORD } from '@/lib/format';
 import type { Status } from '@/lib/status';
 import type { HealthScores, MachineHealth, MachineType, Telemetry } from '@/types/domain';
 import { OperatorShell, useCab } from './Shell';
+import { useT } from '@/i18n';
 
 type Signal = keyof Telemetry;
 
 // Which telemetry signals sit behind each twin region (models.md §11).
-const REGION_SIGNALS: Record<TwinSubsystem, Array<{ key: Signal; label: string; unit: string }>> = {
+// Labels are i18n keys `signal.<column>`.
+const REGION_SIGNALS: Record<TwinSubsystem, Array<{ key: Signal; unit: string }>> = {
   engine: [
-    { key: 'engine_rpm', label: 'Engine speed', unit: 'rpm' },
-    { key: 'oil_pressure_kpa', label: 'Oil pressure', unit: 'kPa' },
+    { key: 'engine_rpm', unit: 'rpm' },
+    { key: 'oil_pressure_kpa', unit: 'kPa' },
   ],
   cooling: [
-    { key: 'coolant_temp_c', label: 'Coolant temperature', unit: '°C' },
-    { key: 'engine_oil_temp_c', label: 'Engine oil temperature', unit: '°C' },
+    { key: 'coolant_temp_c', unit: '°C' },
+    { key: 'engine_oil_temp_c', unit: '°C' },
   ],
   hydraulics: [
-    { key: 'hydraulic_oil_temp_c', label: 'Hydraulic oil temperature', unit: '°C' },
-    { key: 'hydraulic_pressure_bar', label: 'Hydraulic pressure', unit: 'bar' },
+    { key: 'hydraulic_oil_temp_c', unit: '°C' },
+    { key: 'hydraulic_pressure_bar', unit: 'bar' },
   ],
-  electrical: [{ key: 'battery_voltage', label: 'Battery voltage', unit: 'V' }],
-  undercarriage: [{ key: 'vibration_rms_g', label: 'Vibration', unit: 'g' }],
+  electrical: [{ key: 'battery_voltage', unit: 'V' }],
+  undercarriage: [{ key: 'vibration_rms_g', unit: 'g' }],
 };
 
 /** Rule-engine limits (backend/app/alerts/thresholds.yaml), not the normal band, decide the badge. */
@@ -57,6 +58,7 @@ export function toScores(h: { subsystems: MachineHealth['subsystems'] } | null |
 }
 
 export function OperatorMachine() {
+  const t = useT();
   const cab = useCab();
   const [telemetry, recent, liveHealth] = useLive(useShallow((s) => [s.telemetry, s.recent, s.health] as const));
   const health = useMachineHealth(cab?.machineId);
@@ -65,59 +67,59 @@ export function OperatorMachine() {
   const signals = useMemo(() => {
     const out: Partial<Record<TwinSubsystem, TwinSignal[]>> = {};
     for (const [region, list] of Object.entries(REGION_SIGNALS) as Array<[TwinSubsystem, (typeof REGION_SIGNALS)[TwinSubsystem]]>) {
-      out[region] = list.map(({ key, label, unit }) => {
+      out[region] = list.map(({ key, unit }) => {
         const live = recent.map((r) => r[key]).filter((v): v is number => typeof v === 'number');
         const hist = (history.data?.series[key] ?? []).filter((v): v is number => typeof v === 'number');
-        return { label, unit, points: live.length >= 5 ? live : hist };
+        return { label: t.dyn(`signal.${key}`, key), unit, points: live.length >= 5 ? live : hist };
       });
     }
     return out;
-  }, [recent, history.data]);
+  }, [recent, history.data, t]);
 
-  const t = telemetry;
+  const tm = telemetry;
   const failure = health.data?.failure_probability;
 
   return (
     <OperatorShell>
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-cab-h1">Machine</h1>
+        <h1 className="text-cab-h1">{t('machine.title')}</h1>
         {failure != null && failure >= 0.3 ? (
           <StatusBadge
             status={failure >= 0.6 ? 'critical' : 'warning'}
-            label={`${COMPONENT_WORD[health.data?.likely_component ?? 'other']}: tell maintenance at the end of the task`}
+            label={t('machine.tellMaintenance', { component: t(`component.${health.data?.likely_component ?? 'other'}`) })}
           />
         ) : (
-          health.status === 'ready' && <StatusBadge status="ok" label="No repair expected in the next 48 h" />
+          health.status === 'ready' && <StatusBadge status="ok" label={t('machine.noRepair')} />
         )}
       </div>
 
       <DataState
         res={{ ...health, data: liveHealth ?? health.data }}
         isEmpty={(h) => !h}
-        errorTitle="Couldn't load machine health."
-        empty={{ icon: Wrench, title: 'No health reading yet.', hint: 'Health appears a minute after the machine starts reporting.' }}
+        errorTitle={t('machine.loadError')}
+        empty={{ icon: Wrench, title: t('machine.empty'), hint: t('machine.emptyHint') }}
         skeleton={<Skeleton className="h-[300px]" />}
       >
         {(h) => <DigitalTwin scores={toScores(h)} signals={signals} machineType={cab?.machineType as MachineType | undefined} className="min-h-[352px]" />}
       </DataState>
 
-      {t ? (
+      {tm ? (
         <div className="grid grid-cols-3 gap-x-8 gap-y-6">
-          <Gauge label="Coolant" value={t.coolant_temp_c} unit="°C" min={40} max={120} normal={[75, 100]} status={above(t.coolant_temp_c, 100, 105)} trend={trendOf(recent, 'coolant_temp_c', 1)} />
-          <Gauge label="Hydraulic oil" value={t.hydraulic_oil_temp_c} unit="°C" min={20} max={110} normal={[40, 85]} status={above(t.hydraulic_oil_temp_c, 90, 95)} trend={trendOf(recent, 'hydraulic_oil_temp_c', 1)} />
+          <Gauge label={t('gauge.coolant')} value={tm.coolant_temp_c} unit="°C" min={40} max={120} normal={[75, 100]} status={above(tm.coolant_temp_c, 100, 105)} trend={trendOf(recent, 'coolant_temp_c', 1)} />
+          <Gauge label={t('gauge.hydraulicOil')} value={tm.hydraulic_oil_temp_c} unit="°C" min={20} max={110} normal={[40, 85]} status={above(tm.hydraulic_oil_temp_c, 90, 95)} trend={trendOf(recent, 'hydraulic_oil_temp_c', 1)} />
           <Gauge
-            label="Oil pressure"
-            value={t.oil_pressure_kpa}
+            label={t('gauge.oilPressure')}
+            value={tm.oil_pressure_kpa}
             unit="kPa"
             min={0}
             max={600}
             normal={[250, 500]}
-            status={t.oil_pressure_kpa == null ? undefined : t.oil_pressure_kpa < 100 && (t.engine_rpm ?? 0) > 1200 ? 'critical' : 'ok'}
+            status={tm.oil_pressure_kpa == null ? undefined : tm.oil_pressure_kpa < 100 && (tm.engine_rpm ?? 0) > 1200 ? 'critical' : 'ok'}
             trend={trendOf(recent, 'oil_pressure_kpa', 15)}
           />
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-8" aria-busy="true" aria-label="Waiting for readings">
+        <div className="grid grid-cols-3 gap-8" aria-busy="true" aria-label={t('machine.waitingReadings')}>
           {Array.from({ length: 3 }, (_, i) => (
             <Skeleton key={i} className="h-28" />
           ))}

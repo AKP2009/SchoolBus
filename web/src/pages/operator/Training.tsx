@@ -3,32 +3,34 @@ import { BookOpen, CircleCheck, FileText, GraduationCap, HelpCircle, MessageCirc
 import { Button } from '@/components/Button';
 import { DataState } from '@/components/DataState';
 import { StatusBadge } from '@/components/StatusBadge';
-import { chatSuggestions, saveTrainingResult, sendChat, useTraining, uuid } from '@/data/hooks';
+import { chatBusyMessage, chatSuggestions, saveTrainingResult, sendChat, useTraining, uuid } from '@/data/hooks';
 import { cx } from '@/lib/cx';
 import { fmtDate } from '@/lib/format';
 import { useConnection } from '@/stores/connection';
 import type { ChatSource, Training, TrainingFormat, TrainingModule } from '@/types/domain';
 import { OperatorShell, useCab } from './Shell';
+import { useT, type Key, type T } from '@/i18n';
 
 type Tab = 'for-you' | 'library' | 'practice' | 'ask';
-const TABS: Array<[Tab, string, LucideIcon]> = [
-  ['for-you', 'For you', Sparkles],
-  ['library', 'Library', BookOpen],
-  ['practice', 'Practice', GraduationCap],
-  ['ask', 'Ask', MessageCircle],
+const TABS: Array<[Tab, Key, LucideIcon]> = [
+  ['for-you', 'training.forYou', Sparkles],
+  ['library', 'training.library', BookOpen],
+  ['practice', 'training.practice', GraduationCap],
+  ['ask', 'training.ask', MessageCircle],
 ];
 
-const FORMAT: Record<TrainingFormat, { icon: LucideIcon; word: string }> = {
-  video: { icon: PlayCircle, word: 'Video' },
-  document: { icon: FileText, word: 'Reading' },
-  quiz: { icon: HelpCircle, word: 'Quiz' },
-  scenario: { icon: GraduationCap, word: 'Scenarios' },
-  instructor_session: { icon: Users, word: 'With an instructor' },
+const FORMAT: Record<TrainingFormat, { icon: LucideIcon; word: Key }> = {
+  video: { icon: PlayCircle, word: 'format.video' },
+  document: { icon: FileText, word: 'format.document' },
+  quiz: { icon: HelpCircle, word: 'format.quiz' },
+  scenario: { icon: GraduationCap, word: 'format.scenario' },
+  instructor_session: { icon: Users, word: 'format.instructor_session' },
 };
 
 export const SIM_MODULE = 'TM-SIM-01';
 
 export function OperatorTraining() {
+  const t = useT();
   const cab = useCab();
   const res = useTraining(cab?.operatorId);
   const [tab, setTab] = useState<Tab>(() => {
@@ -38,11 +40,11 @@ export function OperatorTraining() {
   return (
     <OperatorShell>
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-cab-h1">Training</h1>
-        <div className="flex gap-2" role="tablist" aria-label="Training">
+        <h1 className="text-cab-h1">{t('training.title')}</h1>
+        <div className="flex gap-2" role="tablist" aria-label={t('training.title')}>
           {TABS.map(([k, label]) => (
             <Button key={k} role="tab" aria-selected={tab === k} variant={tab === k ? 'primary' : 'secondary'} onClick={() => setTab(k)} className="whitespace-nowrap px-5">
-              {label}
+              {t(label)}
             </Button>
           ))}
         </div>
@@ -52,12 +54,12 @@ export function OperatorTraining() {
       ) : (
         <DataState
           res={res}
-          isEmpty={(t) => !t || t.modules.length === 0}
-          errorTitle="Couldn't load training."
-          empty={{ icon: GraduationCap, title: 'No training assigned yet.', hint: 'Modules suggested for you will appear here after your first week.' }}
+          isEmpty={(d) => !d || d.modules.length === 0}
+          errorTitle={t('training.loadError')}
+          empty={{ icon: GraduationCap, title: t('training.empty'), hint: t('training.emptyHint') }}
         >
-          {(t) =>
-            tab === 'for-you' ? <ForYou t={t} onPractice={() => setTab('practice')} /> : tab === 'library' ? <Library t={t} /> : <Practice t={t} />
+          {(d) =>
+            tab === 'for-you' ? <ForYou t={d} onPractice={() => setTab('practice')} /> : tab === 'library' ? <Library t={d} /> : <Practice t={d} />
           }
         </DataState>
       )}
@@ -65,15 +67,20 @@ export function OperatorTraining() {
   );
 }
 
-function progress(t: Training, moduleId: string) {
+function progress(tr: T, t: Training, moduleId: string) {
   const recs = t.records.filter((r) => r.module_id === moduleId);
   const done = recs.find((r) => r.completed_at);
-  return done ? { word: `Done ${fmtDate(done.completed_at)}${done.score != null ? ` · ${Math.round(done.score)}%` : ''}`, done: true } : recs.length ? { word: 'Started', done: false } : null;
+  if (done) {
+    const date = fmtDate(done.completed_at);
+    return { word: done.score != null ? tr('training.doneOnScore', { date, score: Math.round(done.score) }) : tr('training.doneOn', { date }), done: true };
+  }
+  return recs.length ? { word: tr('training.started'), done: false } : null;
 }
 
 function ModuleRow({ m, t, action }: { m: TrainingModule; t: Training; action?: ReactNode }) {
+  const tr = useT();
   const f = FORMAT[m.format];
-  const p = progress(t, m.module_id);
+  const p = progress(tr, t, m.module_id);
   return (
     <li className="flex items-center justify-between gap-4 rounded-md border bg-surface px-6 py-4">
       <div className="flex min-w-0 items-center gap-4">
@@ -81,11 +88,11 @@ function ModuleRow({ m, t, action }: { m: TrainingModule; t: Training; action?: 
         <div className="min-w-0">
           <p className="truncate text-cab-body">{m.title}</p>
           <p className="text-cab-small text-ink-2">
-            {f.word}
+            {tr(f.word)}
             {m.duration_min != null && (
               <>
                 {' '}
-                · <span className="reading">{m.duration_min}</span> min
+                · <span className="reading">{m.duration_min}</span> {tr('unit.min')}
               </>
             )}
           </p>
@@ -100,11 +107,11 @@ function ModuleRow({ m, t, action }: { m: TrainingModule; t: Training; action?: 
 }
 
 function ForYou({ t, onPractice }: { t: Training; onPractice: () => void }) {
+  const tr = useT();
   const recs = t.recommendations.filter((r) => r.status === 'pending');
-  if (recs.length === 0)
-    return <p className="text-cab-body text-ink-2">Nothing suggested this week. Browse the library or practise a scenario.</p>;
+  if (recs.length === 0) return <p className="text-cab-body text-ink-2">{tr('training.nothing')}</p>;
   return (
-    <ul className="flex flex-col gap-3" aria-label="Suggested for you">
+    <ul className="flex flex-col gap-3" aria-label={tr('training.suggestedAria')}>
       {recs.map((r) => {
         const m = t.modules.find((x) => x.module_id === r.module_id);
         if (!m) return null;
@@ -118,10 +125,10 @@ function ForYou({ t, onPractice }: { t: Training; onPractice: () => void }) {
                 action={
                   m.module_id === SIM_MODULE ? (
                     <Button icon={GraduationCap} onClick={onPractice}>
-                      Practise
+                      {tr('training.practise')}
                     </Button>
                   ) : (
-                    <Button icon={FORMAT[m.format].icon}>Start</Button>
+                    <Button icon={FORMAT[m.format].icon}>{tr('training.start')}</Button>
                   )
                 }
               />
@@ -155,6 +162,7 @@ function Library({ t }: { t: Training }) {
 
 /** Scenario simulator (features.md §4.5): TM-SIM-01, one step at a time, scored with explanations. */
 function Practice({ t }: { t: Training }) {
+  const tr = useT();
   const cab = useCab();
   const sim = t.modules.find((m) => m.module_id === SIM_MODULE);
   const steps = sim?.scenario?.steps ?? [];
@@ -164,7 +172,7 @@ function Practice({ t }: { t: Training }) {
   const [saved, setSaved] = useState(false);
 
   if (!sim || steps.length === 0)
-    return <p className="text-cab-body text-ink-2">No practice scenarios yet. They arrive with the next content update.</p>;
+    return <p className="text-cab-body text-ink-2">{tr('training.noScenarios')}</p>;
 
   if (i >= steps.length) {
     const score = Math.round((right / steps.length) * 100);
@@ -172,9 +180,9 @@ function Practice({ t }: { t: Training }) {
       <section className="flex flex-col gap-4 rounded-md border bg-surface p-6" aria-live="polite">
         <p className="text-cab-small text-ink-2">{sim.title}</p>
         <p className="text-cab-h1">
-          <span className="reading">{right}</span> of <span className="reading">{steps.length}</span> right
+          {tr.rich('training.rightOf', { right: <span className="reading">{right}</span>, total: <span className="reading">{steps.length}</span> })}
         </p>
-        <StatusBadge status={score >= 70 ? 'ok' : 'warning'} label={score >= 70 ? 'Passed' : 'Try again to pass (70%)'} />
+        <StatusBadge status={score >= 70 ? 'ok' : 'warning'} label={score >= 70 ? tr('training.passed') : tr('training.tryToPass')} />
         <div className="flex gap-4">
           <Button
             icon={RotateCcw}
@@ -186,7 +194,7 @@ function Practice({ t }: { t: Training }) {
               setSaved(false);
             }}
           >
-            Practise again
+            {tr('training.again')}
           </Button>
           {!saved && cab && (
             <Button
@@ -196,10 +204,10 @@ function Practice({ t }: { t: Training }) {
                 setSaved(true);
               }}
             >
-              Save my result
+              {tr('training.save')}
             </Button>
           )}
-          {saved && <StatusBadge status="ok" label="Result saved" />}
+          {saved && <StatusBadge status="ok" label={tr('training.saved')} />}
         </div>
       </section>
     );
@@ -209,13 +217,13 @@ function Practice({ t }: { t: Training }) {
   const answered = picked != null;
   const next = t.modules.find((m) => m.module_id === step.module_id);
   return (
-    <section className="flex flex-col gap-4" aria-label={`Scenario ${i + 1} of ${steps.length}`}>
+    <section className="flex flex-col gap-4" aria-label={tr('training.scenarioOf', { n: i + 1, total: steps.length })}>
       <div className="flex items-center justify-between">
         <p className="text-cab-small text-ink-2">
-          Scenario <span className="reading">{i + 1}</span> of <span className="reading">{steps.length}</span>
+          {tr.rich('training.scenarioOf', { n: <span className="reading">{i + 1}</span>, total: <span className="reading">{steps.length}</span> })}
           {step.title && ` · ${step.title}`}
         </p>
-        <p className="reading text-cab-small text-ink-2">{right} right</p>
+        <p className="reading text-cab-small text-ink-2">{tr('training.nRight', { n: right })}</p>
       </div>
       <p className="text-cab-h2">{step.prompt}</p>
       <ol className="flex flex-col gap-3">
@@ -239,10 +247,10 @@ function Practice({ t }: { t: Training }) {
                 )}
               >
                 <span>{c}</span>
-                {state === 'right' && <StatusBadge status="ok" label="Right" className="shrink-0" />}
+                {state === 'right' && <StatusBadge status="ok" label={tr('training.right')} className="shrink-0" />}
                 {state === 'wrong' && (
                   <span className="flex shrink-0 items-center gap-2 text-cab-small">
-                    <XCircle size={24} className="text-critical" aria-hidden /> Not this one
+                    <XCircle size={24} className="text-critical" aria-hidden /> {tr('training.notThis')}
                   </span>
                 )}
               </button>
@@ -253,7 +261,7 @@ function Practice({ t }: { t: Training }) {
       {answered && (
         <div className="flex flex-col gap-3 rounded-md border bg-raised p-5" aria-live="polite">
           {step.explanation && <p className="text-cab-body">{step.explanation}</p>}
-          {next && <p className="text-cab-small text-ink-2">Learn more: {next.title}</p>}
+          {next && <p className="text-cab-small text-ink-2">{tr('training.learnMore', { title: next.title })}</p>}
           <Button
             className="self-start"
             onClick={() => {
@@ -261,7 +269,7 @@ function Practice({ t }: { t: Training }) {
               setPicked(null);
             }}
           >
-            {i + 1 < steps.length ? 'Next scenario' : 'See my score'}
+            {i + 1 < steps.length ? tr('training.nextScenario') : tr('training.seeScore')}
           </Button>
         </div>
       )}
@@ -277,6 +285,7 @@ interface Msg {
 
 /** RAG chatbot UI (features.md §4.1): answers with their sources. */
 function Chat() {
+  const t = useT();
   const cab = useCab();
   const online = useConnection((s) => s.online);
   const [session] = useState(uuid);
@@ -288,7 +297,7 @@ function Chat() {
 
   useEffect(() => {
     void chatSuggestions().then((s) => setSuggest(s.slice(0, 4)));
-  }, []);
+  }, [t]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' });
   }, [msgs, busy]);
@@ -301,8 +310,8 @@ function Chat() {
     try {
       const a = await sendChat(cab.operatorId, q, session);
       setMsgs((m) => [...m, { role: 'assistant', text: a.answer, sources: a.sources }]);
-    } catch {
-      setMsgs((m) => [...m, { role: 'assistant', text: "Couldn't reach the assistant. Check the connection and ask again." }]);
+    } catch (e) {
+      setMsgs((m) => [...m, { role: 'assistant', text: chatBusyMessage(e) ?? t('chat.unreachable') }]);
     } finally {
       setBusy(false);
     }
@@ -314,11 +323,11 @@ function Chat() {
   };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3" aria-label="Ask about operation and safety">
+    <section className="flex min-h-0 flex-1 flex-col gap-3" aria-label={t('chat.aria')}>
       <div className="flex min-h-[200px] flex-1 flex-col gap-3 overflow-auto rounded-md border bg-surface p-4" aria-live="polite">
         {msgs.length === 0 && (
           <div className="flex flex-col gap-3">
-            <p className="text-cab-body text-ink-2">Ask about fault codes, safety or how to operate. Answers come from the site manuals.</p>
+            <p className="text-cab-body text-ink-2">{t('chat.intro')}</p>
             <div className="flex flex-wrap gap-2">
               {suggest.map((s) => (
                 <Button key={s} variant="secondary" onClick={() => void ask(s)} disabled={!online}>
@@ -333,30 +342,30 @@ function Chat() {
             <p className="text-cab-body">{m.text}</p>
             {m.sources && m.sources.length > 0 && (
               <p className="flex flex-wrap items-center gap-2 text-cab-small text-ink-2">
-                <BookOpen size={22} aria-hidden /> Source:
+                <BookOpen size={22} aria-hidden /> {t('chat.source')}
                 {m.sources.map((s) => (
                   <span key={`${s.document_id}-${s.chunk_index}`} className="rounded-sm border bg-surface px-2">
-                    {s.title} · part <span className="reading">{s.chunk_index + 1}</span>
+                    {s.title} · {t.rich('chat.part', { n: <span className="reading">{s.chunk_index + 1}</span> })}
                   </span>
                 ))}
               </p>
             )}
           </div>
         ))}
-        {busy && <p className="text-cab-small text-ink-2">Looking it up…</p>}
+        {busy && <p className="text-cab-small text-ink-2">{t('chat.looking')}</p>}
         <div ref={end} />
       </div>
       <form onSubmit={submit} className="flex gap-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={online ? 'What does E-365 mean?' : 'Offline — the assistant needs a connection'}
+          placeholder={online ? t('chat.placeholder') : t('chat.offline')}
           disabled={!online}
-          aria-label="Your question"
+          aria-label={t('chat.question')}
           className="min-h-touch-cab flex-1 rounded-md border border-line bg-raised px-4 text-cab-body text-ink placeholder:text-ink-3 focus:border-saffron-500"
         />
         <Button type="submit" icon={Send} disabled={busy || !text.trim() || !online}>
-          Ask
+          {t('chat.ask')}
         </Button>
       </form>
     </section>
