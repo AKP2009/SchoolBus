@@ -5,6 +5,12 @@ the site manager. About 6–7 minutes. One person drives the operator tablet (Ch
 or a real tablet), one drives the manager screen on the projector, one walks into the webcam, one narrates.
 
 ## Setup (before judges arrive)
+- [ ] **Before the demo:** clear leftovers from rehearsals. Stop any replay, then run
+      `python scripts/reset_demo_state.py` (dry run, check the counts) and
+      `python scripts/reset_demo_state.py --apply`. This empties alerts, health snapshots,
+      maintenance predictions, fleet metrics, chat and recommendations. It also deletes the
+      safety/fatigue/incident rows added after the load and clears handover summaries and task
+      predictions. Loaded data stays. The script refuses to run while a replay is running.
 - [ ] Backend running, `/health` shows all models loaded
 - [ ] Replay command from **Demo data** below ready (M04 + M05, 10×, from `2026-08-19T15:15:00Z`).
       Fire it at 0:00, not earlier: at 10× every minute of waiting uses 10 minutes of the window.
