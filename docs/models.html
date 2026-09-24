@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Catalogue — Smart Operator Assistant</title>
+<style>
+  :root{
+    --base:#15191E; --surface:#1F252C; --raised:#2A323B; --border:#3A444F;
+    --text:#EDEFF2; --text2:#A7B0BA; --text3:#6E7985;
+    --saffron:#F2A900; --saffron-hover:#FFBE2E; --on-saffron:#1A1A1A;
+    --ok:#2FA36B; --info:#4C9EEB; --warn:#FF7A1A; --crit:#E5484D;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--base);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  header.hero{background:var(--raised);border-bottom:1px solid var(--border);padding:36px 0 28px;margin-bottom:32px}
+  header.hero .wrap{padding-bottom:0}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--text2);margin-top:6px;font-size:15px}
+  .pillrow{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}
+  .pill{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--border);color:var(--text2)}
+  .pill.trained{background:rgba(47,163,107,.12);border-color:rgba(47,163,107,.5);color:#7BD8A8}
+  .pill.pre{background:rgba(76,158,235,.12);border-color:rgba(76,158,235,.5);color:#9CCBEE}
+  .pill.rule{background:rgba(242,169,0,.10);border-color:rgba(242,169,0,.5);color:var(--saffron-hover)}
+  nav.toc{position:sticky;top:0;background:var(--base);border-bottom:1px solid var(--border);z-index:10;padding:10px 0;margin-bottom:28px}
+  nav.toc a{color:var(--text2);text-decoration:none;font-size:13px;padding:5px 10px;border-radius:6px}
+  nav.toc a:hover{color:var(--text);background:var(--raised)}
+  nav.toc a.hot{color:var(--saffron)}
+  section{margin-bottom:48px}
+  h2{font-size:21px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:10px}
+  h2 .num{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;border-radius:8px;background:var(--raised);border:1px solid var(--border);color:var(--saffron);font-size:14px;font-weight:700}
+  .tagline{color:var(--text2);margin-bottom:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:16px}
+  .card h3{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--text2);margin-bottom:10px}
+  p.desc{color:var(--text);margin-bottom:10px}
+  p.note{color:var(--text2);font-size:13.5px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{color:var(--text3);text-align:left;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.05em}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td code, p code, li code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;background:var(--raised);padding:1px 6px;border-radius:5px;color:#D7DEE6}
+  th.c,td.c{text-align:center}
+  .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 6px}
+  .metric{background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .metric .v{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .metric .l{font-size:11.5px;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+  .good{color:var(--ok)} .bad{color:var(--crit)} .mid{color:var(--warn)} .info{color:var(--info)}
+  ul.tight{margin:6px 0 4px 18px;color:var(--text2);font-size:13.5px}
+  ul.tight li{margin-bottom:5px}
+  ul.tight b, p.note b{color:var(--text)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:800px){.two{grid-template-columns:1fr}}
+  .verdict{border-left:3px solid var(--border);padding:8px 14px;margin-top:12px;color:var(--text2);font-size:13.5px;background:var(--raised);border-radius:0 8px 8px 0}
+  .verdict.met{border-left-color:var(--ok)} .verdict.miss{border-left-color:var(--warn)} .verdict.part{border-left-color:var(--saffron)}
+  footer{border-top:1px solid var(--border);margin-top:60px;padding-top:20px;color:var(--text3);font-size:12.5px}
+  a{color:var(--saffron)}
+  .flow{color:var(--text2);font-size:13px;font-family:ui-monospace,Menlo,monospace;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:10px 0;overflow-x:auto;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Model Catalogue — Smart Operator Assistant</h1>
+    <div class="sub">All 13 model systems in the project: what each does, its parameters, and measured accuracy. Synthetic data only (90 days, 12 machines, 20 operators).</div>
+    <div class="pillrow">
+      <span class="pill trained">4 trained by us</span>
+      <span class="pill pre">3 pretrained</span>
+      <span class="pill rule">6 rules / formulas / LLM prompts</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <a href="#general">General</a>
+  <a href="#m1">1 Anomaly</a>
+  <a href="#m2">2 Task time</a>
+  <a href="#m3">3 Maintenance</a>
+  <a href="#m4">4 Clustering</a>
+  <a href="#pre">Pretrained &amp; rules</a>
+  <a href="#mR">R Rules</a>
+  <a href="#m5">5 Fatigue</a>
+  <a href="#m6">6 Proximity</a>
+  <a href="#m7">7 RAG</a>
+  <a href="#m8">8 Voice</a>
+  <a href="#m9">9 Handover</a>
+  <a href="#m10">10 Training</a>
+  <a href="#m11">11 Health</a>
+  <a href="#m12">12 Plan</a>
+</nav>
+
+<section id="general">
+  <h2><span class="num">i</span>How every model is built &amp; evaluated</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>Time-based splits, never random:</b> train on days 1–70, validate 71–80, test 81–90. Random splits leak the future and inflate scores.</li>
+      <li><b>Scalers and encoders are fit on train only</b> and saved with the model (<code>ml/artifacts/&lt;model&gt;/</code>).</li>
+      <li><b>Models never train on</b> <code>anomaly_label</code> / <code>anomaly_type</code> — ground truth for evaluation only.</li>
+      <li><b>Every prediction ships with a reason:</b> SHAP factors, triggering signals, or a rule name.</li>
+      <li><b><code>random_state=42</code> everywhere.</b> Library versions pinned in <code>ml/requirements.txt</code>.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 1. ANOMALY ============ -->
+<section id="m1">
+  <h2><span class="num">1</span>Unusual behaviour / anomaly detection</h2>
+  <div class="tagline">Isolation Forest · sklearn · trained by us · v2 · P0</div>
+
+  <div class="card">
+    <h3>What it does</h3>
+    <p class="desc">Scores every telemetry minute per machine for behaviour that no single threshold catches — slow drifts, multi-signal faults — and separates <b>real faults</b> from <b>sensor glitches</b> (one signal extreme for one minute). Glitches become an <code>info</code> event and are forward-filled so they don't pollute features; persistent faults fire a <code>UNUSUAL_BEHAVIOUR</code> warning with the top-3 signals by |z| as the explanation.</p>
+    <p class="note"><b>Features (40):</b> for each of 12 signals (engine_rpm, engine_load, coolant_temp, oil_pressure, hydraulic_pressure, hydraulic_oil_temp, fuel_rate, battery_voltage, vibration, pitch, roll, ground_speed): 5-min mean, 5-min std, 15-min slope — plus <code>idle_pct_30min</code>, <code>rpm_per_load</code>, <code>fuel_per_load</code>, <code>coolant−hydraulic_oil_temp</code>.</p>
+    <p class="note"><b>Architecture:</b> one Isolation Forest + StandardScaler per <b>machine type × state</b> (idle/working) = 8 models, trained on settled, pre-failure minutes only (≈335,500 rows across days 1–70).</p>
+    <div class="flow">telemetry → glitch cleaning → trailing windows → state (idle/working) → IsolationForest[type,state]
+→ 3 consecutive flags (5-min settle gate) → machine_fault | sensor_glitch | normal</div>
+  </div>
+
+  <div class="card">
+    <h3>Parameters</h3>
+    <table>
+      <tr><th>Parameter</th><th>Value</th><th class="c">Notes</th></tr>
+      <tr><td><code>n_estimators</code></td><td>200</td><td class="c">trees per forest</td></tr>
+      <tr><td><code>contamination</code></td><td>0.03</td><td class="c">expected anomaly share</td></tr>
+      <tr><td><code>max_samples</code></td><td>"auto"</td><td class="c">256 per tree</td></tr>
+      <tr><td><code>max_features</code></td><td>1.0</td><td class="c">all features per split</td></tr>
+      <tr><td><code>random_state</code></td><td>42</td><td class="c"></td></tr>
+      <tr><td>Preprocessing</td><td><code>StandardScaler</code> ×8</td><td class="c">fit on train, per type×state</td></tr>
+      <tr><td><code>settle_min</code></td><td>5</td><td class="c">ignore flags 5 min after a state switch / data gap</td></tr>
+      <tr><td><code>persist_min</code></td><td>3</td><td class="c">fault needs 3 consecutive flags</td></tr>
+      <tr><td>Score scaling</td><td>min-max per model key</td><td class="c"><code>anomaly_score</code> = −score_samples() → 0–1</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Accuracy — test set, days 81–90 (v2)</h3>
+    <div class="metric-grid">
+      <div class="metric"><div class="v good">96.6%</div><div class="l">event recall (rules+model)</div></div>
+      <div class="metric"><div class="v good">2 min</div><div class="l">median detection delay</div></div>
+      <div class="metric"><div class="v mid">17.5</div><div class="l">false alerts / 100 machine-h</div></div>
+      <div class="metric"><div class="v good">19/19</div><div class="l">glitch vs fault separation</div></div>
+    </div>
+    <table>
+      <tr><th>Injected anomaly type</th><th class="c">Events</th><th class="c">Recall</th><th class="c">Median delay</th></tr>
+      <tr><td>Overheating</td><td class="c">14</td><td class="c good">1.00</td><td class="c">11.5 min</td></tr>
+      <tr><td>Hydraulic leak</td><td class="c">14</td><td class="c good">0.93</td><td class="c">2 min</td></tr>
+      <tr><td>Excessive idle</td><td class="c">21</td><td class="c good">1.00</td><td class="c">10 min</td></tr>
+      <tr><td>Battery fault</td><td class="c">8</td><td class="c good">1.00</td><td class="c">4 min</td></tr>
+      <tr><td>Sensor glitch</td><td class="c">19</td><td class="c good">1.00</td><td class="c">0 min</td></tr>
+      <tr><td>Unsafe operation</td><td class="c">11</td><td class="c good">0.82</td><td class="c">1 min</td></tr>
+    </table>
+    <div class="verdict met"><b>Target met:</b> recall ≥ 0.8 and median delay ≤ 5 min. The model alone recalls only 27.6% — its reliable job is glitch-vs-fault separation (100%); the threshold rules catch the events, together they beat v1's 138 false alerts/100 machine-h by 8×.</div>
+  </div>
+</section>
+
+<!-- ============ 2. TASK TIME ============ -->
+<section id="m2">
+  <h2><span class="num">2</span>Task time estimation</h2>
+  <div class="tagline">LightGBM quantile regression (p10 / p50 / p90) · trained by us · v1 · P0</div>
+
+  <div class="card">
+    <h3>What it does</h3>
+    <p class="desc">Before a shift, predicts how long each task will take as a <b>realistic range</b> (p10–p90, 80% coverage), explains the estimate in plain language ("Material: rock — +7 min") via SHAP, and compares it with the operator's own pace for that task type (<code>expected_efficiency</code>). Powers shift planning and the plan re-evaluator (model 12).</p>
+    <p class="note"><b>Features (21):</b> task/material/machine type, unit, quantity, terrain slope, haul distance, operator skill / experience / certification, operator's usual pace for this task type (last 30 days, past-only), machine health at start, weather (temp, rain, wind, visibility, dust), shift type, hours into shift, day of week, operator fatigue-hour average.</p>
+    <p class="note"><b>Target:</b> <code>log1p(actual_duration_min)</code> on 6,379 completed tasks (split by date: 4,946 / 717 / 716). Intervals are <b>conformalized</b> (CQR on validation, offset ×1.053 in log space) because raw intervals were too narrow out-of-sample (66% → 80% coverage).</p>
+  </div>
+
+  <div class="card">
+    <h3>Parameters (per quantile α ∈ {0.1, 0.5, 0.9})</h3>
+    <table>
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td><code>objective</code></td><td>quantile</td></tr>
+      <tr><td><code>n_estimators</code></td><td>600 (early stopping 50 rounds; best iteration 364 / 599 / 600)</td></tr>
+      <tr><td><code>learning_rate</code></td><td>0.05</td></tr>
+      <tr><td><code>num_leaves</code></td><td>31</td></tr>
+      <tr><td><code>min_child_samples</code></td><td>20</td></tr>
+      <tr><td><code>subsample</code> / <code>subsample_freq</code></td><td>0.8 / 1</td></tr>
+      <tr><td><code>colsample_bytree</code></td><td>0.8</td></tr>
+      <tr><td><code>reg_lambda</code></td><td>1.0</td></tr>
+      <tr><td><code>random_state</code></td><td>42</td></tr>
+      <tr><td>Categoricals</td><td>native <code>category</code> dtype; unseen level → NaN</td></tr>
+      <tr><td>Post-processing</td><td>enforce p10 ≤ p50 ≤ p90; CQR offset 0.0515 (log)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Accuracy — test set, days 81–90 (p50 model, calibrated)</h3>
+    <div class="metric-grid">
+      <div class="metric"><div class="v good">8.9 min</div><div class="l">MAE (baseline 23.8)</div></div>
+      <div class="metric"><div class="v good">10.6%</div><div class="l">MAPE (baseline 28.4%)</div></div>
+      <div class="metric"><div class="v good">80.0%</div><div class="l">p10–p90 coverage (target ≈80)</div></div>
+      <div class="metric"><div class="v">33.8 min</div><div class="l">median interval width</div></div>
+    </div>
+    <table>
+      <tr><th>Split</th><th class="c">MAE (min)</th><th class="c">MAPE</th><th class="c">Coverage p10–p90</th></tr>
+      <tr><td>Train (in-sample)</td><td class="c">4.99</td><td class="c">5.78%</td><td class="c">97.6%</td></tr>
+      <tr><td>Validation (days 71–80)</td><td class="c">8.49</td><td class="c">10.81%</td><td class="c">80.3%</td></tr>
+      <tr><td>Test (days 81–90)</td><td class="c">8.87</td><td class="c">10.63%</td><td class="c">80.0%</td></tr>
+    </table>
+    <ul class="tight">
+      <li><b>SHAP top-3 drivers (test):</b> quantity (30.5 min mean impact), task_type (11.1), material_type (7.6).</li>
+      <li><b>Planted-factor sanity check:</b> rain, material, slope and skill recovered at 69–88% of planted size; night and hours-into-shift underestimated (censored late/night tasks become "delayed") — late-shift predictions are known to be optimistic.</li>
+    </ul>
+    <div class="verdict met"><b>Target met:</b> 2.7× better MAE than the per-task-type median baseline; interval coverage exactly on the 80% target after conformal calibration.</div>
+  </div>
+</section>
+
+<!-- ============ 3. MAINTENANCE ============ -->
+<section id="m3">
+  <h2><span class="num">3</span>Predictive maintenance</h2>
+  <div class="tagline">XGBoost classifier · trained by us · v2 + safety floor · P1</div>
+
+  <div class="card">
+    <h3>What it does</h3>
+    <p class="desc">For each machine, every engine hour, predicts the <b>probability of a failure in the next 48 engine hours</b> and names the <b>likely component</b> (cooling / electrical / engine / hydraulics / undercarriage) with the top SHAP factors pushing the risk up. Risk bands: &lt;0.3 low, 0.3–0.6 medium, &gt;0.6 high. Runs live every 10 replay minutes; feeds the digital-twin health score (model 11).</p>
+    <p class="note"><b>Features:</b> hours since service (+ ratio), 24 h/72 h means &amp; slopes of coolant temp, oil pressure, hydraulic oil temp, hydraulic pressure std, vibration, battery voltage — each signal's 24 h <b>deviation from the machine's own baseline</b> (t−336…t−72 engine h) in σ units, worst deviation/trend across signals, vibration while travelling, anomaly events + mean anomaly score (model 1), fault-code episodes 24 h / 7 d, cumulative high-load hours since service, machine type and age.</p>
+    <p class="note"><b>Label:</b> 1 if a <code>maintenance_log</code> failure occurs in the next 48 engine hours (failure→repair rows and censored tails dropped). Evaluation uses forward-chaining time CV grouped by failure: 15 held-out failures (the 90-day holdout has only 2).</p>
+    <p class="note"><b>Safety floor (ships in production):</b> any signal ≥ 6σ off the machine's own normal forces the probability to ≥ 0.35 (medium) so a novel failure mode is never shown as "low".</p>
+  </div>
+
+  <div class="card">
+    <h3>Parameters</h3>
+    <table>
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td><code>n_estimators</code></td><td>400</td></tr>
+      <tr><td><code>max_depth</code></td><td>5</td></tr>
+      <tr><td><code>learning_rate</code></td><td>0.05</td></tr>
+      <tr><td><code>subsample</code> / <code>colsample_bytree</code></td><td>0.8 / 0.8</td></tr>
+      <tr><td><code>min_child_weight</code></td><td>3</td></tr>
+      <tr><td><code>gamma</code></td><td>0.1</td></tr>
+      <tr><td><code>scale_pos_weight</code></td><td>n_neg / n_pos (class imbalance)</td></tr>
+      <tr><td><code>eval_metric</code></td><td>aucpr</td></tr>
+      <tr><td><code>random_state</code></td><td>42</td></tr>
+      <tr><td>Explanation</td><td>exact TreeSHAP (<code>pred_contribs</code>, log-odds), top-3 pushing p up</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Accuracy — CV over 15 held-out failures (v2 + floor)</h3>
+    <div class="metric-grid">
+      <div class="metric"><div class="v good">0.69</div><div class="l">PR-AUC (prevalence 0.10)</div></div>
+      <div class="metric"><div class="v good">12/15</div><div class="l">failures caught @0.5</div></div>
+      <div class="metric"><div class="v good">15/15</div><div class="l">failures reach medium+</div></div>
+      <div class="metric"><div class="v good">37.3 h</div><div class="l">median lead time (target 12)</div></div>
+      <div class="metric"><div class="v mid">0.16</div><div class="l">false alarms / machine-week</div></div>
+      <div class="metric"><div class="v good">86%</div><div class="l">component rule accuracy</div></div>
+    </div>
+    <table>
+      <tr><th>Variant</th><th class="c">PR-AUC</th><th class="c">Recall@0.5 (per hour)</th><th class="c">Failures caught</th><th class="c">Median lead</th><th class="c">False alarms / mach-week</th></tr>
+      <tr><td>Baseline rule</td><td class="c">0.25</td><td class="c">0.01</td><td class="c">1/15</td><td class="c">—</td><td class="c">0.15</td></tr>
+      <tr><td>XGB v1</td><td class="c">0.57</td><td class="c">0.42</td><td class="c">9/15</td><td class="c">20.9 h</td><td class="c">0.26</td></tr>
+      <tr><td>XGB v2</td><td class="c">0.68</td><td class="c">0.44</td><td class="c">12/15</td><td class="c">37.3 h</td><td class="c">0.16</td></tr>
+      <tr><td><b>XGB v2 + safety floor (shipped)</b></td><td class="c good"><b>0.69</b></td><td class="c"><b>0.44</b></td><td class="c good"><b>12/15</b></td><td class="c good"><b>37.3 h</b></td><td class="c"><b>0.16</b></td></tr>
+      <tr><td>v2 + floor, medium band (p≥0.3)</td><td class="c">0.69</td><td class="c good">0.72</td><td class="c good">15/15</td><td class="c good">37.3 h</td><td class="c">0.25</td></tr>
+    </table>
+    <div class="verdict part"><b>Partially met:</b> lead-time target (≥12 h) met with a large margin; per-hour recall@0.5 is 0.44 vs the 0.75 target (missing: 3 electrical, 1 undercarriage — all still reach the medium band thanks to the safety floor). Misses a failure costs more than a false alarm, hence the floor.</div>
+  </div>
+</section>
+
+<!-- ============ 4. CLUSTERING ============ -->
+<section id="m4">
+  <h2><span class="num">4</span>Fleet clustering + outliers</h2>
+  <div class="tagline">K-Means + z-score outliers + PCA / DBSCAN · trained by us · v2 · P1</div>
+
+  <div class="card">
+    <h3>What it does</h3>
+    <p class="desc">Every week, groups <b>operators</b> and <b>machines</b> by behaviour (idle-heavy, efficient, low output, needs safety coaching), computes an <b>efficiency index</b> and ranks entities within their site, and flags <b>outliers</b> for the manager to verify. Powers the manager dashboard scatter plot and the training recommender's "needs safety coaching" trigger.</p>
+    <p class="note"><b>Features (weekly, per entity × machine type):</b> fuel per productive hour, idle %, productivity per hour, time ratio (actual ÷ fleet p50), anomaly events per 10 engine-h (model 1), safety events per 10 engine-h. Machine types are never mixed — every comparison is within type via type-local z-scores; operators get the weighted mean across the types they drive.</p>
+    <p class="note"><b>Reliability weighting:</b> operator features are weighted by √ICC (week-to-week reliability: idle 0.98, fuel 0.87, productivity 0.79, time_ratio 0.72, safety 0.26, anomalies 0.07) so Poisson noise in rare events doesn't set cluster boundaries. Machines keep equal weights.</p>
+    <div class="flow">efficiency index = 0.35·z(productivity) − 0.25·z(fuel/h) − 0.20·z(idle%) − 0.20·z(time_ratio)</div>
+  </div>
+
+  <div class="card">
+    <h3>Parameters</h3>
+    <table>
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td>K-Means <code>k</code></td><td>chosen from k ∈ {3,4,5} by best silhouette → operators k=4, machines k=3</td></tr>
+      <tr><td><code>n_init</code> / <code>random_state</code></td><td>10 / 42</td></tr>
+      <tr><td>DBSCAN</td><td><code>min_samples=5</code>, eps = knee of the 5-NN distance curve (operators 1.02, machines 1.87)</td></tr>
+      <tr><td>Outlier rule</td><td>|z| &gt; 2.5 on any feature within machine type</td></tr>
+      <tr><td>Min productive hours</td><td>4 h to be fitted on</td></tr>
+      <tr><td>Fit weeks</td><td>weeks 1–10 (days 1–70); holdout weeks 11–13 (days 71–90)</td></tr>
+      <tr><td>PCA</td><td>2 components, scatter plot only</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Accuracy</h3>
+    <div class="metric-grid">
+      <div class="metric"><div class="v mid">0.45</div><div class="l">ARI vs personality (fit)</div></div>
+      <div class="metric"><div class="v mid">0.42</div><div class="l">ARI holdout</div></div>
+      <div class="metric"><div class="v">0.37</div><div class="l">operator silhouette (k=4)</div></div>
+      <div class="metric"><div class="v">0.21</div><div class="l">machine silhouette (k=3)</div></div>
+      <div class="metric"><div class="v">15%</div><div class="l">machines flagged outlier</div></div>
+    </div>
+    <ul class="tight">
+      <li><b>Hidden-personality recovery (the real test):</b> aggressive → needs safety coaching, idler → idle-heavy, novice → low output (100% of fit weeks), efficient → efficient (98%). "Average" splits 66% efficient / 34% low output — a perfect answer merging only those two would score ARI 0.58.</li>
+      <li><b>Efficiency index by personality:</b> efficient +0.49 &gt; average +0.09 &gt; aggressive −0.09 &gt; idler −0.58 &gt; novice −0.79 — ranks the planted personalities correctly.</li>
+      <li>vs. v1 spec: ARI 0.37 / 0.36 → 0.45 / 0.42 (one tuning round: fleet-based time_ratio + ICC weighting).</li>
+    </ul>
+    <div class="verdict miss"><b>Target missed (ARI ≥ 0.5):</b> 0.45 / 0.42. Documented, honest number — the four planted personalities are recovered almost perfectly; the miss is the "average" group sharing clusters with efficient/novice at k=4.</div>
+  </div>
+</section>
+
+<!-- ============ PRETRAINED & RULES ============ -->
+<section id="pre">
+  <h2><span class="num">ii</span>Pretrained models, rules &amp; LLM systems</h2>
+  <div class="tagline">Not trained on our data — configured, prompted, or used off the shelf.</div>
+
+  <!-- R -->
+  <section id="mR">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">R</span>&nbsp;Alert rule engine (P0)</h3>
+    <p class="desc">Instant, explainable warnings for known limits, run on every telemetry minute before the ML models. <b>11 rules:</b> coolant >100 °C / >105 °C, hydraulic oil >90 / >95 °C, oil pressure &lt;100 kPa (rpm&gt;1200), battery &lt;24 V, hydraulic-pressure-drop leak detector (2-min mean &lt;65% of prior baseline), seatbelt, tip risk (>15° / >25°), excess idle, overspeed (per-type limits: excavator 5.5, dozer 10, loader 20, truck 40 km/h), fault codes.</p>
+    <p class="note"><b>Graded response for critical internal alerts:</b> warn → derate (2 min) → recommend safe shutdown (5 min or rising) → escalate to manager (7 min or ignored). <b>Never cuts power automatically.</b> Hysteresis: clears only 5% inside the limit for 2 min. 100% recall on all 6 injected anomaly types when combined with model 1 (see model 1 table).</p>
+  </div>
+  </section>
+
+  <!-- 5 -->
+  <section id="m5">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">5</span>Fatigue &amp; attention (P0 · pretrained)</h3>
+    <p class="desc">Camera pipeline (MediaPipe FaceLandmarker, 478 landmarks) detecting drowsiness, distraction and phone use; drives the in-cab voice assistant and widens proximity zones when fatigue is high.</p>
+    <p class="note"><b>Parameters:</b> eyes closed if EAR &lt; 0.22 (per-person calibration in first 30 s: 0.75 × open-eye mean); PERCLOS over 60 s; yawn if MAR &gt; 0.6 for &gt;1.5 s; head down if pitch &lt; −20° for &gt;2 s (solvePnP, relative to calibration); phone = YOLO11n COCO class 67, conf ≥ 0.5, every 5th frame.</p>
+    <div class="flow">score = 0.45·min(PERCLOS/0.3,1) + 0.15·min(yawns₁₀/3,1) + 0.15·min(head_down₁₀/3,1) + 0.15·min(hrs/10,1) + 0.10·night   → low &lt;0.35 ≤ medium &lt;0.6 ≤ high</div>
+    <p class="note">Eyes closed &gt;2 s while moving = immediate critical alert. One <code>fatigue_log</code> row per minute.</p>
+  </div>
+  </section>
+
+  <!-- 6 -->
+  <section id="m6">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">6</span>Proximity / blindspot (P0 · pretrained)</h3>
+    <p class="desc">Ultralytics YOLO11n (COCO) + ByteTrack around the machine; estimates metres to people/vehicles and fires graded safety alerts.</p>
+    <table>
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td><code>classes</code></td><td>person (0), car (2), truck (7)</td></tr>
+      <tr><td><code>conf</code> / <code>iou</code></td><td>0.45 / 0.45</td></tr>
+      <tr><td><code>imgsz</code></td><td>640 px (drops to 480 under 10 fps)</td></tr>
+      <tr><td>tracker</td><td><code>bytetrack.yaml</code>, <code>persist=True</code></td></tr>
+      <tr><td>Distance</td><td>d ≈ 1.7 m × f / box_height_px (one-time 3 m calibration)</td></tr>
+      <tr><td>Zones</td><td>red &lt; 3 m (critical), orange 3–7 m (warning); +2 m when fatigue high / low visibility</td></tr>
+      <tr><td>Approaching</td><td>closing &gt; 0.5 m/s over 1 s → severity +1 (capped at critical)</td></tr>
+    </table>
+  </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="m7">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">7</span>RAG training chatbot (P1)</h3>
+    <p class="desc">Answers operator questions from our own knowledge base (fault codes, troubleshooting, safety rules, operating tips, training modules) with citations; translates Hindi questions and answers in the operator's language.</p>
+    <table>
+      <tr><th>Component</th><th>Setting</th></tr>
+      <tr><td>Embeddings</td><td><code>BAAI/bge-small-en-v1.5</code>, 384-d, normalized</td></tr>
+      <tr><td>Chunking</td><td>one chunk per <code>##</code> section (76 chunks), safe action first</td></tr>
+      <tr><td>Retrieval</td><td><code>match_document_chunks</code>: top 4, min similarity 0.3 (pgvector)</td></tr>
+      <tr><td>LLM</td><td>Gemini (<code>gemini-3.5-flash-lite</code>), temperature 0.2, max 500 tokens</td></tr>
+    </table>
+    <div class="metric-grid">
+      <div class="metric"><div class="v good">92%</div><div class="l">eval: 23/25 judged correct (target 80)</div></div>
+      <div class="metric"><div class="v good">100%</div><div class="l">retrieval put expected section first</div></div>
+      <div class="metric"><div class="v mid">1</div><div class="l">flagged unsafe (judge false positive)</div></div>
+    </div>
+  </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="m8">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">8</span>Voice assistant (P1 · pretrained)</h3>
+    <p class="note">Push-to-talk. <b>STT:</b> faster-whisper <code>small</code>, int8, auto language, VAD filter. <b>Intent:</b> LLM with 7 functions (<code>next_task</code>, <code>report_incident</code>, <code>machine_status</code>, <code>explain_alert</code>, <code>call_supervisor</code>, <code>sos</code>, <code>ask_training</code>), temperature 0. <b>TTS:</b> Piper (English/Hindi), browser fallback.</p>
+  </div>
+  </section>
+
+  <!-- 9 -->
+  <section id="m9">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">9</span>Shift handover summary (P1 · LLM)</h3>
+    <p class="note">Facts from the previous shift (notes, open alerts, safety events, unfinished tasks, fuel, maintenance prediction) → LLM (temperature 0.3) → ≤ 5 labelled lines (Machine / Open issues / Check before starting / Unfinished work / Fuel), stored on <code>shifts</code>. Incident drafts use temperature 0 with a strict JSON schema.</p>
+  </div>
+  </section>
+
+  <!-- 10 -->
+  <section id="m10">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">10</span>Training recommender (P1 · rules)</h3>
+    <p class="note">Last-7-day triggers → module topic: idle &gt;25% → fuel-efficient operation; ≥3 harsh maneuvers → smooth controls; time_ratio &gt;1.2 for a task type → technique for that type; ≥2 proximity breaches → blindspot awareness; ≥1 seatbelt violation → cab safety; ≥1 tip risk → slopes; cluster "needs safety coaching" → scenario pack. Max 2 open recommendations per operator, each with a plain-language reason.</p>
+  </div>
+  </section>
+
+  <!-- 11 -->
+  <section id="m11">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">11</span>Digital twin health score (P1 · formula)</h3>
+    <div class="flow">per subsystem: score = 1 − max(rule_penalty(0 / 0.3 / 0.7), 0.6·anomaly_contrib, failure_prob_if_component)   ·   overall = min(subsystems)</div>
+    <p class="note">Subsystems: engine, cooling, hydraulics, electrical, undercarriage. Bands: ≥0.75 green, 0.5–0.75 orange, &lt;0.5 red. Snapshot every replay minute. Demo: M04's electrical failure reads green until 23 engine hours out, then drops to 0.32 by the failure.</p>
+  </div>
+  </section>
+
+  <!-- 12 -->
+  <section id="m12">
+  <div class="card">
+    <h3><span class="num" style="font-size:12px;min-width:26px;height:26px">12</span>Plan re-evaluation (P1)</h3>
+    <p class="note">Triggers: task past its p90, rain &gt;2 mm/h, health &lt;0.6, fatigue high, manager edit. Re-predicts remaining tasks with current conditions, greedy-fits by priority then p50 (with skip), overflow moves to the next shift, and shows a diff for accept/reject. Fatigue high inserts a 15-min break before the next task. Demo: rain mid-shift changed 5 of 15 replanned shifts.</p>
+  </div>
+  </section>
+</section>
+
+<footer>
+  Generated 2026-09-24 · sources: <code>docs/models.md</code> (implementation decisions &amp; targets) and
+  <code>ml/artifacts/{anomaly,task_time,maintenance,clustering}/metrics.json</code> (measured numbers).
+  Anomaly, task-time and clustering results are on the untouched test period (days 81–90);
+  maintenance results are forward-chaining CV over 15 held-out failures. All data synthetic.
+</footer>
+
+</div>
+</body>
+</html>
