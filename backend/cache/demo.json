@@ -1,0 +1,66 @@
+{
+ "chat": {
+  "en|what does e-365 mean": {
+   "question": "What does E-365 mean?",
+   "language": "en",
+   "answer": "1. Reduce the load now: take smaller bucket loads and stop holding the controls at the end of stroke (pushing against the relief valve heats the oil fastest).\n2. If the warning stays, lower the attachment to the ground, park on level ground and let the machine idle so the cooler can bring the oil down.\n3. If it reaches critical, follow the safe shutdown steps shown on screen.\n4. Do not touch hydraulic lines, the tank or the cooler: they can cause burns.\n\nFault code E-365 means that the hydraulic oil is running too hot (Source: Fault codes). \n\nIn our system the warning starts above 90 °C and becomes critical above 95 °C (our assumed demo limits), while the normal working range is about 55–78 °C (Source: Fault codes).\n\nLikely causes include long periods of heavy digging or holding the relief valve, a blocked hydraulic oil cooler, low hydraulic oil level, a hot day, or internal wear in the pump or valves. A slow rise over days together with unsteady pressure is an early sign of a hydraulic failure (Source: Fault codes).\n\nCall maintenance if the code returns in the same shift, if the oil cooler is blocked, if the oil level is low, or if the machine feels slow or weak, and log \"hydraulic oil ran hot\" in your handover notes (Source: Fault codes).",
+   "sources": [
+    {
+     "document_id": 1,
+     "title": "Fault codes",
+     "chunk_index": 5
+    }
+   ],
+   "kb_version": "7680e302abdc",
+   "model": "gemini-3.5-flash-lite",
+   "created_at": "2026-09-24T02:23:41.257627+00:00"
+  },
+  "en|someone walked behind my machine what do i do": {
+   "question": "Someone walked behind my machine. What do I do?",
+   "language": "en",
+   "answer": "Stop all movement (travel, swing and attachment). \n\n(Source: Safety rules)\n\n1. Stop all movement (travel, swing and attachment).\n2. Sound the horn.\n3. Do not move again until you can see the person and they have moved to a safe place, or a spotter signals it is clear.\n4. If people keep walking near the machine, tell your supervisor so a pedestrian zone or barrier can be set up, and note it in your handover.\n\n(Source: Safety rules)",
+   "sources": [
+    {
+     "document_id": 3,
+     "title": "Safety rules",
+     "chunk_index": 4
+    },
+    {
+     "document_id": 3,
+     "title": "Safety rules",
+     "chunk_index": 2
+    }
+   ],
+   "kb_version": "7680e302abdc",
+   "model": "gemini-3.5-flash-lite",
+   "created_at": "2026-09-24T02:23:47.816372+00:00"
+  },
+  "en|i feel very sleepy on night shift": {
+   "question": "I feel very sleepy on night shift.",
+   "language": "en",
+   "answer": "Finish the current movement safely, then stop: lower the attachment and park on level ground.\n\nWhen you feel very sleepy on a night shift, follow these steps:\n1. Finish the current movement safely, then stop: lower the attachment and park on level ground (Source: Safety rules).\n2. Take a break of at least 15 minutes out of the cab: walk, drink water, eat something light (Source: Safety rules).\n3. Tell your supervisor. The app will already have suggested a break and notified them when the level is high, and the task plan will be adjusted to fit the break (Source: Safety rules).\n4. Do not rely on an open window, loud music or strong tea to keep going. They don't remove fatigue (Source: Safety rules).\n\nNote that these fatigue thresholds are our assumptions, not Caterpillar specifications (Source: Safety rules).",
+   "sources": [
+    {
+     "document_id": 3,
+     "title": "Safety rules",
+     "chunk_index": 11
+    }
+   ],
+   "kb_version": "7680e302abdc",
+   "model": "gemini-3.5-flash-lite",
+   "created_at": "2026-09-24T02:23:54.398668+00:00"
+  }
+ },
+ "handovers": {
+  "SH-2026-08-19-M05-N": {
+   "summary": "Machine: Hydraulic oil ran hot during the shift, keep load light.\nOpen issues: Hydraulic temp high, people near machine, and unfinished tasks.\nCheck before starting: Check rear side for people, and check hydraulic oil temperature.\nUnfinished work: Task 5 topsoil grading with 19.2 m3 left, and Task 6 backfill cancelled.\nFuel: Level at end is 60.48 percent.",
+   "model": "gemini-3.5-flash-lite",
+   "created_at": "2026-09-24T02:24:00.914899+00:00"
+  },
+  "SH-2026-08-19-M05-D": {
+   "summary": "Machine: overall condition is operational with one proximity breach recorded during the shift\nOpen issues: unfinished task and one critical proximity breach\nCheck before starting: check proximity sensors and safety systems before operation\nUnfinished work: Task 5 backfill with sand, 13.8 m3 left\nFuel: level at the end of the shift is 63.3 percent",
+   "model": "gemini-3.5-flash-lite",
+   "created_at": "2026-09-24T02:24:07.537655+00:00"
+  }
+ }
+}

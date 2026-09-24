@@ -55,7 +55,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **B:** phone detection _(YOLO11n class 67 every 5th cab frame, shares the proximity weights, 3 s persistence)_
 - [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
 - [x] **B:** vision live on the backend: `VISION_API_TOKEN` from `vision/.env` on every call; machine moving from `GET /machine/{id}/state` and high fatigue from `GET /operator/{id}/fatigue`, polled every 2 s with last-known / safe-default fallback; defaults OP02/M05 _(`vision/tests/test_backend_client.py` against a mock backend; live: 20 s proximity run posted 20 `blindspot_intrusion` → 20 `safety_events` rows on one `BLINDSPOT_RED` alert)_
-- [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions
+- [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions _(kb action-first + prompt fix: 23/25 = 92%, 1 flagged unsafe (Q04, judged a judge false positive, not re-run): see models.md §7)_
 - [x] **D:** all P0 operator screens on mocks _(login, handover + 7-day log, tasks with factors / delay / plan update, machine twin + gauges, safety, report incident, training (library, recommendations, TM-SIM-01 quiz, chat); takeover queue with Web Audio tones; checked at 1280×800)_
 - [x] **D:** all P0 manager screens on mocks _(fleet map + live alerts, alerts, machine detail, maintenance board, clusters (PCA + ranking + verify), safety analytics, geofences with drawing; checked at 1440)_
 
@@ -71,7 +71,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **C:** maintenance scoring job every 10 replay minutes → `maintenance_predictions` (health shows failure probability); `POST /analytics/cluster` + daily clustering job (APScheduler)
 - [x] **C:** Supabase JWT on every endpoint except `/health`; vision uses `VISION_API_TOKEN`; managers-only replay / scenario / clustering; contract error shape everywhere _(`backend/tests`, 99 passing)_
 - [x] **C + A:** `/scenario/{name}` with overheating, hydraulic_leak, tip_risk, seatbelt _(also `GET /machine/{id}/state` for vision; `backend/tests`, 39 passing)_
-- [ ] **C:** handover summary, incident transcript → draft
+- [x] **C:** handover summary, incident transcript → draft _(plus handover job at shift end, `backend/tests/test_ai.py`)_
 - [ ] **B:** voice command pipeline (STT → intent → TTS)
 
 **Checkpoint 3:** start replay → an overheating scenario produces warn → derate → recommend
@@ -97,9 +97,9 @@ recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolve
 - [x] Demo panel with all scenario buttons _(hidden `/demo`: replay start/stop/status and `/scenario/*`, `/events` for fatigue / proximity / SOS; in mock mode it seeks the recorded stream and drives every tab over a BroadcastChannel. Not yet run against the live backend)_
 - [ ] Run `demo_script.md` end to end 3 times; log every failure; fix
 - [ ] Plan re-evaluation (P1) if time _(ML and backend done: `/plan/re-evaluate` and `/plan/accept`; UI not wired yet)_
-- [ ] Geofencing, training recommendations, scenario quiz (P1) if time
+- [ ] Geofencing, training recommendations, scenario quiz (P1) if time _(backend: recommender rules + daily job + `POST /training/recommendations` done)_
 - [ ] Offline demo: Wi-Fi off → report incident → Wi-Fi on → appears on manager screen
-- [ ] Fallbacks ready: `--source demo.mp4` for vision, cached LLM answers for chat
+- [ ] Fallbacks ready: `--source demo.mp4` for vision, cached LLM answers for chat _(chat + handover side done: `backend/cache/demo.json`, `scripts/prewarm_demo.py`)_
 
 **Checkpoint 5:** three clean demo runs in a row.
 

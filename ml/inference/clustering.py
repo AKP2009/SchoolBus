@@ -577,7 +577,7 @@ def outlier_reason(
 def load_artifacts() -> dict[str, Any]:
     """Type scalers, cluster names and per-entity-type models (scaler, weights, kmeans, pca,
     DBSCAN core points, eps), loaded once per process."""
-    feats = json.loads((ARTIFACT_DIR / "feature_list.json").read_text())
+    feats = json.loads((ARTIFACT_DIR / "feature_list.json").read_text(encoding="utf-8"))
     if feats != FEATURE_COLUMNS:
         raise ValueError(
             "feature_list.json does not match FEATURE_COLUMNS in clustering.py"

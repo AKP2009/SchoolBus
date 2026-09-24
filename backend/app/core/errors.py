@@ -23,6 +23,14 @@ HTTP_CODES = {
 }
 
 
+class Utf8JSONResponse(JSONResponse):
+    """JSON with an explicit charset. Without it, Windows PowerShell 5.1 (Invoke-RestMethod)
+    and some other clients decode the body as ISO-8859-1, so "—" in alert titles shows as "â€”".
+    The app's default response class; the error handlers use it too."""
+
+    media_type = "application/json; charset=utf-8"
+
+
 class ApiError(Exception):
     """Raise to return the contract error shape: {"error": {"code", "message"}}."""
 
@@ -59,27 +67,27 @@ def validation_message(errors: Sequence[Any]) -> str:
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
-    async def _api_error(_: Request, exc: ApiError) -> JSONResponse:
-        return JSONResponse(status_code=exc.status_code, content=_body(exc.code, exc.message))
+    async def _api_error(_: Request, exc: ApiError) -> Utf8JSONResponse:
+        return Utf8JSONResponse(status_code=exc.status_code, content=_body(exc.code, exc.message))
 
     @app.exception_handler(RequestValidationError)
-    async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
-        return JSONResponse(
+    async def _validation_error(_: Request, exc: RequestValidationError) -> Utf8JSONResponse:
+        return Utf8JSONResponse(
             status_code=400, content=_body("VALIDATION_ERROR", validation_message(exc.errors()))
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def _http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    async def _http_error(_: Request, exc: StarletteHTTPException) -> Utf8JSONResponse:
         code = HTTP_CODES.get(exc.status_code, "HTTP_ERROR")
-        return JSONResponse(
+        return Utf8JSONResponse(
             status_code=exc.status_code,
             content=_body(code, str(exc.detail)),
             headers=getattr(exc, "headers", None),
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
+    async def _unhandled(_: Request, exc: Exception) -> Utf8JSONResponse:
         log.exception("unhandled error: %s", exc)
-        return JSONResponse(
+        return Utf8JSONResponse(
             status_code=500, content=_body("INTERNAL_ERROR", "Something went wrong on the server.")
         )

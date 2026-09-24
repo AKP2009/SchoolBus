@@ -192,10 +192,10 @@ def model_key(machine_type: str, state: str) -> str:
 @lru_cache(maxsize=1)
 def load_artifacts(artifact_dir: str | None = None) -> dict[str, Any]:
     d = Path(artifact_dir) if artifact_dir else ARTIFACT_DIR
-    features = json.loads((d / "feature_list.json").read_text())
+    features = json.loads((d / "feature_list.json").read_text(encoding="utf-8"))
     if features != FEATURE_COLUMNS:
         raise RuntimeError("feature_list.json does not match FEATURE_COLUMNS; retrain the model")
-    cfg = json.loads((d / "config.json").read_text())
+    cfg = json.loads((d / "config.json").read_text(encoding="utf-8"))
     models = {
         key: {
             "model": joblib.load(d / f"iforest_{key}.joblib"),

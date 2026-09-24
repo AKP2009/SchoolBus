@@ -7,13 +7,16 @@ instructions when they are stricter.
 
 ## What is the most important safety rule in the cab?
 
-If something doesn't feel safe, **stop, lower the attachment, and ask**. Nobody on this site will
+**What to do now:** if something doesn't feel safe, **stop, lower the attachment, and ask**. Nobody on this site will
 be blamed for stopping work to stay safe. The assistant advises and warns; it never takes control of
 the machine, so you are always the one who makes the machine safe.
 
 ## What are blind spots and where are they on my machine?
 
-A blind spot is an area around the machine you cannot see from the seat, even with mirrors.
+**What to do now:** before every move, check the mirrors and the camera screen for all four
+sectors. If anyone is in a blind spot, stop all movement and sound the horn.
+
+**Meaning:** a blind spot is an area around the machine you cannot see from the seat, even with mirrors.
 
 - **Excavator:** behind the counterweight, the right side (boom side), and close to the tracks.
 - **Wheel loader:** directly behind the machine and close in front of a raised bucket.
@@ -26,10 +29,15 @@ any sector on the screen with its distance.
 
 ## What do the proximity warning colours and distances mean?
 
-- **Red (critical):** a person or vehicle is closer than **3 m**. Stop all movement.
-- **Orange (warning):** between **3 and 7 m**. Slow down, check the sector, sound the horn.
+**What to do now:** on **red**, stop all movement. On **orange**, slow down, check the sector and
+sound the horn.
+
+**Meaning:**
+- **Red (critical):** a person or vehicle is closer than **3 m**.
+- **Orange (warning):** between **3 and 7 m**.
 - **Clear:** further than 7 m.
-- **Approaching:** if the person is moving toward the machine, the warning goes up one level.
+- **Approaching:** if the person is moving toward the machine, the warning goes up one level
+  (orange becomes red).
 
 In low visibility (rain, dust, night) or when your fatigue level is high, both limits move out by
 2 m (red below 5 m, orange 5–9 m). All distances are camera estimates and can be off by 20–30%, so
@@ -37,6 +45,7 @@ treat them as a guide, not a guarantee.
 
 ## What should I do when someone enters my blind spot?
 
+**What to do now:**
 1. **Stop all movement** (travel, swing and attachment).
 2. Sound the horn.
 3. Do not move again until you can see the person and they have moved to a safe place, or a
@@ -46,16 +55,21 @@ treat them as a guide, not a guarantee.
 
 ## What is the swing radius rule for excavators?
 
-Nobody may stand inside the swing radius of an excavator (the circle the counterweight and
-bucket sweep) while it is running. Before swinging, look in the direction of swing and check the
-screen for rear and side sectors. If a truck driver needs to be near the machine, they stay in
+**What to do now:** before swinging, look in the direction of swing and check the screen for the
+rear and side sectors. If anyone is inside the swing radius, don't swing: stop and sound the horn.
+
+**Meaning:** nobody may stand inside the swing radius of an excavator (the circle the counterweight
+and bucket sweep) while it is running. If a truck driver needs to be near the machine, they stay in
 their cab while being loaded.
 
 ## How steep a slope is too steep?
 
-Our tilt warning (TIP_RISK) comes on when pitch (front to back) or roll (side to side) is more
-than **15°**, and becomes critical above **25°** (assumed limits; real limits depend on the machine
-model and load).
+**What to do now:** when the tilt warning comes on, stop, keep the bucket or blade low, and move
+back to flatter ground by travelling straight up or down the slope, not across it.
+
+**Meaning:** our tilt warning (TIP_RISK) comes on when pitch (front to back) or roll (side to side)
+is more than **15°**, and becomes critical above **25°** (assumed limits; real limits depend on the
+machine model and load).
 
 On any slope:
 - Travel straight up or down, not across.
@@ -66,18 +80,24 @@ On any slope:
 
 ## How do I avoid tipping over on a slope or edge?
 
+**What to do now:** if the machine starts to tip, **stay in your seat with the seatbelt on, hold
+on, and do not jump.** The rollover protective structure (ROPS) protects you only if you stay
+inside. When the tilt warning comes on, stop.
+
+To avoid tipping:
 - Keep at least one machine length away from the edge of a trench, bench or embankment unless the
   job requires closer work and the edge has been checked.
 - Cut a level bench to work from when digging on a slope.
 - Keep loads low and turn slowly.
-- Watch the tilt reading on the screen; stop when the warning comes on.
-- If the machine starts to tip: **stay in your seat with the seatbelt on, hold on, and do not
-  jump.** The rollover protective structure (ROPS) protects you only if you stay inside.
+- Watch the tilt reading on the screen.
 
 ## Why must I always wear the seatbelt?
 
-The cab is built with a rollover protective structure (ROPS). It protects you only if the seatbelt
-keeps you inside it. In a tip-over, an unbelted operator can be thrown out and crushed. Most
+**What to do now:** fasten the seatbelt before the machine moves and keep it on until you park. If
+the seatbelt warning sounds, stop and fasten it.
+
+**Why:** the cab is built with a rollover protective structure (ROPS). It protects you only if the
+seatbelt keeps you inside it. In a tip-over, an unbelted operator can be thrown out and crushed. Most
 rollover deaths happen to operators who were not belted in.
 
 Our system warns if the belt is unfastened while the machine moves (above 0.5 km/h) or the engine
@@ -86,14 +106,17 @@ site manager is notified. These times are our assumed rule.
 
 ## What is the rule about phones in the cab?
 
-Do not use a phone while the machine is moving or working. The cab camera flags phone use as a
-safety event. If you need to take a call or read a message, stop, lower the attachment, apply the
-park brake or lock, and then use the phone. Use the app's voice button for machine questions
+**What to do now:** do not use a phone while the machine is moving or working. If you need to take a
+call or read a message, stop, lower the attachment, apply the park brake or lock, and then use the
+phone. The cab camera flags phone use as a safety event. Use the app's voice button for machine questions
 instead of picking up a phone.
 
 ## How does the system detect fatigue?
 
-A camera in the cab measures how often your eyes are closed (PERCLOS over the last minute),
+**What to do now:** if the fatigue level shows high or the eyes-closed alert sounds, stop safely,
+lower the attachment and take a break (see "What should I do when I feel tired").
+
+**How it works:** a camera in the cab measures how often your eyes are closed (PERCLOS over the last minute),
 yawning, and head nodding. It adds how many hours you are into the shift and whether it is a night
 shift. The result is a fatigue level: **low, medium or high**. Camera frames are processed on the
 tablet and never stored; only the numbers are saved, and you can see your own data.
@@ -103,6 +126,7 @@ sounds immediately. These thresholds are our assumptions.
 
 ## What should I do when I feel tired or the fatigue level is high?
 
+**What to do now:**
 1. Finish the current movement safely, then **stop**: lower the attachment and park on level ground.
 2. Take a break of at least 15 minutes out of the cab: walk, drink water, eat something light.
 3. Tell your supervisor. The app will already have suggested a break and notified them when the
@@ -113,13 +137,16 @@ In our site data, most near misses happen late in night shifts, when fatigue is 
 
 ## How often should I take breaks?
 
-Take the breaks your site schedules. As a guide, take a short break at least every 2 hours, and
+**What to do now:** take the breaks your site schedules. As a guide, take a short break at least every 2 hours, and
 more often on night shifts or in heat. Drink water regularly: heat and dehydration make fatigue
 worse. When the assistant suggests a break because your fatigue level is high, take it.
 
 ## What are no-go zones and geofences?
 
-The site manager draws zones on the site map:
+**What to do now:** when the app warns that your machine entered a zone, stop, check the map, and
+leave the zone the way you came unless your supervisor says otherwise.
+
+**Meaning:** the site manager draws zones on the site map:
 
 - **No-go zones:** areas the machine must not enter (for example under power lines, next to open
   trenches, or unstable ground).
@@ -127,20 +154,19 @@ The site manager draws zones on the site map:
 - **Pedestrian zones:** areas where people work on foot. Enter only at walking speed, with a spotter.
 - **Speed-limited zones:** a maximum speed shown on the screen, often on haul roads and near offices.
 
-When your machine enters a zone, the app warns you. Stop, check the map, and leave the zone the way
-you came unless your supervisor says otherwise.
-
 ## What do I do if I get close to overhead power lines?
 
-Stop moving the boom or dump body toward the line. Keep a large clearance at all times; follow
-your site's minimum distance. If the machine touches a power line: **stay in the cab** and warn
-everyone to stay away, press SOS, and wait until the power company confirms the line is off. Only
-if there is fire and you must leave, jump clear with both feet together, never touching the machine
-and the ground at the same time, and shuffle away with small steps.
+**What to do now:** stop moving the boom or dump body toward the line. If the machine touches a
+power line: **stay in the cab**, warn everyone to stay away, press SOS, and wait until the power
+company confirms the line is off. Only if there is fire and you must leave, jump clear with both
+feet together, never touching the machine and the ground at the same time, and shuffle away with
+small steps.
+
+To prevent it, keep a large clearance at all times and follow your site's minimum distance.
 
 ## When should I press SOS?
 
-Press SOS (or say "SOS" to the voice assistant) when there is an emergency that needs help now:
+**What to do now:** press SOS (or say "SOS" to the voice assistant) when there is an emergency that needs help now:
 
 - someone is injured, trapped, or has collapsed
 - the machine has tipped over, is on fire, or has touched a power line
@@ -152,6 +178,8 @@ emergency alert. It works on one tap with gloves.
 
 ## What happens after I press SOS?
 
+**What to do now:** stay where you are if it is safe, and keep your phone or radio free.
+
 1. The site manager's screen shows an emergency alert with your location on the map.
 2. Stay where you are if it is safe, so help can find you. Keep the engine off if there is fire,
    fuel or oil around.
@@ -162,7 +190,8 @@ emergency alert. It works on one tap with gloves.
 
 ## How do I report a near miss or incident?
 
-Tap "Report incident" or say "Report an incident" to the voice assistant. Describe what happened,
+**What to do now:** make sure everyone is safe first (press SOS if someone may be hurt). Then tap
+"Report incident" or say "Report an incident" to the voice assistant. Describe what happened,
 where, and who was involved; add a photo if safe. It takes under 30 seconds and works without
 network: the report is saved on the tablet and sent when the connection returns. Report near misses
 too: they show where the next accident could happen.

@@ -150,8 +150,16 @@ def test_scheduler_jobs():
     from app.jobs.scheduler import build_scheduler
 
     jobs = {j.id: j for j in build_scheduler().get_jobs()}
-    assert set(jobs) == {"maintenance_scoring", "vision_alert_expiry", "fleet_clustering"}
+    assert set(jobs) == {
+        "maintenance_scoring",
+        "vision_alert_expiry",
+        "fleet_clustering",
+        "handover_summary",
+        "training_recommendations",
+    }
     assert jobs["maintenance_scoring"].trigger.interval == timedelta(seconds=5)
     assert jobs["vision_alert_expiry"].trigger.interval == timedelta(seconds=10)
     assert "hour='1'" in str(jobs["fleet_clustering"].trigger)
+    assert jobs["handover_summary"].trigger.interval == timedelta(seconds=30)
+    assert "minute='30'" in str(jobs["training_recommendations"].trigger)
     assert all(j.max_instances == 1 for j in jobs.values())

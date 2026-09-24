@@ -38,7 +38,11 @@ Anything that needs a model, an LLM, the service role, or the live stream goes t
   (also for an account without a `profiles` row).
 
 ### `GET /health`
-`{ "status": "ok", "models": { "anomaly": "v1", "task_time": "v1", ... } }`
+`{ "status": "ok", "models": { "anomaly": "v1", "task_time": "v1", ..., "llm": "gemini-3.5-flash-lite" } }`
+(`llm` = `LLM_MODEL`, or `"not_configured"` when `LLM_API_KEY` is missing).
+
+All JSON responses are `application/json; charset=utf-8`: without the charset, Windows PowerShell 5.1
+(`Invoke-RestMethod`) decodes them as ISO-8859-1 and "—" in alert titles shows as "â€”".
 
 ### `POST /predict/task-time`
 Request
@@ -176,19 +180,43 @@ operator themselves, or a manager.
 Request `{ "session_id": "uuid", "operator_id": "OP02", "message": "What does E-360 mean?", "language": "en" }`
 Response
 ```json
-{ "answer": "E-360 means low hydraulic oil level. Stop work, lower the attachment…",
-  "sources": [ { "document_id": 4, "title": "Fault code reference", "chunk_index": 12 } ] }
+{ "answer": "Lower the attachment slowly, stop and shut down… (Source: Fault codes)",
+  "sources": [ { "document_id": 1, "title": "Fault codes", "chunk_index": 4 } ] }
 ```
+Response also has `"cached": true | false`: true = answered from the cache (the same normalised question
+answered before from the current knowledge base), with no LLM call. Operators chat only as themselves (403). Non-English questions (`language` or Devanagari/Tamil script) are
+translated to English for retrieval and answered in that language. `sources` lists only the chunks the
+answer used (empty when the answer is "not in my manuals"). Both turns are saved in `chat_messages`
+(same `session_id`, user turn first by `created_at`). 503 `CHAT_BUSY` "Chatbot busy, try again in a minute."
+when the LLM is rate limited (429) or overloaded and the question isn't cached (nothing is saved; show the
+message and let the operator retry). 503 `LLM_UNAVAILABLE` (no `LLM_API_KEY`, cache miss) or `LLM_ERROR`.
 
 ### `POST /voice/command`
 Multipart audio (`audio/webm`) + `operator_id`, `machine_id`.
 Response `{ "transcript": "…", "intent": "next_task", "reply_text": "…", "reply_audio_url": "/audio/…wav", "action": { … } }`
 
 ### `POST /handover/{shift_id}` → `{ "summary": "…" }` (also saved to `shifts`)
+Summary of that shift for the next operator on the machine, 5 lines (`Machine:`, `Open issues:`, `Check before
+starting:`, `Unfinished work:`, `Fuel:`), saved to `shifts.handover_summary` + `handover_generated_at`.
+Response also has `"pre_generated": true | false`: true when the LLM was rate limited, overloaded or not
+configured and a pre-generated summary (`backend/cache/demo.json`) was used instead. Managers, the shift's
+operator, or operators of the same site. 404 unknown shift, 503 `LLM_RATE_LIMITED` / `LLM_OVERLOADED` /
+`LLM_UNAVAILABLE` / `LLM_ERROR` when there is no pre-generated summary. The
+scheduler also writes it when a shift ends (supabase.md §10).
 
 ### `POST /incidents/transcribe`
 Voice transcript → structured incident draft `{ incident_type, severity, description, injury }`
-for the operator to confirm.
+for the operator to confirm. Nothing is saved: the web app upserts the confirmed row (`reported_via: 'voice'`,
+`voice_transcript`). Someone hurt → `injury: true` and severity at least `critical`. 400 empty transcript,
+403 other operator, 503 as for `/chat`.
+
+### `POST /training/recommendations`
+Runs the recommender rules now (models.md §10), as the daily job does. Request
+`{ "operator_id": "OP02" | null, "as_of": "…" | null }` (null operator = everyone, managers only; operators only
+for themselves; null `as_of` = end of the latest shift in the database). Response
+`{ "results": [ { "operator_id": "OP02", "as_of": "…", "triggers": [ { "metric": "tip_risk", "value": 1,
+"modules": ["TM-SAFE-03"] } ], "created": [ { "id": 7, "module_id": "TM-SAFE-03", "reason": "…",
+"trigger_metric": "tip_risk", "trigger_value": 1 } ] } ] }`. The web app reads `training_recommendations`.
 
 ### `POST /analytics/cluster?week_start=2026-09-14` → writes `fleet_metrics_weekly`, returns summary.
 Managers only. `week_start` must be a Monday (400). Uses the week's shifts, tasks and safety events from
@@ -284,5 +312,6 @@ Mock-mode QA URL parameters: `?state=loading|empty|error|offline`, `?t=<data s>`
 HTTP 400 validation (`VALIDATION_ERROR`), 401 auth (`UNAUTHORIZED`), 403 not allowed (`FORBIDDEN`),
 404 not found (`NOT_FOUND`, `UNKNOWN_MACHINE`, `UNKNOWN_OPERATOR`), 405 `METHOD_NOT_ALLOWED`,
 409 state conflicts (`REPLAY_NOT_RUNNING`, `NO_PENDING_PLAN`, `PLAN_EXPIRED`, …), 501 not built yet
-(`NOT_IMPLEMENTED`), 503 model/LLM unavailable (`MODEL_NOT_LOADED`, `AUTH_UNAVAILABLE`), 500 `INTERNAL_ERROR`.
+(`NOT_IMPLEMENTED`), 503 model/LLM unavailable (`MODEL_NOT_LOADED`, `AUTH_UNAVAILABLE`, `LLM_UNAVAILABLE`,
+`LLM_RATE_LIMITED`, `LLM_OVERLOADED`, `LLM_ERROR`, `CHAT_BUSY`), 500 `INTERNAL_ERROR`.
 Every error, including unknown routes and framework validation, uses this shape (`backend/app/core/errors.py`).

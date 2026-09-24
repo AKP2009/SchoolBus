@@ -308,11 +308,11 @@ def to_model_frame(df: pd.DataFrame, categories: dict[str, list[str]]) -> pd.Dat
 @lru_cache(maxsize=1)
 def load_artifacts() -> dict[str, Any]:
     """Loads the three quantile models, encoders and config once per process."""
-    feats = json.loads((ARTIFACT_DIR / "feature_list.json").read_text())
+    feats = json.loads((ARTIFACT_DIR / "feature_list.json").read_text(encoding="utf-8"))
     if feats != FEATURE_COLUMNS:
         raise ValueError("feature_list.json does not match FEATURE_COLUMNS in task_time.py")
-    enc = json.loads((ARTIFACT_DIR / "encoders.json").read_text())
-    cfg = json.loads((ARTIFACT_DIR / "config.json").read_text())
+    enc = json.loads((ARTIFACT_DIR / "encoders.json").read_text(encoding="utf-8"))
+    cfg = json.loads((ARTIFACT_DIR / "config.json").read_text(encoding="utf-8"))
     models = {q: joblib.load(ARTIFACT_DIR / f"lgbm_p{round(q * 100)}.joblib") for q in QUANTILES}
     return {
         "models": models,

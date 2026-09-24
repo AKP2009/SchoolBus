@@ -47,6 +47,7 @@ The app counts harsh manoeuvres. Three or more in a week triggers the "Smooth co
 
 ## How should I work in rain?
 
+**What to do now:**
 1. **Slow down.** Stopping distances get longer and slopes lose grip. Speed limits on haul roads
    still apply, but drive below them when wet.
 2. **Keep further from edges.** Trench walls and embankments get soft and can collapse.
@@ -60,9 +61,10 @@ The app counts harsh manoeuvres. Three or more in a week triggers the "Smooth co
 
 ## How should I work in dust or low visibility?
 
+**What to do now:** stop if you cannot see the edge of the work area, the truck you are loading or
+people around you. Otherwise:
 - Slow down and increase your following distance on haul roads.
 - Switch on work lights and the beacon so others see you.
-- Stop if you cannot see the edge of the work area, the truck you are loading or people around you.
 - Rely on the camera screen for blind spots, but remember dust can hide people from the cameras too.
 - Ask for water spraying on haul roads if dust stays heavy.
 
@@ -113,7 +115,8 @@ working closer to edges, or swinging over people.
 
 ## What should I check at the start of the shift?
 
-Read the handover brief from the previous shift in the app. Then walk around the machine:
+**What to do now:** read the handover brief from the previous shift in the app, then walk around
+the machine before starting it:
 - fluid leaks under the machine, damaged hoses
 - tracks or tyres, bucket teeth and pins
 - coolant, engine oil, hydraulic oil and fuel levels

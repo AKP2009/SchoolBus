@@ -612,6 +612,45 @@ labelled as our assumptions. Suggested `doc_type`: `fault_codes`, `faq`, `safety
 The set is `backend/kb/rag_eval.json`: each question has `expected_points`, `source` file and
 `section`, `safety_critical`, and `must_not` (statements that make an answer unsafe). Q24 is Hindi
 (tests translate → answer in Hindi); Q25 is out of scope (`source: null`, must say it doesn't know).
+- **Built (`backend/app/services/chat.py`, `kb.py`, `llm.py`):** LLM = Gemini via google-genai (`LLM_PROVIDER`,
+  `LLM_MODEL`, `LLM_API_KEY` in backend/.env); thinking kept minimal (it counts against `max_tokens`), 429/500/503
+  retried with backoff honouring the server's retry hint, a used-up daily quota fails fast (503 `LLM_RATE_LIMITED`).
+  Ingest: one chunk per `##` section (76 chunks; longest 1,579 chars), heading kept, `metadata` = title / heading /
+  chunk_index / source / doc_type. Queries get bge's retrieval instruction. The model ends with `SOURCES: 1, 3`
+  (or `none`); that line becomes `sources`, so only chunks the answer used are cited.
+- **Free tier (2026-09-24):** `gemini-3.6-flash` allows 20 requests/day per project and `gemini-2.5-flash` is closed
+  to new keys, so the default is `gemini-3.5-flash-lite`. `gemini-3.7-flash` / `-flash-latest` reject minimal
+  thinking; `llm.py` falls back to low.
+- **Evaluation (`backend/tests/rag_eval.py`, 2026-09-24, chat `gemini-3.5-flash-lite`, judge `gemini-flash-lite-latest`
+  at temperature 0):** retrieval put the expected section first for all 25. Run 1: 12/25 correct, 7 unsafe — "what does
+  X mean?" answered with the meaning only (no safe action), and points dropped under a 120-word cap. One prompt round
+  (safe action first even for "what does X mean", keep every step / limit / call-maintenance condition, ~180 words):
+  **21/25 = 84% correct, 2 unsafe** (Q01, Q24: E-365, whose kb section lists Meaning and Causes before "What to do
+  right now"; the answers start with step 2 or the "don't touch" warning). Misses Q16 (approaching raises one level),
+  Q23 (25% threshold).
+- **Knowledge base restructured (approved follow-up):** every section in `fault_codes.md`, `troubleshooting_faq.md`
+  and `safety_rules.md` (46), plus the hazard sections of `operating_tips.md` (rain, dust, start-of-shift check), now
+  opens with **What to do now:**, then the meaning, then causes (fault codes: What to do now → Meaning → Likely causes
+  → When to call maintenance). The first step is always an action (E-110 no longer starts with "Stay calm", E-215 no
+  longer with "This is the most urgent code"). The other tips and the training-module descriptions are how-to /
+  catalogue text with no hazard, so they have no such block.
+- **Q24 root cause:** after the reorder the English E-365 answer led with the action, the Hindi one still with the
+  meaning (retrieval was right: E-365 top). Answering a "what does X mean?" question in Hindi, the model followed
+  the question rather than rule 3. Fix in the prompt, not the eval: rule 3 now names the first step of the section's
+  "What to do now", says it applies in every language, and forbids opening with the meaning, a definition or a
+  "don't touch" warning.
+- **Eval after the restructure (one run, same models): 23/25 = 92% correct, 1 flagged unsafe.** Q01 and Q24 pass.
+  The flagged one is Q04 (E-360), judged "safe action not first" although the answer's first line is the kb's step 1
+  ("1. Lower the bucket, boom or blade to the ground slowly and under control"): a judge false positive, left as
+  reported (not re-run). Q16 misses two details (approaching raises a level, +2 m in low visibility).
+- **Cache (`backend/app/services/chat_cache.py`):** `/chat` answers are cached on (language, normalised question:
+  NFKC, case-folded, punctuation dropped, "E365"/"e 365" → "e-365"; combining marks kept so Hindi words stay
+  distinct). A hit makes no LLM call, needs no key, and returns `cached: true`. Entries carry the kb version (hash of
+  backend/kb/*.md) and are ignored after a kb edit. Exact match only: a fuzzy one could answer E-360 with E-365.
+  `backend/cache/demo.json` (committed) holds the pre-warmed answers to the web app's three suggestion chips and two
+  handovers (`scripts/prewarm_demo.py`); `backend/cache/chat_runtime.json` (gitignored, newest 200) holds the rest.
+  Live chat calls get 2 attempts and ≤ 5 s backoff; on 429/503 the cache is checked again, else 503 `CHAT_BUSY`
+  "Chatbot busy, try again in a minute."
 
 ---
 
@@ -631,6 +670,18 @@ The set is `backend/kb/rag_eval.json`: each question has `expected_points`, `sou
 events, unfinished tasks, fuel_end_pct, latest maintenance prediction.
 **Prompt output format:** 5 lines max — machine condition, open issues, check before starting,
 unfinished work, fuel. `temperature=0.3`. Stored in `shifts.handover_summary`.
+- **Built (`backend/app/services/handover.py`, `POST /handover/{shift_id}`, job in `backend/app/jobs/ai.py`):** the
+  summary of a shift is stored on that shift (the next operator reads the machine's latest shift). Facts sent as JSON:
+  notes, `issues_reported`, alerts open at the shift end, safety events counted by type, tasks not completed,
+  fuel start/end, latest `maintenance_predictions` row at the end; times in Asia/Kolkata. Reply cleaned to ≤ 5 labelled
+  lines (`Machine:`, `Open issues:`, `Check before starting:`, `Unfinished work:`, `Fuel:`). Live check 2026-09-24,
+  SH-2026-08-19-M05-N: hydraulic oil hot, people near the rear, task 5 with 19.2 m3 left, fuel 60.48%.
+- **Pre-generated (`backend/cache/demo.json`):** SH-2026-08-19-M05-N and SH-2026-08-19-M05-D (the handover
+  Ganesh reads at login). The backend writes them back to `shifts` when they are missing, at startup and on each
+  handover-job tick, so `reset_demo_state.py --apply` doesn't cost a live call. `POST /handover` falls back to
+  them when the LLM is rate limited, overloaded or not configured (`pre_generated: true`).
+- **Incident drafts (`backend/app/services/incidents.py`):** `temperature=0`, JSON schema = `IncidentDraft`; injury
+  forces `injury=true` and severity ≥ critical.
 
 ---
 
@@ -647,6 +698,14 @@ unfinished work, fuel. `temperature=0.3`. Stored in `shifts.handover_summary`.
 | cluster_label = 'needs safety coaching' | Scenario simulator pack |
 
 Max 2 open recommendations per operator. Stored in `training_recommendations` with a plain-language `reason`.
+- **Built (`backend/app/services/recommender.py`, daily job 01:30 IST, `POST /training/recommendations`):** priority
+  tip_risk → seatbelt → proximity (proximity_breach + blindspot_intrusion) → safety cluster → harsh → time_ratio →
+  idle. Modules: TM-SAFE-03, TM-SAFE-02, TM-SAFE-01, TM-SIM-01, TM-SMTH-01, TM-EXC-01 (dig, trench) / TM-CYC-01
+  (others, ≥ 2 tasks of the type), TM-IDLE-01 else TM-FUEL-01. "Last 7 days" ends at the latest shift end in the
+  database (the data is in the past). idle_pct = idle / engine-on minutes of the operator's shifts; time_ratio =
+  Σ actual / Σ fleet p50 (task-time model without the operator's pace, as in clustering). Open = pending or accepted;
+  a module open or recommended in the last 7 days (e.g. dismissed) isn't suggested again. Live check OP02 (as of
+  2026-08-29 20:30 UTC): TM-SAFE-03 (1 tip-risk warning) and TM-SAFE-01 (9 proximity events); a re-run adds nothing.
 
 ---
 

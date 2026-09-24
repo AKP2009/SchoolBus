@@ -23,7 +23,8 @@ sentence-transformers~=3.2
 # voice
 faster-whisper~=1.0
 piper-tts~=1.2
-# LLM SDK: provider not chosen yet
+# LLM: Gemini (app/llm.py)
+google-genai~=1.0
 # dev
 pytest~=9.1
 pytest-asyncio~=1.0
