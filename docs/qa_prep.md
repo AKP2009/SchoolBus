@@ -60,15 +60,15 @@ shutdown step. In the backend test, overheating on M04 escalated after 5 min bec
 rules (seatbelt, tip risk) skip derate and escalate after 2 min critical. [models.md §R, roadmap.md Checkpoint 3]
 
 **8. How do you stop false alarms from making operators ignore the system?**
-Three ways. First, we measured it: **17.49 false alerts per 100 machine-hours**, down from 138.26 before tuning. That's
+Three ways. First, we measured it: **17.5 false alerts per 100 machine-hours**, down from 138 before tuning. That's
 about one per 5.7 machine-hours. Second, alerts have hysteresis and one alert per episode, so they don't flicker or
 repeat. Third, the UI is silent by default: only critical alerts take over the screen, and warnings are one banner
 and one tone. A 150 °C coolant spike from a broken sensor doesn't raise a critical alarm: the model labelled all
-**19 / 19** sensor glitches correctly. [results.md §1, design.md]
+**19 of 19** sensor glitches correctly. [results.md §1, design.md]
 
-**9. Your anomaly model alone catches only 27.5 % of events. Why ship it?**
-Because of what it does that the rules can't: telling a broken sensor from a broken machine (19 / 19). The rules catch
-most real faults. Together they catch **84 / 87 (96.5 %)** with a 2 min median delay. After tuning, the model spends
+**9. Your anomaly model alone catches only 28 % of events. Why ship it?**
+Because of what it does that the rules can't: telling a broken sensor from a broken machine (19 of 19). The rules catch
+most real faults. Together they catch **84 of 87 (97 %)** with a 2 min median delay. After tuning, the model spends
 its flags on idle↔working transitions, which we filter out. The next fix, not tried yet, is to train it only on
 settled minutes. [results.md §1, ml/artifacts/anomaly/README.md]
 
@@ -114,24 +114,24 @@ re-plan is a suggestion the operator or manager accepts or rejects. The rules ru
 threshold breach still alerts whatever the model says. If an input is missing, the prediction degrades rather than
 failing: the health score just adds no penalty, and the planner falls back to the stored estimate. [models.md]
 
-**16. Predictive maintenance hour-level recall is 0.441 against a 0.75 target. Is it useful?**
-Yes, at the failure level. It warned before **12 of 15** unseen failures, with a median **37.31 engine hours** of lead
-time (target 12 h), at 0.156 false alarms per machine-week. Hour-level recall is low because the probability rises as
-the fault builds, so it isn't above 0.5 for all 48 hours. It is weak on electrical (1 / 3) and undercarriage (1 / 2),
+**16. Predictive maintenance hour-level recall is 0.44 against a 0.75 target. Is it useful?**
+Yes, at the failure level. It warned before **12 of 15** unseen failures, with a median **37 engine hours** of lead
+time (target 12 h), at 0.16 false alarms per machine-week. Hour-level recall is low because the probability rises as
+the fault builds, so it isn't above 0.5 for all 48 hours. It is weak on electrical (1 of 3) and undercarriage (1 of 2),
 which had 1–2 training examples. A safety floor (any signal 6 σ worse than that machine's normal → at least medium)
-brings **15 / 15** failures to medium risk. The cost is 4.74 % of normal hours at medium or above, up from 2.35 %.
+brings **15 of 15** failures to medium risk. The cost is 4.7 % of normal hours at medium or above, up from 2.4 %.
 [results.md §4]
 
 **17. Why cross-validation instead of your test split? Did you choose what flatters you?**
 The test days hold only 2 failures, too few for a verdict. So we used forward-chaining cross-validation grouped by
 failure, which gives 15 held-out failures. Each fold trains only on the past, and the 48 h before each boundary is
-removed, so the future can't leak. We also report the 2-failure test split: PR-AUC 0.765, 1 of 2 caught, 0 false alarms.
+removed, so the future can't leak. We also report the 2-failure test split: PR-AUC 0.77, 1 of 2 caught, 0 false alarms.
 [ml/artifacts/maintenance/README.md]
 
 **18. Your task estimates are biased late in the shift. Why ship them?**
 We found the bias and we state it: late-shift and night estimates are **too optimistic**. Tasks still running at shift
 end have no duration, so the long ones drop out of training (82 % of tasks that start after hour 7). Overall the model
-still beats the baseline by a wide margin: 8.86 min average error against 23.75, with 80.0 % range coverage. The fix
+still beats the baseline by a wide margin: 8.9 min average error against 23.8, with 80 % range coverage. The fix
 is censored-duration training (treat an unfinished task as "at least this long"). [results.md §2]
 
 ## Model choices
@@ -146,7 +146,7 @@ against the Isolation Forest. It isn't built yet. [models.md, features.md P2]
 ARI is **0.415** on unseen weeks, target 0.5. We know there are 5 personalities only because we generated them.
 Choosing k = 5 for that reason would use the answer key, and on a real fleet nobody knows k. Silhouette picks
 **k = 4**, so the two largest groups (efficient and average) share a cluster. Even a perfect 4-cluster answer that
-merged only those two would score 0.582. Aggressive, idler and novice operators are recovered 100 % of the time
+merged only those two would score 0.58. Aggressive, idler and novice operators are recovered 100 % of the time
 on both fit and unseen weeks. [results.md §3]
 
 ## Scale and deployment

@@ -24,7 +24,7 @@ Slide design: `design.md` palette. Playfair Display only on title slides, DM San
 
 ### 3. Every estimate is a range with reasons (1:00)
 - Each task shows a p50 time, a p10–p90 range and the top factors behind it (rain, material, slope).
-- Off by 8.86 min on average against 23.75 min for the rule of thumb. The range holds the real time for 80.0 % of tasks.
+- Off by 8.9 min on average against 23.8 min for the rule of thumb. The range holds the real time for 80 % of tasks.
 - The model recovered 4 of 6 causes we planted. Night and late-shift estimates are too optimistic, and we say so.
 - **Show:** operator app, Tasks with factor chips. Say the factor the screen actually shows: the "rain +8 min"
   line in `demo_script.md` is an example, not a measured value.
@@ -38,7 +38,7 @@ Slide design: `design.md` palette. Playfair Display only on title slides, DM San
 ### 5. We never cut the power (2:15)
 - The overheating scenario starts on M05. Warning → derate → recommend safe shutdown with steps → escalate to Priya.
 - Why: the machine might be holding a load or standing on a slope. A sudden stop can cause the accident.
-- Rules + model catch 84 of 87 test faults (96.5 %), with a median 2 min delay and 17.49 false alerts per 100 machine-hours.
+- Rules + model catch 84 of 87 test faults (97 %), with a median 2 min delay and 17.5 false alerts per 100 machine-hours.
 - **Show:** operator warning banner → critical takeover with shutdown steps. Slide fallback: the four-stage ladder.
 
 ### 6. Priya sees it live (3:00)
@@ -65,7 +65,7 @@ Slide design: `design.md` palette. Playfair Display only on title slides, DM San
 ### 9. Predicting failures, and proving the models work (5:30)
 - Tonight the whole fleet is low risk (highest M02 at 0.021), so we show a backtest from the same two weeks.
   M04's electrical system failed on 25 Aug. The model flagged it **23 engine hours ahead**, about 59 calendar hours.
-- Across 15 unseen failures: 12 caught, median 37.31 h lead, PR-AUC 0.693 against 0.104 for a random score. The safety floor brings all 15 to medium risk.
+- Across 15 unseen failures: 12 caught, median 37 h lead, PR-AUC 0.69 against 0.10 for a random score. The safety floor brings all 15 to medium risk.
 - Clustering found the idle-heavy, aggressive and novice operators we built into the data (100 % of their weeks). It
   merged efficient with average (ARI 0.415), and we explain why.
 - **Show:** `ml/artifacts/health/health_before_failure.png`, then the manager Clusters view

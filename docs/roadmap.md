@@ -108,7 +108,7 @@ recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolve
 - [ ] Slides (8–10): problem · personas · architecture · synthetic data · models + metrics ·
       safety design (graded response) · live demo · impact · future scope
 - [ ] Record backup demo video
-- [ ] Judge Q&A prep per person
+- [x] Judge Q&A prep per person _(`docs/qa_prep.md`, with `docs/results.md` and `docs/pitch_outline.md`)_
 - [ ] README and docs up to date; repo public if required
 
 ## Stretch (only after Checkpoint 5)
