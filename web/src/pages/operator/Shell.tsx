@@ -5,39 +5,34 @@ import { Skeleton } from '@/components/EmptyState';
 import { SafetyPanel } from '@/components/SafetyPanel';
 import { USE_MOCKS, urlString } from '@/data/config';
 import { signInOperator, useCabAlerts } from '@/data/hooks';
-import { freshSectors, useLive, useLiveStream } from '@/data/live';
+import { freshSectors, useDataNow, useLive, useLiveStream } from '@/data/live';
 import * as api from '@/data/api';
 import { CabLayout } from '@/layouts/CabLayout';
 import { orderTakeovers } from '@/components/AlertTakeover';
 import { useAlertSounds } from '@/lib/tones';
 import { useAlerts } from '@/stores/alerts';
 import { useSession, type CabSession } from '@/stores/session';
+import { useT } from '@/i18n';
 
 /** The cab session, or null while `?as=` signs in (mock screenshots). */
 export function useCab(): CabSession | null {
   return useSession((s) => s.cab);
 }
 
-/** Data time now: the replay clock in mock mode, the wall clock otherwise. */
+/** Data time now: the replay clock in mock mode; live, the stream / running replay (data/live.ts). */
 export function useNow(): number {
-  const clock = useLive((s) => s.clock);
-  const [wall, setWall] = useState(Date.now());
-  useEffect(() => {
-    if (USE_MOCKS) return;
-    const id = window.setInterval(() => setWall(Date.now()), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-  return USE_MOCKS && clock ? clock : wall;
+  return useDataNow();
 }
 
 /** Safety zone: top-down sectors, fatigue, seatbelt, tilt from the live stream. */
 export function LiveSafetyPanel() {
+  const t = useT();
   const [sectors, clock, fatigue, telemetry] = useLive(useShallow((s) => [s.sectors, s.clock, s.fatigue, s.telemetry] as const));
   if (!telemetry) {
     return (
-      <div className="flex flex-col gap-4" aria-busy="true" aria-label="Waiting for machine data">
+      <div className="flex flex-col gap-4" aria-busy="true" aria-label={t('cab.waitingMachineAria')}>
         <Skeleton className="mx-auto aspect-square w-full max-w-[400px]" />
-        <p className="text-cab-small text-ink-2">Waiting for the machine to report…</p>
+        <p className="text-cab-small text-ink-2">{t('cab.waitingMachine')}</p>
       </div>
     );
   }
@@ -60,6 +55,7 @@ export interface OperatorShellProps {
 
 /** Wraps every signed-in cab screen: session guard, live stream, alerts, sounds, SOS, voice. */
 export function OperatorShell({ children, safety }: OperatorShellProps) {
+  const t = useT();
   const cab = useCab();
   const location = useLocation();
   const as = urlString('as');
@@ -92,9 +88,9 @@ export function OperatorShell({ children, safety }: OperatorShellProps) {
       id: -Date.now(),
       ts: new Date().toISOString(),
       machine_id: cab.machineId,
-      title: 'SOS sent',
-      message: 'Your location and machine state were sent to the site manager.',
-      recommended_action: 'Stay in the cab if it is safe. Help is on the way.',
+      title: t('sos.title'),
+      message: t('sos.message'),
+      recommended_action: t('sos.action'),
       severity: 'emergency',
       stage: 'escalated',
     });
@@ -118,7 +114,7 @@ export function OperatorShell({ children, safety }: OperatorShellProps) {
       banner={banner}
       onDismissBanner={dismiss}
       toast={toast}
-      onVoice={() => setToast('Voice commands aren’t connected yet. Use the buttons for now.')}
+      onVoice={() => setToast(t('cab.voiceNotConnected'))}
       onSos={sos}
     />
   );

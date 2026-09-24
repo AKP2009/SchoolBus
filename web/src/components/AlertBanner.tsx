@@ -3,6 +3,7 @@ import { cx } from '@/lib/cx';
 import { useMode } from '@/lib/mode';
 import { STATUS } from '@/lib/status';
 import { Button } from './Button';
+import { useT } from '@/i18n';
 
 export interface AlertBannerProps {
   level: 'info' | 'warning';
@@ -23,12 +24,13 @@ export function AlertBanner({
   level,
   title,
   instruction,
-  actionLabel = 'Got it',
+  actionLabel,
   onDismiss,
   autoDismissMs = level === 'info' ? 5000 : undefined,
   className,
 }: AlertBannerProps) {
   const mode = useMode();
+  const t = useT();
   const meta = STATUS[level];
   const Icon = meta.icon;
 
@@ -52,7 +54,7 @@ export function AlertBanner({
     >
       <div className={cx('flex shrink-0 items-center gap-2 self-start rounded-sm px-2 py-1', meta.tint)}>
         <Icon size={cab ? 32 : 24} strokeWidth={2} className={meta.text} aria-hidden />
-        <span className={cx('font-medium', cab ? 'text-cab-small' : 'text-office-small')}>{meta.word}</span>
+        <span className={cx('font-medium', cab ? 'text-cab-small' : 'text-office-small')}>{t(`status.${level}`)}</span>
       </div>
       <div className="min-w-0 flex-1">
         <p className={cab ? 'text-cab-h2' : 'text-office-h3'}>{title}</p>
@@ -60,7 +62,7 @@ export function AlertBanner({
       </div>
       {level === 'warning' && (
         <Button variant="secondary" onClick={onDismiss} className="shrink-0">
-          {actionLabel}
+          {actionLabel ?? t('alert.gotIt')}
         </Button>
       )}
     </div>

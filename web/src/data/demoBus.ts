@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { setLanguage, t, type Lang } from '@/i18n';
 import { useAlerts } from '@/stores/alerts';
 import { useConnection } from '@/stores/connection';
 import type { StreamMessage } from '@/types/domain';
@@ -16,6 +17,7 @@ export type DemoCommand =
   | { type: 'inject'; items: Array<StreamMessage & { offsetS: number }> }
   | { type: 'sos' }
   | { type: 'offline'; on: boolean }
+  | { type: 'lang'; lang: Lang }
   | { type: 'reset' };
 
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('cat-demo');
@@ -43,15 +45,18 @@ function apply(cmd: DemoCommand) {
         id: -Date.now(),
         ts: new Date().toISOString(),
         machine_id: null,
-        title: 'SOS sent',
-        message: 'Your location and machine state were sent to the site manager.',
-        recommended_action: 'Stay in the cab if it is safe. Help is on the way.',
+        title: t('sos.title'),
+        message: t('sos.message'),
+        recommended_action: t('sos.action'),
         severity: 'emergency',
         stage: 'escalated',
       });
       break;
     case 'offline':
       useConnection.getState().setForcedOffline(cmd.on);
+      break;
+    case 'lang':
+      setLanguage(cmd.lang);
       break;
     case 'reset':
       useAlerts.setState({ local: [], acked: {}, dismissed: {} });

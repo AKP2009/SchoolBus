@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { Home, RequireOffice, useAuthBoot } from '@/data/auth';
 import { useDemoBus } from '@/data/demoBus';
 import { useOfflineSync } from '@/data/hooks';
+import { useRealtimeSync } from '@/data/realtime';
 import { Demo } from '@/pages/Demo';
 import { ManagerAlerts } from '@/pages/manager/Alerts';
 import { ManagerClusters } from '@/pages/manager/Clusters';
@@ -19,11 +21,14 @@ import { OperatorTraining } from '@/pages/operator/Training';
 import { Styleguide } from '@/pages/Styleguide';
 
 export function App() {
+  useAuthBoot();
   useDemoBus();
   useOfflineSync();
+  useRealtimeSync();
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/operator" replace />} />
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<OperatorLogin />} />
       <Route path="/operator/login" element={<OperatorLogin />} />
       <Route path="/operator/handover" element={<OperatorHandover />} />
       <Route path="/operator" element={<OperatorTasks />} />
@@ -31,15 +36,18 @@ export function App() {
       <Route path="/operator/safety" element={<OperatorSafety />} />
       <Route path="/operator/training" element={<OperatorTraining />} />
       <Route path="/operator/report" element={<OperatorReport />} />
-      <Route path="/manager" element={<ManagerFleet />} />
-      <Route path="/manager/alerts" element={<ManagerAlerts />} />
-      <Route path="/manager/machines/:id" element={<ManagerMachine />} />
-      <Route path="/manager/health" element={<ManagerMaintenance />} />
-      <Route path="/manager/clusters" element={<ManagerClusters />} />
-      <Route path="/manager/safety" element={<ManagerSafety />} />
-      <Route path="/manager/geofences" element={<ManagerGeofences />} />
-      {/* Hidden: not linked from either app */}
-      <Route path="/demo" element={<Demo />} />
+      {/* Live mode: managers and admins only (profiles.role); mock mode passes through. */}
+      <Route element={<RequireOffice />}>
+        <Route path="/manager" element={<ManagerFleet />} />
+        <Route path="/manager/alerts" element={<ManagerAlerts />} />
+        <Route path="/manager/machines/:id" element={<ManagerMachine />} />
+        <Route path="/manager/health" element={<ManagerMaintenance />} />
+        <Route path="/manager/clusters" element={<ManagerClusters />} />
+        <Route path="/manager/safety" element={<ManagerSafety />} />
+        <Route path="/manager/geofences" element={<ManagerGeofences />} />
+        {/* Hidden: not linked from either app; its replay and scenario calls need a manager token */}
+        <Route path="/demo" element={<Demo />} />
+      </Route>
       <Route path="/styleguide" element={<Styleguide />} />
       <Route path="*" element={<Navigate to="/operator" replace />} />
     </Routes>

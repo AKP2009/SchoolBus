@@ -81,20 +81,20 @@ recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolve
 
 ## Phase 4 — Connect frontend
 - [ ] **D:** live gauges from WebSocket
-- [ ] **D:** alerts via Realtime + takeover queue + sounds
+- [x] **D:** alerts via Realtime + takeover queue + sounds _(live 2026-09-24: overheating on M05 went warn → derate → escalated; the cab takeover and Priya's alerts feed updated without a reload)_
 - [ ] **D:** safety panel driven by vision events
 - [ ] **D:** tasks with predictions and factor chips; start/complete
 - [ ] **D:** fleet map, alerts feed, machine detail on real data
 - [ ] **D:** digital twin from health snapshots
 - [ ] **D:** chatbot UI, incident report (form + voice), SOS
 - [ ] **D:** clusters view, maintenance board
-- [ ] **D:** offline queue for incidents and task updates
+- [x] **D:** offline queue for incidents and task updates _(live: demo panel offline → task update queued in IndexedDB → synced on reconnect; writes use the cab session from any tab)_
 - [ ] **B:** voice button wired in cab UI; fatigue-aware replies
 
 **Checkpoint 4:** the full demo path runs end to end on one laptop, even if rough.
 
 ## Phase 5 — Integration and scenarios (everyone)
-- [x] Demo panel with all scenario buttons _(hidden `/demo`: replay start/stop/status and `/scenario/*`, `/events` for fatigue / proximity / SOS; in mock mode it seeks the recorded stream and drives every tab over a BroadcastChannel. Not yet run against the live backend)_
+- [x] Demo panel with all scenario buttons _(hidden `/demo`: replay start/stop/status and `/scenario/*`, `/events` for fatigue / proximity / SOS; in mock mode it seeks the recorded stream and drives every tab over a BroadcastChannel. Live: runs against the backend; replay scenarios stay disabled until `/replay/start` returns with the target machine)_
 - [ ] Run `demo_script.md` end to end 3 times; log every failure; fix
 - [ ] Plan re-evaluation (P1) if time _(ML and backend done: `/plan/re-evaluate` and `/plan/accept`; UI not wired yet)_
 - [ ] Geofencing, training recommendations, scenario quiz (P1) if time _(backend: recommender rules + daily job + `POST /training/recommendations` done)_

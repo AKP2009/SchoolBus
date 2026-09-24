@@ -3,6 +3,7 @@ import { cx } from '@/lib/cx';
 import { useMode } from '@/lib/mode';
 import { STATUS, type Status } from '@/lib/status';
 import { StatusBadge } from './StatusBadge';
+import { useT } from '@/i18n';
 
 export type Trend = 'rising' | 'falling' | 'steady';
 
@@ -37,6 +38,7 @@ export function Gauge({
   className,
 }: GaugeProps) {
   const mode = useMode();
+  const t = useT();
   const cab = mode === 'cab';
   const s: Status =
     status ?? (value == null ? 'unknown' : value >= normal[0] && value <= normal[1] ? 'ok' : 'warning');
@@ -61,7 +63,7 @@ export function Gauge({
             size={cab ? 28 : 18}
             strokeWidth={2.5}
             className="self-center text-ink-2"
-            aria-label={trend}
+            aria-label={trend ? t(`trend.${trend}`) : undefined}
             role="img"
           />
         )}
@@ -75,8 +77,8 @@ export function Gauge({
         aria-valuenow={value ?? undefined}
         aria-valuetext={
           value == null
-            ? 'No reading'
-            : `${value.toFixed(decimals)} ${unit}, normal ${normal[0]}–${normal[1]}, ${meta.word}`
+            ? t('gauge.noReading')
+            : t('gauge.valueText', { value: value.toFixed(decimals), unit, range: `${normal[0]}–${normal[1]}`, status: t(`status.${s}`) })
         }
       >
         {value != null && (
@@ -89,9 +91,7 @@ export function Gauge({
       </div>
       <div className={cx('flex justify-between text-ink-2 reading', cab ? 'text-cab-small' : 'text-office-small')}>
         <span>{min}</span>
-        <span>
-          normal {normal[0]}–{normal[1]}
-        </span>
+        <span>{t('gauge.normal', { range: `${normal[0]}–${normal[1]}` })}</span>
         <span>{max}</span>
       </div>
     </div>

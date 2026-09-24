@@ -1,6 +1,7 @@
 import { cx } from '@/lib/cx';
 import { useMode, type Mode } from '@/lib/mode';
 import { STATUS, type Status } from '@/lib/status';
+import { useT } from '@/i18n';
 
 export interface StatusBadgeProps {
   status: Status;
@@ -16,6 +17,7 @@ export interface StatusBadgeProps {
  */
 export function StatusBadge({ status, label, size, className }: StatusBadgeProps) {
   const mode = useMode();
+  const t = useT();
   const s = size ?? mode;
   const meta = STATUS[status];
   const Icon = meta.icon;
@@ -30,7 +32,7 @@ export function StatusBadge({ status, label, size, className }: StatusBadgeProps
       )}
     >
       <Icon size={s === 'cab' ? 24 : 16} strokeWidth={2} className={meta.text} aria-hidden />
-      <span>{label ?? meta.word}</span>
+      <span>{label ?? t(`status.${status}`)}</span>
     </span>
   );
 }

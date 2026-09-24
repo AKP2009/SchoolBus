@@ -2,18 +2,19 @@ import { useState, type FormEvent } from 'react';
 import { CircleCheck, Clock, FileWarning, Mic, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { StatusBadge } from '@/components/StatusBadge';
-import { reportIncident, useIncidents } from '@/data/hooks';
+import { isPending, reportIncident, useIncidents } from '@/data/hooks';
 import { cx } from '@/lib/cx';
-import { fmtTime, INCIDENT_WORD } from '@/lib/format';
+import { fmtTime } from '@/lib/format';
 import { useConnection } from '@/stores/connection';
 import type { IncidentRow, IncidentType, SeverityLevel } from '@/types/domain';
 import { OperatorShell, useCab } from './Shell';
+import { useT, type Key } from '@/i18n';
 
 const TYPES: IncidentType[] = ['near_miss', 'collision', 'injury', 'equipment_damage', 'spill_leak', 'other'];
-const SEVERITIES: Array<{ v: SeverityLevel; label: string }> = [
-  { v: 'info', label: 'Minor' },
-  { v: 'warning', label: 'Serious' },
-  { v: 'critical', label: 'Critical' },
+const SEVERITIES: Array<{ v: SeverityLevel; label: Key }> = [
+  { v: 'info', label: 'report.minor' },
+  { v: 'warning', label: 'report.serious' },
+  { v: 'critical', label: 'report.critical' },
 ];
 
 function Choice({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: string }) {
@@ -33,8 +34,10 @@ function Choice({ selected, onClick, children }: { selected: boolean; onClick: (
 }
 
 export function OperatorReport() {
+  const t = useT();
   const cab = useCab();
   const online = useConnection((s) => s.online);
+  useConnection((s) => s.queued); // re-render as the offline queue drains
   const incidents = useIncidents(cab?.siteId);
   const [type, setType] = useState<IncidentType | null>(null);
   const [severity, setSeverity] = useState<SeverityLevel>('warning');
@@ -42,7 +45,6 @@ export function OperatorReport() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ row: IncidentRow; queued: boolean } | null>(null);
-  const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set());
   const [voiceNote, setVoiceNote] = useState(false);
 
   const submit = async (e: FormEvent) => {
@@ -59,7 +61,6 @@ export function OperatorReport() {
         operator_id: cab.operatorId,
         site_id: cab.siteId,
       });
-      if (res.queued) setQueuedIds((s) => new Set(s).add(res.row.client_id));
       setDone(res);
       setType(null);
       setText('');
@@ -74,14 +75,14 @@ export function OperatorReport() {
   return (
     <OperatorShell>
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-cab-h1">Report incident</h1>
+        <h1 className="text-cab-h1">{t('report.title')}</h1>
         <Button variant="secondary" icon={Mic} onClick={() => setVoiceNote(true)}>
-          Speak instead
+          {t('report.speak')}
         </Button>
       </div>
       {voiceNote && (
         <p role="status" className="rounded-md border border-info bg-tint-info px-4 py-3 text-cab-body">
-          Voice reports need the voice service, which isn't connected yet. Fill in the form: it takes under 30 seconds.
+          {t('report.voiceNote')}
         </p>
       )}
 
@@ -89,84 +90,84 @@ export function OperatorReport() {
         <section role="status" aria-live="polite" className="flex items-center justify-between gap-4 rounded-md border border-ok bg-tint-ok px-6 py-4">
           <p className="flex items-center gap-3 text-cab-h2">
             {done.queued ? <Clock size={32} aria-hidden /> : <CircleCheck size={32} className="text-ok" aria-hidden />}
-            {done.queued ? 'Incident saved — it will send when you are back online' : 'Incident reported'}
+            {done.queued ? t('report.savedQueued') : t('report.sent')}
           </p>
           <Button variant="ghost" icon={RotateCcw} onClick={() => setDone(null)}>
-            Report another
+            {t('report.another')}
           </Button>
         </section>
       )}
 
       {!done && (
-        <form onSubmit={submit} className="flex flex-col gap-5" aria-label="Incident form">
+        <form onSubmit={submit} className="flex flex-col gap-5" aria-label={t('report.formAria')}>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-2 text-cab-small text-ink-2">What happened?</legend>
+            <legend className="mb-2 text-cab-small text-ink-2">{t('report.what')}</legend>
             <div className="grid grid-cols-3 gap-3">
-              {TYPES.map((t) => (
-                <Choice key={t} selected={type === t} onClick={() => setType(t)}>
-                  {INCIDENT_WORD[t]}
+              {TYPES.map((k) => (
+                <Choice key={k} selected={type === k} onClick={() => setType(k)}>
+                  {t(`incident.${k}`)}
                 </Choice>
               ))}
             </div>
           </fieldset>
           <div className="grid grid-cols-[1fr_auto] gap-6">
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-cab-small text-ink-2">How serious?</legend>
+              <legend className="mb-2 text-cab-small text-ink-2">{t('report.howSerious')}</legend>
               <div className="grid grid-cols-3 gap-3">
                 {SEVERITIES.map((s) => (
                   <Choice key={s.v} selected={!injury && severity === s.v} onClick={() => setSeverity(s.v)}>
-                    {s.label}
+                    {t(s.label)}
                   </Choice>
                 ))}
               </div>
             </fieldset>
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-cab-small text-ink-2">Anyone hurt?</legend>
+              <legend className="mb-2 text-cab-small text-ink-2">{t('report.hurt')}</legend>
               <div className="grid grid-cols-2 gap-3">
                 <Choice selected={!injury} onClick={() => setInjury(false)}>
-                  No
+                  {t('report.no')}
                 </Choice>
                 <Choice selected={injury} onClick={() => setInjury(true)}>
-                  Yes
+                  {t('report.yes')}
                 </Choice>
               </div>
             </fieldset>
           </div>
           <label className="flex flex-col gap-2">
-            <span className="text-cab-small text-ink-2">Describe it in a few words</span>
+            <span className="text-cab-small text-ink-2">{t('report.describe')}</span>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={2}
-              placeholder="Worker walked behind the machine while I was reversing"
+              placeholder={t('report.placeholder')}
               className="rounded-md border border-line bg-raised px-4 py-3 text-cab-body text-ink placeholder:text-ink-3 focus:border-saffron-500"
             />
           </label>
           <div className="flex items-center gap-6">
             <Button type="submit" icon={FileWarning} disabled={busy || !type || !text.trim()}>
-              Report incident
+              {t('report.submit')}
             </Button>
-            {!online && <span className="text-cab-small text-ink-2">Offline — it will send when you are back online.</span>}
+            {!online && <span className="text-cab-small text-ink-2">{t('report.offline')}</span>}
           </div>
         </form>
       )}
 
       {mine.length > 0 && (
-        <section className="flex flex-col gap-2" aria-label="Your recent reports">
-          <h2 className="text-cab-h2 text-ink-2">Your recent reports</h2>
+        <section className="flex flex-col gap-2" aria-label={t('report.recent')}>
+          <h2 className="text-cab-h2 text-ink-2">{t('report.recent')}</h2>
           <ul className="flex flex-col divide-y divide-line rounded-md border bg-surface">
             {mine.map((i) => (
               <li key={i.client_id} className="flex items-center justify-between gap-4 px-6 py-3 text-cab-body">
                 <span className="min-w-0 truncate">
                   <span className="reading mr-3 text-ink-2">{fmtTime(i.ts)}</span>
-                  {INCIDENT_WORD[i.incident_type]} · {i.description}
+                  {t(`incident.${i.incident_type}`)} · {i.description}
                 </span>
-                {queuedIds.has(i.client_id) && !online ? (
+                {isPending(i.client_id) ? (
                   <span className="flex shrink-0 items-center gap-2 text-cab-small text-ink-2">
-                    <Clock size={24} aria-hidden /> Waiting to sync
+                    <Clock size={24} aria-hidden /> {t('report.waitingSync')}
                   </span>
                 ) : (
-                  <StatusBadge status="ok" label="Incident reported" className="shrink-0" />
+                  <StatusBadge status="ok" label={t('report.sent')} className="shrink-0" />
                 )}
               </li>
             ))}

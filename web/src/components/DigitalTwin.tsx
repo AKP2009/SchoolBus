@@ -3,10 +3,11 @@ import { X } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { cx } from '@/lib/cx';
 import { useMode } from '@/lib/mode';
-import { STATUS, healthStatus, type Status } from '@/lib/status';
+import { healthStatus, type Status } from '@/lib/status';
 import type { HealthScores } from '@/types/domain';
 import { Button } from './Button';
 import { StatusBadge } from './StatusBadge';
+import { useT } from '@/i18n';
 
 export type Subsystem = 'engine' | 'cooling' | 'hydraulics' | 'electrical' | 'undercarriage';
 
@@ -105,6 +106,8 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
   const drawing = machineType === 'dozer' ? 'dozer' : 'excavator';
   const SHAPES = drawing === 'dozer' ? DOZER : EXCAVATOR;
   const mode = useMode();
+  const t = useT();
+  const name = (key: Subsystem) => t(`component.${key}`);
   const cab = mode === 'cab';
   const [selected, setSelected] = useState<Subsystem | null>(null);
   const small = cab ? 'text-cab-small' : 'text-office-small';
@@ -121,12 +124,12 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
   return (
     <section
       className={cx('relative grid grid-cols-[minmax(0,1fr)_auto] items-center overflow-hidden', cab ? 'gap-6' : 'gap-4', className)}
-      aria-label="Machine health"
+      aria-label={t('twin.aria')}
     >
-      <svg viewBox="0 0 600 340" className="w-full min-w-0" role="group" aria-label="Machine side view">
+      <svg viewBox="0 0 600 340" className="w-full min-w-0" role="group" aria-label={t('twin.sideView')}>
         {/* House top: not a monitored subsystem */}
         <path d={HOUSE[drawing]} className="fill-raised stroke-line" strokeWidth={3} />
-        {SUBSYSTEMS.map(({ key, label }) => {
+        {SUBSYSTEMS.map(({ key }) => {
           const score = scoreOf(scores, key);
           const status = healthStatus(score);
           return (
@@ -134,7 +137,7 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
               key={key}
               role="button"
               tabIndex={0}
-              aria-label={`${label}, ${STATUS[status].word}, health ${pctText(score)}`}
+              aria-label={`${name(key)}, ${t(`status.${status}`)}, ${t('twin.health', { pct: pctText(score) })}`}
               onClick={() => setSelected(key)}
               onKeyDown={onKey(key)}
               className={cx(
@@ -151,7 +154,7 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
       </svg>
 
       <ul className={cx('flex flex-col', cab ? 'gap-2' : 'gap-1')}>
-        {SUBSYSTEMS.map(({ key, label }) => {
+        {SUBSYSTEMS.map(({ key }) => {
           const score = scoreOf(scores, key);
           return (
             <li key={key}>
@@ -165,7 +168,7 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
                   cab ? 'min-h-touch-cab px-4 text-cab-body' : 'min-h-touch-office px-3 text-office-body',
                 )}
               >
-                <span>{label}</span>
+                <span>{name(key)}</span>
                 <span className="flex items-center gap-3">
                   <span className="reading text-ink-2">{pctText(score)}</span>
                   <StatusBadge status={healthStatus(score)} />
@@ -182,15 +185,15 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
             'absolute inset-y-0 right-0 z-10 flex w-1/2 flex-col border-l bg-surface anim-takeover',
             cab ? 'gap-4 p-6' : 'gap-3 p-4 shadow-float',
           )}
-          aria-label={`${sel.label} signals`}
+          aria-label={t('twin.signalsAria', { name: name(sel.key) })}
         >
           <div className="flex items-center justify-between gap-3">
-            <h3 className={cab ? 'text-cab-h2' : 'text-office-h3'}>{sel.label}</h3>
+            <h3 className={cab ? 'text-cab-h2' : 'text-office-h3'}>{name(sel.key)}</h3>
             <Button variant="ghost" icon={X} onClick={() => setSelected(null)}>
-              Close
+              {t('twin.close')}
             </Button>
           </div>
-          <StatusBadge status={healthStatus(scoreOf(scores, sel.key))} label={`Health ${pctText(scoreOf(scores, sel.key))}`} />
+          <StatusBadge status={healthStatus(scoreOf(scores, sel.key))} label={t('twin.health', { pct: pctText(scoreOf(scores, sel.key)) })} />
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
             {(signals?.[sel.key] ?? []).map((sig) => (
               <div key={sig.label}>
@@ -206,7 +209,7 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
                       <YAxis hide domain={['dataMin', 'dataMax']} />
                       <Tooltip
                         formatter={(v) => [`${Number(v).toFixed(1)} ${sig.unit}`, sig.label]}
-                        labelFormatter={(_, p) => `${p[0]?.payload.min ?? ''} min`}
+                        labelFormatter={(_, p) => `${p[0]?.payload.min ?? ''} ${t('unit.min')}`}
                         contentStyle={{
                           fontFamily: 'var(--font-mono)',
                           background: 'var(--surface)',
@@ -218,11 +221,11 @@ export function DigitalTwin({ scores, signals, machineType = 'excavator', classN
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <p className={cx('text-ink-2', small)}>Last 60 min</p>
+                <p className={cx('text-ink-2', small)}>{t('twin.last60')}</p>
               </div>
             ))}
             {!signals?.[sel.key]?.length && (
-              <p className={cx('text-ink-2', small)}>No signals yet. They appear once telemetry replay starts.</p>
+              <p className={cx('text-ink-2', small)}>{t('twin.noSignals')}</p>
             )}
           </div>
         </aside>

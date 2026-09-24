@@ -8,6 +8,7 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { cx } from '@/lib/cx';
 import { ModeProvider, useDocumentMode } from '@/lib/mode';
 import type { Alert } from '@/types/domain';
+import { useT, type T } from '@/i18n';
 
 export interface CabStatus {
   machineId: string;
@@ -42,16 +43,16 @@ export interface CabLayoutProps {
 }
 
 const NAV = [
-  { to: '/operator', label: 'Tasks', icon: ListChecks, end: true },
-  { to: '/operator/machine', label: 'Machine', icon: Truck, end: false },
-  { to: '/operator/safety', label: 'Safety', icon: ShieldCheck, end: false },
-  { to: '/operator/training', label: 'Training', icon: GraduationCap, end: false },
-  { to: '/operator/report', label: 'Report', icon: FileWarning, end: false },
-];
+  { to: '/operator', label: 'nav.tasks', icon: ListChecks, end: true },
+  { to: '/operator/machine', label: 'nav.machine', icon: Truck, end: false },
+  { to: '/operator/safety', label: 'nav.safety', icon: ShieldCheck, end: false },
+  { to: '/operator/training', label: 'nav.training', icon: GraduationCap, end: false },
+  { to: '/operator/report', label: 'nav.report', icon: FileWarning, end: false },
+] as const;
 
-function formatShift(min: number) {
+function formatShift(t: T, min: number) {
   const m = Math.max(0, Math.floor(min));
-  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+  return t('cab.duration', { h: Math.floor(m / 60), m: String(m % 60).padStart(2, '0') });
 }
 
 function DocumentMode() {
@@ -78,6 +79,7 @@ export function CabLayout({
   bare,
   className,
 }: CabLayoutProps) {
+  const t = useT();
   return (
     <ModeProvider mode="cab" scoped={embedded} className="h-full">
       {!embedded && <DocumentMode />}
@@ -86,12 +88,12 @@ export function CabLayout({
           <span className="reading font-medium text-cab-body">{status.machineId}</span>
           {!bare && (<><span className="flex items-center gap-2">
             <Timer size={24} className="text-ink-2" aria-hidden />
-            <span className="text-ink-2">Shift</span>
-            <span className="reading">{formatShift(status.shiftMinutes)}</span>
+            <span className="text-ink-2">{t('cab.shift')}</span>
+            <span className="reading">{formatShift(t, status.shiftMinutes)}</span>
           </span>
           <span className="flex items-center gap-2">
             <Fuel size={24} className="text-ink-2" aria-hidden />
-            <span className="text-ink-2">Fuel</span>
+            <span className="text-ink-2">{t('cab.fuel')}</span>
             <span className="reading">{status.fuelPct == null ? '—' : `${Math.round(status.fuelPct)}%`}</span>
           </span></>)}
           {toast && (
@@ -122,7 +124,7 @@ export function CabLayout({
             }} />
           </main>
           {!bare && (
-            <aside className="min-h-0 overflow-auto border-l bg-surface p-6" aria-label="Safety zone">
+            <aside className="min-h-0 overflow-auto border-l bg-surface p-6" aria-label={t('cab.safetyZone')}>
               {safety}
             </aside>
           )}
@@ -130,7 +132,7 @@ export function CabLayout({
 
         {!bare && (
           <footer className="flex h-bottom-bar shrink-0 items-center gap-4 border-t bg-surface px-4">
-            <nav className="flex gap-1" aria-label="Operator">
+            <nav className="flex gap-1" aria-label={t('nav.aria')}>
               {NAV.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   key={to}
@@ -144,18 +146,18 @@ export function CabLayout({
                   }
                 >
                   <Icon size={28} aria-hidden />
-                  {label}
+                  {t(label)}
                 </NavLink>
               ))}
             </nav>
             <div className="ml-auto flex items-center gap-6">
               <Button variant="secondary" icon={Mic} onClick={onVoice}>
-                Voice
+                {t('cab.voice')}
               </Button>
               {/* SOS stays far from normal buttons (gap + divider) and needs a 1-second hold. */}
               <div className="h-12 border-l" aria-hidden />
-              <HoldButton variant="destructive" icon={Siren} onConfirm={() => onSos?.()} aria-label="SOS, press and hold">
-                SOS
+              <HoldButton variant="destructive" icon={Siren} onConfirm={() => onSos?.()} aria-label={t('cab.sosHold')}>
+                {t('cab.sos')}
               </HoldButton>
             </div>
           </footer>
