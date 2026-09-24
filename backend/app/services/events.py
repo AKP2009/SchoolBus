@@ -266,6 +266,10 @@ class EventService:
                 )
             await run_in_threadpool(self.repo.update_alert, ep.alert_id, fields)
             return ep.alert_id, self._stream(ep, spec["stage"]) if rose else None
+        if ep is not None and ep.auto_resolve:
+            # quiet for longer than COALESCE_S but not expired yet: close it before the new
+            # alert takes its place, or it would stay open forever
+            await self._resolve(ep)
 
         evidence: dict[str, Any] = {
             "event_type": ev.type,
@@ -320,8 +324,35 @@ class EventService:
             "recommended_action": ep.recommended_action,
         }
 
+    async def _resolve(self, ep: Episode) -> bool:
+        """Mark the episode's alert resolved and tell the cab. Caller holds the key's lock."""
+        at = _now()
+        e = ep.evidence
+        e.setdefault("stages", []).append({"stage": "resolved", "ts": iso(at)})
+        try:
+            first = datetime.fromisoformat(str(e["first_ts"]).replace("Z", "+00:00"))
+            last = datetime.fromisoformat(str(e["last_ts"]).replace("Z", "+00:00"))
+            e["duration_s"] = round((last - first).total_seconds(), 1)
+        except (KeyError, ValueError):
+            pass
+        try:
+            await run_in_threadpool(
+                self.repo.update_alert,
+                ep.alert_id,
+                {"stage": "resolved", "resolved_at": iso(at), "evidence": e},
+            )
+        except Exception as err:  # noqa: BLE001 - keep expiring the others
+            log.error("resolving alert %s failed: %s", ep.alert_id, err)
+            return False
+        if ep.machine_id:
+            await self.pusher.send(ep.machine_id, "alert", self._stream(ep, "resolved"))
+        return True
+
     async def expire(self, older_than_s: float = EXPIRE_S) -> int:
         """Resolve vision alerts with no event for `older_than_s`; forget old SOS episodes.
+        Then sweep the database for open vision alerts this process doesn't track (opened before
+        a restart, e.g. `uvicorn --reload`): nothing would ever resolve them otherwise.
+        Runs on its own timer (APScheduler, every 10 s), with or without a replay.
         Returns the number resolved."""
         now = time.monotonic()
         resolved = 0
@@ -335,29 +366,39 @@ class EventService:
                 ):
                     continue
                 del self.episodes[key]
-                if not ep.auto_resolve:
-                    continue
-                at = _now()
-                e = ep.evidence
-                e.setdefault("stages", []).append({"stage": "resolved", "ts": iso(at)})
-                try:
-                    first = datetime.fromisoformat(str(e["first_ts"]).replace("Z", "+00:00"))
-                    last = datetime.fromisoformat(str(e["last_ts"]).replace("Z", "+00:00"))
-                    e["duration_s"] = round((last - first).total_seconds(), 1)
-                except (KeyError, ValueError):
-                    pass
-                try:
-                    await run_in_threadpool(
-                        self.repo.update_alert,
-                        ep.alert_id,
-                        {"stage": "resolved", "resolved_at": iso(at), "evidence": e},
-                    )
-                except Exception as err:  # noqa: BLE001 - keep expiring the others
-                    log.error("resolving alert %s failed: %s", ep.alert_id, err)
-                    continue
+                if ep.auto_resolve and await self._resolve(ep):
+                    resolved += 1
+        return resolved + await self._sweep_orphans(older_than_s)
+
+    async def _sweep_orphans(self, older_than_s: float) -> int:
+        try:
+            rows = await run_in_threadpool(self.repo.open_vision_alerts)
+        except Exception as err:  # noqa: BLE001 - try again on the next tick
+            log.error("listing open vision alerts failed: %s", err)
+            return 0
+        tracked = {ep.alert_id for ep in self.episodes.values()}
+        cutoff = _now() - timedelta(seconds=older_than_s)
+        resolved = 0
+        for r in rows:
+            if r["id"] in tracked:
+                continue
+            e = dict(r.get("evidence") or {})
+            last = str(e.get("last_ts") or r["ts"]).replace("Z", "+00:00")
+            if datetime.fromisoformat(last) > cutoff:
+                continue  # just inserted: its episode is about to be registered
+            ep = Episode(
+                alert_id=int(r["id"]),
+                alert_code=r["alert_code"],
+                severity=r["severity"],
+                machine_id=r.get("machine_id"),
+                title=r["title"],
+                recommended_action=r.get("recommended_action"),
+                evidence=e,
+                auto_resolve=True,
+            )
+            if await self._resolve(ep):
+                log.info("resolved orphaned vision alert %s (%s)", ep.alert_id, ep.alert_code)
                 resolved += 1
-            if ep.machine_id:
-                await self.pusher.send(ep.machine_id, "alert", self._stream(ep, "resolved"))
         return resolved
 
     # -- fatigue samples -----------------------------------------------------------------------

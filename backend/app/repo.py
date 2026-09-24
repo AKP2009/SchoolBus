@@ -157,6 +157,7 @@ class Repo(Protocol):
 
     # writes
     def insert_alert(self, row: dict[str, Any]) -> int: ...
+    def open_vision_alerts(self) -> list[dict[str, Any]]: ...
     def update_alert(self, alert_id: int, fields: dict[str, Any]) -> None: ...
     def insert_safety_event(self, row: dict[str, Any]) -> int: ...
     def insert_fatigue(self, row: dict[str, Any]) -> int: ...
@@ -241,6 +242,19 @@ class SupabaseRepo:
 
     def update_alert(self, alert_id: int, fields: dict[str, Any]) -> None:
         self.sb.table("alerts").update(fields).eq("id", alert_id).execute()
+
+    def open_vision_alerts(self) -> list[dict[str, Any]]:
+        return list(
+            self.sb.table("alerts")
+            .select("id,ts,machine_id,alert_code,severity,title,recommended_action,evidence")
+            .eq("source", "vision")
+            .is_("resolved_at", "null")
+            .order("id")
+            .limit(200)
+            .execute()
+            .data
+            or []
+        )
 
     def insert_safety_event(self, row: dict[str, Any]) -> int:
         return int(self.sb.table("safety_events").insert(row).execute().data[0]["id"])

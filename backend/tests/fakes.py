@@ -109,6 +109,13 @@ class MemoryRepo:
     def update_alert(self, alert_id: int, fields: dict[str, Any]) -> None:
         self.alerts[alert_id].update(fields)
 
+    def open_vision_alerts(self) -> list[dict[str, Any]]:
+        return [
+            dict(a)
+            for a in self.alerts.values()
+            if a.get("source") == "vision" and a.get("resolved_at") is None
+        ]
+
     def insert_safety_event(self, row: dict[str, Any]) -> int:
         i = next(self._ids)
         self.safety_rows.append({"id": i, **row})

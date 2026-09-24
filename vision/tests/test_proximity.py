@@ -62,7 +62,7 @@ def test_calibration_round_trip(tmp_path):
     cal = P.Calibration.load(path)
     assert cal.calibrated and cal.focal_px == pytest.approx(600.0)
     assert cal.focal_for(960) == pytest.approx(1200.0)  # scales with resolution
-    assert json.loads(path.read_text())["distance_m"] == 3.0
+    assert json.loads(path.read_text(encoding="utf-8"))["distance_m"] == 3.0
 
 
 def test_missing_calibration_falls_back(tmp_path):

@@ -126,6 +126,71 @@ def test_expire_resolves_quiet_alerts_but_not_sos(client, repo, pusher):
     assert again["alert_id"] != prox["alert_id"]
 
 
+def _age(service, alert_id: int, seconds: float) -> None:
+    """Pretend the episode of `alert_id` last saw an event `seconds` ago."""
+    ep = next(e for e in service.episodes.values() if e.alert_id == alert_id)
+    ep.last_seen -= seconds
+
+
+def test_expiry_timer_resolves_without_replay(client, repo, engine, monkeypatch):
+    """The expiry is its own APScheduler job, not part of the replay loop."""
+    from app.jobs import scheduler
+
+    assert engine.running is False  # no replay
+    jobs = {j.id: j for j in scheduler.build_scheduler().get_jobs()}
+    trigger = jobs["vision_alert_expiry"].trigger
+    assert trigger.interval.total_seconds() == scheduler.EXPIRY_TICK_S == 10
+
+    monkeypatch.setattr(scheduler, "get_event_service", lambda: client.service)
+    alert_id = post(client, PROXIMITY).json()["alert_id"]
+    asyncio.run(scheduler.vision_alert_expiry())
+    assert repo.alerts[alert_id].get("resolved_at") is None  # still fresh
+    _age(client.service, alert_id, 31)
+    asyncio.run(scheduler.vision_alert_expiry())
+    assert repo.alerts[alert_id]["stage"] == "resolved"
+    assert repo.alerts[alert_id]["resolved_at"]
+
+
+def test_expire_resolves_alerts_orphaned_by_a_restart(repo, pusher):
+    """Episodes live in memory: after a restart (uvicorn --reload) an open vision alert has no
+    episode, and only the database sweep can resolve it."""
+    from app.services.events import EventService
+
+    old = (datetime.now(UTC) - timedelta(minutes=5)).isoformat()
+    new = datetime.now(UTC).isoformat()
+    base = {
+        "source": "vision",
+        "machine_id": "M06",
+        "alert_code": "BLINDSPOT_ORANGE",
+        "severity": "warning",
+        "title": "Person 5.2 m on the left — blind spot",
+        "recommended_action": "Stop and check the left side.",
+        "stage": "warn",
+        "resolved_at": None,
+    }
+    orphan = repo.insert_alert({**base, "ts": old, "evidence": {"first_ts": old, "last_ts": old}})
+    fresh = repo.insert_alert({**base, "ts": new, "evidence": {"first_ts": new, "last_ts": new}})
+    sos = repo.insert_alert({**base, "source": "operator", "alert_code": "SOS", "ts": old})
+
+    restarted = EventService(repo, pusher)  # empty memory, as after a restart
+    assert asyncio.run(restarted.expire()) == 1
+    assert repo.alerts[orphan]["stage"] == "resolved" and repo.alerts[orphan]["resolved_at"]
+    assert repo.alerts[fresh]["resolved_at"] is None  # may still get its episode
+    assert repo.alerts[sos]["resolved_at"] is None  # SOS: the manager resolves it
+    assert pusher.sent[-1][1] == "alert" and pusher.sent[-1][2]["stage"] == "resolved"
+
+
+def test_new_episode_resolves_the_one_it_replaces(client, repo):
+    """An event 30-40 s after the last one (coalesce window over, expiry tick not yet run)
+    opens a new alert; the old one must be resolved, not left open."""
+    first = post(client, PROXIMITY).json()["alert_id"]
+    _age(client.service, first, 35)
+    second = post(client, PROXIMITY).json()["alert_id"]
+    assert second != first
+    assert repo.alerts[first]["stage"] == "resolved"
+    assert repo.alerts[second].get("resolved_at") is None
+
+
 def test_sos_is_an_emergency(client, repo, pusher):
     body = {
         "type": "sos",

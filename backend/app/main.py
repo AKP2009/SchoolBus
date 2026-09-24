@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.core.errors import register_error_handlers
+from app.core.errors import Utf8JSONResponse, register_error_handlers
 from app.jobs.scheduler import build_scheduler
 from app.replay.runtime import get_engine
 from app.routers import (
@@ -42,7 +42,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await get_engine().stop()
 
 
-app = FastAPI(title="Smart Operator Assistant API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Smart Operator Assistant API",
+    version="0.1.0",
+    lifespan=lifespan,
+    default_response_class=Utf8JSONResponse,
+)
 
 app.add_middleware(
     CORSMiddleware,
