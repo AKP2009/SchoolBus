@@ -610,6 +610,16 @@ class Engine:
         self.streams = dict.fromkeys(machines)
 
 
+@pytest.fixture
+def llm_key(monkeypatch):
+    """A key in settings so the job runs (the LLM itself is faked), whatever backend/.env has."""
+    from pydantic import SecretStr
+
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "llm_api_key", SecretStr("test-llm-key"))
+
+
 def test_scheduler_has_the_ai_jobs():
     from app.jobs.scheduler import build_scheduler
 
@@ -617,7 +627,7 @@ def test_scheduler_has_the_ai_jobs():
     assert {"handover_summary", "training_recommendations"} <= ids
 
 
-def test_handover_job_uses_the_replay_clock(ai, shift, monkeypatch):
+def test_handover_job_uses_the_replay_clock(ai, shift, llm_key, monkeypatch):
     from app.jobs import ai as jobs
 
     llm = FakeLLM("Machine: fine\nFuel: 60%")
@@ -631,7 +641,7 @@ def test_handover_job_uses_the_replay_clock(ai, shift, monkeypatch):
     assert asyncio.run(after_end.tick(wall)) is None  # done: summary set
 
 
-def test_handover_job_wall_clock_and_retry(ai, shift, monkeypatch):
+def test_handover_job_wall_clock_and_retry(ai, shift, llm_key, monkeypatch):
     from app.core.errors import ApiError
     from app.jobs import ai as jobs
 
