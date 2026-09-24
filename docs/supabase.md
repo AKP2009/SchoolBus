@@ -222,6 +222,9 @@ export const supabase = createClient<Database>(
    `supabase.from(table).upsert(payload, { onConflict: 'client_id' })`.
 4. Remove from queue on success. Retries are safe because of the unique `client_id`.
 5. Cache for offline reading: today's tasks, handover summary, downloaded training modules.
+6. The queue is one IndexedDB store per origin, so every open tab flushes it. Queued writes are
+   always the operator's: they are sent with the cab's Supabase session (`web/src/data/api.ts`
+   `cabDb`), whichever tab flushes, and flushing waits until the cab is signed in on that device.
 
 Production would use a CRDT library (Yjs) for concurrent edits; we only have append-style
 writes, so an idempotent queue is enough.

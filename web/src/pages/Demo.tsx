@@ -73,23 +73,55 @@ export function Demo() {
   const [from, setFrom] = useState(DEMO_REPLAY.from);
   const [ids, setIds] = useState(DEMO_REPLAY.machineIds.join(','));
   const [realSpeed, setRealSpeed] = useState(DEMO_REPLAY.speed);
+  // POST /replay/start answers only after warmup + model load (~10 s). Older backends answered a
+  // /scenario sent in that window with 409 REPLAY_NOT_RUNNING; the backend now waits for the start,
+  // and the panel keeps replay scenarios disabled until the replay runs with the target machine.
+  const [starting, setStarting] = useState(false);
 
   const note = (s: string) => setLog((l) => [`${new Date().toLocaleTimeString()} ${s}`, ...l].slice(0, 12));
 
+  const poll = () =>
+    void api
+      .replayStatus()
+      .then((s) => {
+        setStatus(s);
+        setReplayStatus(s);
+      })
+      .catch(() => setStatus(null));
+
   useEffect(() => {
     if (USE_MOCKS) return;
-    const poll = () =>
-      void api
-        .replayStatus()
-        .then((s) => {
-          setStatus(s);
-          setReplayStatus(s);
-        })
-        .catch(() => setStatus(null));
     poll();
     const id = window.setInterval(poll, 5000);
     return () => window.clearInterval(id);
   }, []);
+
+  /** Why a replay-driven scenario can't run on the target yet (live only); null when it can. */
+  const replayBlock = USE_MOCKS
+    ? null
+    : starting
+      ? 'Replay is starting (warmup and models take about 10 s)…'
+      : !status?.running
+        ? 'Start the replay first.'
+        : machineId && !status.machine_ids.includes(machineId)
+          ? `${machineId} is not in the replay (${status.machine_ids.join(', ')}).`
+          : null;
+  const needsReplay = (name: Scenario) => !USE_MOCKS && name !== 'fatigue' && name !== 'proximity' && name !== 'sos';
+
+  const startReplay = async () => {
+    setStarting(true);
+    note('Starting replay…');
+    try {
+      const s = await api.replayStart({ machine_ids: ids.split(',').map((v) => v.trim().toUpperCase()).filter(Boolean), from, speed: realSpeed });
+      setStatus(s);
+      setReplayStatus(s);
+      note(`Replay started: ${s.machine_ids.join(', ')} from ${fmtTime(s.replay_ts)} at ${s.speed}×`);
+    } catch (e) {
+      note(`Start failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const run = async (name: Scenario) => {
     if (!machineId) return;
@@ -112,6 +144,7 @@ export function Demo() {
         }
       } catch (e) {
         note(`${name} failed: ${e instanceof Error ? e.message : String(e)}`);
+        if (e instanceof api.ApiError && e.status === 409) poll(); // the replay may have ended or restarted
       }
       return;
     }
@@ -230,24 +263,13 @@ export function Demo() {
                   </label>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    icon={Play}
-                    onClick={() =>
-                      void api
-                        .replayStart({ machine_ids: ids.split(',').map((s) => s.trim()).filter(Boolean), from, speed: realSpeed })
-                        .then((s) => {
-                          setStatus(s);
-                          setReplayStatus(s);
-                          note(`Replay started: ${s.machine_ids.join(', ')} from ${fmtTime(s.replay_ts)} at ${s.speed}×`);
-                        })
-                        .catch((e: Error) => note(`Start failed: ${e.message}`))
-                    }
-                  >
-                    Start replay
+                  <Button icon={Play} disabled={starting} onClick={() => void startReplay()}>
+                    {starting ? 'Starting…' : 'Start replay'}
                   </Button>
                   <Button
                     variant="secondary"
                     icon={Square}
+                    disabled={starting}
                     onClick={() =>
                       void api
                         .replayStop()
@@ -317,7 +339,8 @@ export function Demo() {
                   key={s.name}
                   type="button"
                   onClick={() => void run(s.name)}
-                  className="flex min-h-touch-office flex-col items-start gap-1 rounded-md border bg-surface p-3 text-left transition-state hover:bg-raised"
+                  disabled={needsReplay(s.name) && replayBlock != null}
+                  className="flex min-h-touch-office flex-col items-start gap-1 rounded-md border bg-surface p-3 text-left transition-state hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className="flex items-center gap-2 text-office-h3">
                     <s.icon size={20} aria-hidden /> {s.label}
@@ -327,6 +350,7 @@ export function Demo() {
                 </button>
               ))}
             </div>
+            {replayBlock && <p className="text-office-small text-ink-2">Overheating, hydraulic leak, tip risk and seatbelt run inside the replay: {replayBlock}</p>}
             <p className="text-office-small text-ink-2">Scenarios never stop the machine: the cab gets the graded response.</p>
           </section>
         </div>

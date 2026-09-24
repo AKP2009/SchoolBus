@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { setLanguage, type Lang } from '@/i18n';
+import { setLanguage, t, type Lang } from '@/i18n';
 import { useAlerts } from '@/stores/alerts';
 import { useConnection } from '@/stores/connection';
 import type { StreamMessage } from '@/types/domain';
@@ -45,9 +45,9 @@ function apply(cmd: DemoCommand) {
         id: -Date.now(),
         ts: new Date().toISOString(),
         machine_id: null,
-        title: 'SOS sent',
-        message: 'Your location and machine state were sent to the site manager.',
-        recommended_action: 'Stay in the cab if it is safe. Help is on the way.',
+        title: t('sos.title'),
+        message: t('sos.message'),
+        recommended_action: t('sos.action'),
         severity: 'emergency',
         stage: 'escalated',
       });

@@ -37,10 +37,11 @@ export function OperatorLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // /operator/login is the cab's own page: a signed-in cab goes straight back to work. /login is shared
-  // (a manager may sign in on a laptop whose cab tab is signed in), so it only skips the form in mocks.
+  // /operator/login is the cab's own page: a signed-in cab always goes straight back to work (an office
+  // `next` means nothing there). /login is shared (a manager may sign in on a laptop whose cab tab is
+  // signed in), so a cab session never skips its form live; mocks keep the old skip.
   const cabPage = location.pathname.startsWith('/operator');
-  if (cab && (cabPage || USE_MOCKS) && !next) return <Navigate to={cab.handoverSeen ? '/operator' : '/operator/handover'} replace />;
+  if (cab && (cabPage || (USE_MOCKS && !next))) return <Navigate to={cab.handoverSeen ? '/operator' : '/operator/handover'} replace />;
   if (!USE_MOCKS && !cabPage && !next && office.status === 'signed_in' && office.profile && office.profile.role !== 'operator') return <Navigate to="/manager" replace />;
 
   const submit = async (e: FormEvent) => {

@@ -313,6 +313,7 @@
   "chat.question": "Your question",
   "chat.ask": "Ask",
   "chat.unreachable": "Couldn't reach the assistant. Check the connection and ask again.",
+  "chat.busy": "Chatbot busy, try again in a minute.",
   "chat.suggest1": "What does E-365 mean?",
   "chat.suggest2": "Someone walked behind my machine. What do I do?",
   "chat.suggest3": "I feel very sleepy on night shift.",

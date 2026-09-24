@@ -33,6 +33,16 @@ export function db(): Db {
   return c;
 }
 
+/**
+ * The cab's client whatever tab runs the call: offline-queue writes (incidents, task updates, training
+ * records) are always the operator's, and every open tab flushes the shared IndexedDB queue.
+ */
+function cabDb(): Db {
+  const c = client('cab');
+  if (!c) throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+  return c;
+}
+
 type Result = { data: unknown; error: { message: string } | null };
 
 /** The rows of a list or `.single()` query (throws on error). */
@@ -123,7 +133,7 @@ export const operatorName = (operatorId: string) =>
 export const tasks = (operatorId: string, shiftId: string) =>
   rows(db().from('tasks').select('*').eq('operator_id', operatorId).eq('shift_id', shiftId).order('sequence_no')) as Promise<unknown> as Promise<TaskRow[]>;
 
-export const updateTask = (taskId: string, patch: TablesUpdate<'tasks'>) => ok(db().from('tasks').update(patch).eq('task_id', taskId));
+export const updateTask = (taskId: string, patch: TablesUpdate<'tasks'>) => ok(cabDb().from('tasks').update(patch).eq('task_id', taskId));
 
 export const predictTaskTime = (taskIds: string[]) => api<{ predictions: TaskPrediction[] }>('/predict/task-time', { json: { task_ids: taskIds } });
 
@@ -165,9 +175,9 @@ export const fatigue = (shiftId: string) => rows(db().from('fatigue_log').select
  * INSERT … ON CONFLICT (client_id) DO NOTHING rather than DO UPDATE.
  */
 export const upsertIncident = (row: TablesInsert<'incidents'>) =>
-  ok(db().from('incidents').upsert(row, { onConflict: 'client_id', ignoreDuplicates: true }));
+  ok(cabDb().from('incidents').upsert(row, { onConflict: 'client_id', ignoreDuplicates: true }));
 export const upsertTrainingRecord = (row: TablesInsert<'training_records'>) =>
-  ok(db().from('training_records').upsert(row, { onConflict: 'client_id' }));
+  ok(cabDb().from('training_records').upsert(row, { onConflict: 'client_id' }));
 
 export const training = async (operatorId: string) => {
   const [modules, records, recommendations] = await Promise.all([

@@ -630,6 +630,9 @@ const SYNC_EVERY_MS = 30_000;
  */
 export function useOfflineSync(): void {
   const online = useConnection((s) => s.online);
+  // Live: the queue holds the operator's writes, sent with the cab session (api.ts cabDb), so it
+  // waits until the cab is signed in on this device.
+  const cabReady = useAuth((s) => USE_MOCKS || s.cab.status === 'signed_in');
   useEffect(() => {
     void refreshCount();
     void queuedIds().then(
@@ -638,7 +641,7 @@ export function useOfflineSync(): void {
     );
   }, []);
   useEffect(() => {
-    if (!online) return;
+    if (!online || !cabReady) return;
     const run = () =>
       void flush(async (w) => {
         await send(w);
@@ -647,7 +650,7 @@ export function useOfflineSync(): void {
     run();
     const id = window.setInterval(run, SYNC_EVERY_MS);
     return () => window.clearInterval(id);
-  }, [online]);
+  }, [online, cabReady]);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -848,11 +851,11 @@ export async function sendChat(operatorId: string, message: string, sessionId: s
 }
 
 /**
- * The backend's own words when the chatbot is rate-limited (503 CHAT_BUSY, e.g. "Chatbot busy, try
- * again in a minute"); null for any other failure, which the chat shows as a generic error.
+ * The busy message when the chatbot is rate-limited (503 CHAT_BUSY): the backend's "Chatbot busy, try
+ * again in a minute." in the cab's language. Null for any other failure (the chat's generic error).
  */
 export function chatBusyMessage(e: unknown): string | null {
-  return e instanceof api.ApiError && e.status === 503 && e.code === 'CHAT_BUSY' ? e.message : null;
+  return e instanceof api.ApiError && e.status === 503 && e.code === 'CHAT_BUSY' ? t('chat.busy') : null;
 }
 
 export async function chatSuggestions(): Promise<string[]> {
