@@ -73,6 +73,7 @@ cd backend && uvicorn app.main:app --reload --port 8000
 cd backend && python -m pytest                                                    # rules, scenarios, events, predict/plan, jobs, auth, AI (no DB or LLM needed)
 python backend/scripts/ingest_docs.py                                             # kb/*.md -> documents + document_chunks (idempotent; --dry-run)
 python backend/tests/rag_eval.py --judge-model gemini-flash-lite-latest           # 25 RAG questions against the live LLM (~12 min on the free tier)
+python backend/scripts/prewarm_demo.py                                            # demo chat answers + handovers -> backend/cache/demo.json (after kb edits)
 TOKEN=$(python backend/scripts/get_token.py)                                     # manager JWT (priya); every endpoint but /health needs one
 curl -X POST localhost:8000/replay/start -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"machine_ids":["M04","M05"],"from":"2026-08-19T15:15:00Z","speed":10}'   # demo window
 curl -X POST localhost:8000/scenario/overheating -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"machine_id":"M05"}'

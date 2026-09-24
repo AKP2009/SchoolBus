@@ -11,6 +11,9 @@ data/output/*
 # Model artifacts in ml/artifacts/<model>/ are committed (each model < 20 MB) so the backend
 # needs no retraining. Anything larger goes elsewhere, not in git.
 
+# backend: /chat answers added at runtime (backend/cache/demo.json is committed)
+backend/cache/chat_runtime.json
+
 # python
 __pycache__/
 *.py[cod]

@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 
+from app.ai_repo import get_ai_repo
 from app.core.config import get_settings
 from app.core.errors import Utf8JSONResponse, register_error_handlers
 from app.jobs.scheduler import build_scheduler
@@ -27,6 +29,7 @@ from app.routers import (
     training,
     voice,
 )
+from app.services.handover import restore_pregenerated
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +42,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if (reason := llm_config_error()) is not None:
         # the rest of the API works; /chat, /handover, /incidents/transcribe return 503
         log.warning("LLM features disabled: %s", reason)
+    try:  # demo handovers a reset cleared: no LLM call needed
+        restored = await run_in_threadpool(restore_pregenerated, get_ai_repo())
+        if restored:
+            log.info("restored pre-generated handover for %s", ", ".join(restored))
+    except Exception as e:  # noqa: BLE001 - the API still starts without the database
+        log.warning("could not restore pre-generated handovers: %s", e)
     scheduler = build_scheduler() if get_settings().scheduler_enabled else None
     if scheduler is not None:
         scheduler.start()

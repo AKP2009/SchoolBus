@@ -19,3 +19,4 @@ class ChatSource(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[ChatSource]
+    cached: bool = False  # answered from the cache, without a live LLM call

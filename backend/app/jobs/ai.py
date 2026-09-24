@@ -53,7 +53,15 @@ class HandoverJob:
         ]
 
     async def tick(self, now: datetime | None = None) -> str | None:
-        """Summarise at most one ended shift. Returns its shift_id, or None."""
+        """Restore pre-generated summaries a reset cleared (no LLM), then summarise at most one
+        ended shift. Returns its shift_id, or None."""
+        try:
+            restored = await run_in_threadpool(handover.restore_pregenerated, self.ai)
+        except Exception:  # noqa: BLE001 - the live path below still runs
+            log.exception("restoring pre-generated handovers failed")
+            restored = []
+        if restored:
+            log.info("restored pre-generated handover for %s", ", ".join(restored))
         reason = config_error()
         if reason is not None:
             if not self._warned:

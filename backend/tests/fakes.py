@@ -350,7 +350,8 @@ class MemoryAiRepo:
 
 
 class FakeLLM:
-    """Scripted `app.llm.LLM`: replies are popped in order; every call is recorded."""
+    """Scripted `app.llm.LLM`: replies are popped in order; every call is recorded. A reply that
+    is an exception is raised; a callable reply is called first (e.g. to fake a race)."""
 
     model = "fake"
 
@@ -360,10 +361,17 @@ class FakeLLM:
 
     def _next(self, **call: Any) -> Any:
         self.calls.append(call)
-        return self.replies.pop(0)
+        reply = self.replies.pop(0)
+        if callable(reply) and not isinstance(reply, type):
+            reply = reply()
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
 
-    def text(self, system: str, prompt: str, *, temperature: float, max_tokens: int) -> str:
-        return self._next(system=system, prompt=prompt, temperature=temperature)
+    def text(
+        self, system: str, prompt: str, *, temperature: float, max_tokens: int, **retry: Any
+    ) -> str:
+        return self._next(system=system, prompt=prompt, temperature=temperature, **retry)
 
     def json(
         self, system: str, prompt: str, schema: Any, *, temperature: float, max_tokens: int

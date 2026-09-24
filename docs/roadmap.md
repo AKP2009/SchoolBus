@@ -55,7 +55,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **B:** phone detection _(YOLO11n class 67 every 5th cab frame, shares the proximity weights, 3 s persistence)_
 - [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
 - [x] **B:** vision live on the backend: `VISION_API_TOKEN` from `vision/.env` on every call; machine moving from `GET /machine/{id}/state` and high fatigue from `GET /operator/{id}/fatigue`, polled every 2 s with last-known / safe-default fallback; defaults OP02/M05 _(`vision/tests/test_backend_client.py` against a mock backend; live: 20 s proximity run posted 20 `blindspot_intrusion` → 20 `safety_events` rows on one `BLINDSPOT_RED` alert)_
-- [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions _(built; 21/25 = 84% but 2 unsafe (E-365, Q01/Q24) vs target 0: see models.md §7)_
+- [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions _(kb action-first + prompt fix: 23/25 = 92%, 1 flagged unsafe (Q04, judged a judge false positive, not re-run): see models.md §7)_
 - [ ] **D:** all P0 operator screens on mocks
 - [ ] **D:** all P0 manager screens on mocks
 
@@ -99,7 +99,7 @@ recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolve
 - [ ] Plan re-evaluation (P1) if time _(ML and backend done: `/plan/re-evaluate` and `/plan/accept`; UI not wired yet)_
 - [ ] Geofencing, training recommendations, scenario quiz (P1) if time _(backend: recommender rules + daily job + `POST /training/recommendations` done)_
 - [ ] Offline demo: Wi-Fi off → report incident → Wi-Fi on → appears on manager screen
-- [ ] Fallbacks ready: `--source demo.mp4` for vision, cached LLM answers for chat
+- [ ] Fallbacks ready: `--source demo.mp4` for vision, cached LLM answers for chat _(chat + handover side done: `backend/cache/demo.json`, `scripts/prewarm_demo.py`)_
 
 **Checkpoint 5:** three clean demo runs in a row.
 

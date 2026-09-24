@@ -53,12 +53,23 @@ def llm_unavailable(reason: str) -> ApiError:
     )
 
 
-def _retry_delay(e: Exception, attempt: int) -> float:
+def _retry_delay(e: Exception, attempt: int, max_delay_s: float = MAX_DELAY_S) -> float:
     """The server's RetryInfo hint ("retryDelay": "31s") if any, else exponential backoff."""
     m = re.search(r"retryDelay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)s", str(e))
     backoff = BASE_DELAY_S * 2**attempt + random.uniform(0, 1)
     hint = float(m.group(1)) + 1 if m else 0.0
-    return min(max(hint, backoff), MAX_DELAY_S)
+    return min(max(hint, backoff), max_delay_s)
+
+
+def _failure_code(status: int | None) -> str:
+    """LLM_RATE_LIMITED (429), LLM_OVERLOADED (500/503 "high demand"), else LLM_ERROR.
+    The first two are temporary: /chat answers from its cache or says the chatbot is busy."""
+    if status == 429:
+        return "LLM_RATE_LIMITED"
+    return "LLM_OVERLOADED" if status in (500, 503) else "LLM_ERROR"
+
+
+BUSY_CODES = frozenset({"LLM_RATE_LIMITED", "LLM_OVERLOADED"})
 
 
 def _daily_quota(e: Exception) -> bool:
@@ -99,10 +110,16 @@ class LLM:
             kwargs["response_schema"] = schema
         return types.GenerateContentConfig(**kwargs)
 
-    def _call(self, prompt: str, config: Callable[[], Any]) -> Any:
+    def _call(
+        self,
+        prompt: str,
+        config: Callable[[], Any],
+        max_attempts: int = MAX_ATTEMPTS,
+        max_delay_s: float = MAX_DELAY_S,
+    ) -> Any:
         from google.genai import errors
 
-        for attempt in range(MAX_ATTEMPTS):
+        for attempt in range(max_attempts):
             try:
                 return self.client.models.generate_content(
                     model=self.model, contents=prompt, config=config()
@@ -113,18 +130,33 @@ class LLM:
                         log.info("%s rejects minimal thinking; using low", self.model)
                         self.thinking_level = "low"
                         continue
-                last = attempt == MAX_ATTEMPTS - 1
+                last = attempt == max_attempts - 1
                 if e.code not in RETRY_STATUS or last or (e.code == 429 and _daily_quota(e)):
                     log.error("LLM call failed (%s): %s", e.code, e)
-                    code = "LLM_RATE_LIMITED" if e.code == 429 else "LLM_ERROR"
+                    code = _failure_code(e.code)
                     raise ApiError(503, code, f"The language model call failed ({e.code}).") from e
-                delay = _retry_delay(e, attempt)
+                delay = _retry_delay(e, attempt, max_delay_s)
                 log.warning("LLM %s, retry %d in %.1f s", e.code, attempt + 1, delay)
                 time.sleep(delay)
         raise AssertionError("unreachable")
 
-    def text(self, system: str, prompt: str, *, temperature: float, max_tokens: int) -> str:
-        resp = self._call(prompt, lambda: self._config(system, temperature, max_tokens, None))
+    def text(
+        self,
+        system: str,
+        prompt: str,
+        *,
+        temperature: float,
+        max_tokens: int,
+        max_attempts: int = MAX_ATTEMPTS,
+        max_delay_s: float = MAX_DELAY_S,
+    ) -> str:
+        """`max_attempts` / `max_delay_s`: keep them small where a person is waiting (chat)."""
+        resp = self._call(
+            prompt,
+            lambda: self._config(system, temperature, max_tokens, None),
+            max_attempts,
+            max_delay_s,
+        )
         return (resp.text or "").strip()
 
     def json(
@@ -148,6 +180,12 @@ def _build() -> LLM:
     assert s.llm_api_key is not None
     client = genai.Client(api_key=s.llm_api_key.get_secret_value())
     return LLM(client, s.llm_model)
+
+
+def get_llm_factory() -> Callable[[], LLM]:
+    """FastAPI dependency for endpoints that may not need the LLM (a /chat cache hit): they call
+    the factory only when they do, so a missing key doesn't fail a cached answer."""
+    return get_llm
 
 
 def get_llm() -> LLM:

@@ -12,13 +12,15 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.ai_repo import AiRepo
 from app.core.errors import ApiError
-from app.llm import LLM
+from app.llm import BUSY_CODES, LLM
+from app.services.chat_cache import demo_handovers
 
 IST = ZoneInfo("Asia/Kolkata")
 TEMPERATURE = 0.3
@@ -131,3 +133,33 @@ def generate(repo: AiRepo, llm: LLM, shift_id: str) -> str:
         raise ApiError(503, "LLM_ERROR", "The language model returned an empty handover.")
     repo.save_handover(shift_id, summary, datetime.now(UTC))
     return summary
+
+
+FALLBACK_CODES = BUSY_CODES | {"LLM_UNAVAILABLE"}
+
+
+def generate_or_pregenerated(
+    repo: AiRepo, llm: Callable[[], LLM], shift_id: str
+) -> tuple[str, bool]:
+    """A live summary, or the pre-generated one (backend/cache/demo.json) when the LLM is rate
+    limited, overloaded or not configured. Returns (summary, pre_generated)."""
+    try:
+        return generate(repo, llm(), shift_id), False
+    except ApiError as e:
+        pre = demo_handovers().get(shift_id)
+        if e.code not in FALLBACK_CODES or pre is None:
+            raise
+    repo.save_handover(shift_id, pre, datetime.now(UTC))
+    return pre, True
+
+
+def restore_pregenerated(repo: AiRepo) -> list[str]:
+    """Write pre-generated summaries back to shifts that have none (e.g. after
+    scripts/reset_demo_state.py cleared them). No LLM call. Returns the shift ids written."""
+    restored = []
+    for sid, summary in demo_handovers().items():
+        shift = repo.shift_full(sid)
+        if shift is not None and not shift.get("handover_summary"):
+            repo.save_handover(sid, summary, datetime.now(UTC))
+            restored.append(sid)
+    return restored

@@ -39,7 +39,12 @@ or a real tablet), one drives the manager screen on the projector, one walks int
 
 ## If something breaks
 - Vision fails → switch to `--source demo.mp4`.
-- LLM slow → cached answers for the demo questions.
+- LLM slow or free-tier quota used up → nothing to do: the three chatbot suggestion chips (incl. "What does
+  E-365 mean?") are answered from `backend/cache/demo.json` without an LLM call, and both M05 handovers
+  (SH-2026-08-19-M05-D at login, SH-2026-08-19-M05-N) are pre-generated and put back into `shifts` by the backend
+  after `reset_demo_state.py`. Typed questions that aren't cached get "Chatbot busy, try again in a minute."
+  After editing `backend/kb/`, re-ingest and re-run `python backend/scripts/prewarm_demo.py` (the cached answers
+  are tied to the kb version).
 - Anything else → backup video, keep narrating.
 
 ## Demo data

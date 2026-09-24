@@ -183,11 +183,13 @@ Response
 { "answer": "Lower the attachment slowly, stop and shut down… (Source: Fault codes)",
   "sources": [ { "document_id": 1, "title": "Fault codes", "chunk_index": 4 } ] }
 ```
-Operators chat only as themselves (403). Non-English questions (`language` or Devanagari/Tamil script) are
+Response also has `"cached": true | false`: true = answered from the cache (the same normalised question
+answered before from the current knowledge base), with no LLM call. Operators chat only as themselves (403). Non-English questions (`language` or Devanagari/Tamil script) are
 translated to English for retrieval and answered in that language. `sources` lists only the chunks the
 answer used (empty when the answer is "not in my manuals"). Both turns are saved in `chat_messages`
-(same `session_id`, user turn first by `created_at`). 503 `LLM_UNAVAILABLE` (no `LLM_API_KEY`),
-`LLM_RATE_LIMITED` (daily free-tier quota used up) or `LLM_ERROR`.
+(same `session_id`, user turn first by `created_at`). 503 `CHAT_BUSY` "Chatbot busy, try again in a minute."
+when the LLM is rate limited (429) or overloaded and the question isn't cached (nothing is saved; show the
+message and let the operator retry). 503 `LLM_UNAVAILABLE` (no `LLM_API_KEY`, cache miss) or `LLM_ERROR`.
 
 ### `POST /voice/command`
 Multipart audio (`audio/webm`) + `operator_id`, `machine_id`.
@@ -196,7 +198,10 @@ Response `{ "transcript": "…", "intent": "next_task", "reply_text": "…", "re
 ### `POST /handover/{shift_id}` → `{ "summary": "…" }` (also saved to `shifts`)
 Summary of that shift for the next operator on the machine, 5 lines (`Machine:`, `Open issues:`, `Check before
 starting:`, `Unfinished work:`, `Fuel:`), saved to `shifts.handover_summary` + `handover_generated_at`.
-Managers, the shift's operator, or operators of the same site. 404 unknown shift, 503 as for `/chat`. The
+Response also has `"pre_generated": true | false`: true when the LLM was rate limited, overloaded or not
+configured and a pre-generated summary (`backend/cache/demo.json`) was used instead. Managers, the shift's
+operator, or operators of the same site. 404 unknown shift, 503 `LLM_RATE_LIMITED` / `LLM_OVERLOADED` /
+`LLM_UNAVAILABLE` / `LLM_ERROR` when there is no pre-generated summary. The
 scheduler also writes it when a shift ends (supabase.md §10).
 
 ### `POST /incidents/transcribe`
@@ -274,5 +279,5 @@ HTTP 400 validation (`VALIDATION_ERROR`), 401 auth (`UNAUTHORIZED`), 403 not all
 404 not found (`NOT_FOUND`, `UNKNOWN_MACHINE`, `UNKNOWN_OPERATOR`), 405 `METHOD_NOT_ALLOWED`,
 409 state conflicts (`REPLAY_NOT_RUNNING`, `NO_PENDING_PLAN`, `PLAN_EXPIRED`, …), 501 not built yet
 (`NOT_IMPLEMENTED`), 503 model/LLM unavailable (`MODEL_NOT_LOADED`, `AUTH_UNAVAILABLE`, `LLM_UNAVAILABLE`,
-`LLM_RATE_LIMITED`, `LLM_ERROR`), 500 `INTERNAL_ERROR`.
+`LLM_RATE_LIMITED`, `LLM_OVERLOADED`, `LLM_ERROR`, `CHAT_BUSY`), 500 `INTERNAL_ERROR`.
 Every error, including unknown routes and framework validation, uses this shape (`backend/app/core/errors.py`).

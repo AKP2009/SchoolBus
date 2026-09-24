@@ -4,7 +4,9 @@ in-memory AiRepo and a scripted LLM (no network). The live LLM is exercised by t
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -36,15 +38,36 @@ def ai() -> MemoryAiRepo:
     return MemoryAiRepo()
 
 
+@pytest.fixture(autouse=True)
+def cache_files(tmp_path, monkeypatch):
+    """Cache files in a temp dir: no committed demo answers, nothing written to backend/cache."""
+    from app.services import chat_cache
+
+    monkeypatch.setattr(chat_cache, "DEMO_FILE", tmp_path / "demo.json")
+    monkeypatch.setattr(chat_cache, "RUNTIME_FILE", tmp_path / "chat_runtime.json")
+    return tmp_path
+
+
 @pytest.fixture
-def api(client, ai):
-    """The API client with the AI repo and a scripted LLM (set `api.llm`)."""
+def cache():
+    from app.services.chat_cache import ChatCache
+
+    return ChatCache()
+
+
+@pytest.fixture
+def api(client, ai, cache):
+    """The API client with the AI repo, an empty cache and a scripted LLM (set `api.llm`)."""
     from app.ai_repo import get_ai_repo
-    from app.llm import get_llm
+    from app.llm import get_llm, get_llm_factory
+    from app.services.chat_cache import get_chat_cache
 
     client.llm = FakeLLM()
+    client.cache = cache
     client.app.dependency_overrides[get_ai_repo] = lambda: ai
     client.app.dependency_overrides[get_llm] = lambda: client.llm
+    client.app.dependency_overrides[get_llm_factory] = lambda: lambda: client.llm
+    client.app.dependency_overrides[get_chat_cache] = lambda: cache
     return client
 
 
@@ -152,6 +175,7 @@ def test_chat_with_nothing_retrieved_still_asks_the_llm(api, ai, headers):
     assert r.json() == {
         "answer": "That is not in my manuals. Please ask your supervisor.",
         "sources": [],
+        "cached": False,
     }
     assert "nothing relevant was found" in api.llm.calls[0]["prompt"]
 
@@ -168,9 +192,11 @@ def test_chat_only_as_yourself(api, headers):
 def test_llm_features_503_without_key_but_server_runs(client, ai, headers, monkeypatch):
     from app.ai_repo import get_ai_repo
     from app.core.config import get_settings
+    from app.services.chat_cache import ChatCache, get_chat_cache
 
     monkeypatch.setattr(get_settings(), "llm_api_key", None)
     client.app.dependency_overrides[get_ai_repo] = lambda: ai
+    client.app.dependency_overrides[get_chat_cache] = ChatCache
     body = {"session_id": str(uuid4()), "operator_id": "OP03", "message": "hi"}
     r = client.post("/chat", json=body, headers=headers("operator"))
     assert r.status_code == 503
@@ -184,6 +210,123 @@ def test_llm_features_503_without_key_but_server_runs(client, ai, headers, monke
     assert r.status_code == 503
     health = client.get("/health").json()
     assert health["models"]["llm"] == "not_configured"
+
+
+# ---------------------------------------------------------------------------------------------
+# chat cache (free-tier protection)
+# ---------------------------------------------------------------------------------------------
+def ask(api, headers, message, language="en"):
+    body = {"session_id": str(uuid4()), "operator_id": "OP03", "message": message}
+    return api.post("/chat", json={**body, "language": language}, headers=headers("operator"))
+
+
+def rate_limited():
+    from app.core.errors import ApiError
+
+    return ApiError(503, "LLM_RATE_LIMITED", "The language model call failed (429).")
+
+
+def test_normalise_unifies_spelling_but_not_codes():
+    from app.services.chat_cache import key, normalise
+
+    assert normalise("What does E365 mean?") == normalise("  what does e-365 MEAN ")
+    assert normalise("What does E365 mean?") == "what does e-365 mean"
+    assert normalise("E 365 kya hai") == "e-365 kya hai"
+    assert key("What does E-360 mean?", "en") != key("What does E-365 mean?", "en")
+    assert normalise("E-365 का क्या मतलब है?") == "e-365 का क्या मतलब है"
+
+
+def test_chat_answers_live_once_then_from_cache(api, ai, headers, cache_files):
+    ai.chunks = [E360]
+    api.llm.replies = ["Lower the attachment. (Source: Fault codes)\nSOURCES: 1"]
+    first = ask(api, headers, "What does E-360 mean?").json()
+    assert first["cached"] is False and len(api.llm.calls) == 1
+    assert api.llm.calls[0]["max_attempts"] == 2  # someone is waiting: one quick retry only
+    second = ask(api, headers, "what does e360 mean").json()  # no reply left: must not call
+    assert second == {**first, "cached": True}
+    assert len(api.llm.calls) == 1
+    assert len(ai.chat_rows) == 4  # both exchanges saved
+    assert "what does e-360 mean" in (cache_files / "chat_runtime.json").read_text(encoding="utf-8")
+
+
+def test_cached_answer_needs_no_api_key(api, ai, headers, cache, monkeypatch):
+    from app.core.config import get_settings
+    from app.llm import get_llm_factory
+
+    cache.put("What does E-365 mean?", "en", "Reduce the load now.", [])
+    monkeypatch.setattr(get_settings(), "llm_api_key", None)
+    del api.app.dependency_overrides[get_llm_factory]  # the real factory would 503
+    r = ask(api, headers, "What does E-365 mean?")
+    assert r.status_code == 200 and r.json()["cached"] is True
+
+
+def test_cache_entry_from_older_kb_is_ignored(api, ai, headers, cache):
+    cache.put("What does E-360 mean?", "en", "old answer", [])
+    cache.version = "newer-kb"  # the kb changed after the answer was cached
+    api.llm.replies = ["new answer\nSOURCES: none"]
+    assert ask(api, headers, "What does E-360 mean?").json()["answer"] == "new answer"
+
+
+def test_429_without_cache_says_busy_and_saves_nothing(api, ai, headers):
+    api.llm.replies = [rate_limited()]
+    r = ask(api, headers, "What does E-410 mean?")
+    assert r.status_code == 503
+    assert r.json()["error"] == {
+        "code": "CHAT_BUSY",
+        "message": "Chatbot busy, try again in a minute.",
+    }
+    assert ai.chat_rows == []
+
+
+def test_429_answers_from_cache_filled_meanwhile(api, ai, headers, cache):
+    def race():  # another request cached the answer while this one waited on the LLM
+        cache.put("What does E-410 mean?", "en", "Finish the movement safely.", [])
+        return rate_limited()
+
+    api.llm.replies = [race]
+    r = ask(api, headers, "What does E-410 mean?")
+    assert r.status_code == 200 and r.json()["answer"] == "Finish the movement safely."
+    assert r.json()["cached"] is True
+
+
+def test_overloaded_is_busy_too_but_other_errors_are_not(api, headers):
+    from app.core.errors import ApiError
+    from app.llm import _failure_code
+
+    assert [_failure_code(c) for c in (429, 503, 500, 400)] == [
+        "LLM_RATE_LIMITED",
+        "LLM_OVERLOADED",
+        "LLM_OVERLOADED",
+        "LLM_ERROR",
+    ]
+    api.llm.replies = [ApiError(503, "LLM_ERROR", "unreadable")]
+    assert ask(api, headers, "hi").json()["error"]["code"] == "LLM_ERROR"
+
+
+def test_runtime_cache_keeps_the_newest(cache, monkeypatch):
+    from app.services import chat_cache
+
+    monkeypatch.setattr(chat_cache, "MAX_RUNTIME", 2)
+    for q in ("q1", "q2", "q3"):
+        cache.put(q, "en", q.upper(), [])
+    assert cache.get("q1", "en") is None and cache.get("q3", "en")["answer"] == "Q3"
+    reloaded = chat_cache.ChatCache()  # survives a restart
+    assert reloaded.get("q2", "en")["answer"] == "Q2"
+
+
+def test_committed_demo_cache_is_current():
+    """backend/cache/demo.json must match the kb: re-run scripts/prewarm_demo.py after kb edits."""
+    from app.services import chat_cache
+
+    demo = chat_cache._read(Path(__file__).resolve().parents[1] / "cache" / "demo.json")
+    version = chat_cache.kb_version()
+    questions = {e["question"] for e in demo["chat"].values() if e["kb_version"] == version}
+    assert {
+        "What does E-365 mean?",
+        "Someone walked behind my machine. What do I do?",
+        "I feel very sleepy on night shift.",
+    } <= questions
+    assert {"SH-2026-08-19-M05-N", "SH-2026-08-19-M05-D"} <= set(demo["handovers"])
 
 
 # ---------------------------------------------------------------------------------------------
@@ -271,6 +414,47 @@ def test_handover_unknown_shift_is_404(api, headers):
 def test_handover_other_site_operator_is_403(api, ai, shift, headers):
     shift["site_id"] = "S2"
     assert api.post(f"/handover/{SHIFT}", headers=headers("operator")).status_code == 403
+
+
+def pregenerate(cache_files, summaries: dict[str, str]) -> None:
+    demo = {"chat": {}, "handovers": {k: {"summary": v} for k, v in summaries.items()}}
+    (cache_files / "demo.json").write_text(json.dumps(demo), encoding="utf-8")
+
+
+def test_handover_falls_back_to_pregenerated_when_busy(api, ai, shift, headers, cache_files):
+    pregenerate(cache_files, {SHIFT: "Machine: pre-generated"})
+    api.llm.replies = [rate_limited()]
+    r = api.post(f"/handover/{SHIFT}", headers=headers("manager"))
+    assert r.status_code == 200
+    assert r.json() == {"summary": "Machine: pre-generated", "pre_generated": True}
+    assert ai.handovers[SHIFT][0] == "Machine: pre-generated"
+
+
+def test_handover_busy_without_pregenerated_is_503(api, ai, shift, headers):
+    api.llm.replies = [rate_limited()]
+    r = api.post(f"/handover/{SHIFT}", headers=headers("manager"))
+    assert r.status_code == 503 and r.json()["error"]["code"] == "LLM_RATE_LIMITED"
+
+
+def test_restore_pregenerated_after_reset(ai, shift, cache_files):
+    from app.services.handover import restore_pregenerated
+
+    pregenerate(cache_files, {SHIFT: "Machine: pre", "SH-NOT-LOADED": "x"})
+    assert restore_pregenerated(ai) == [SHIFT]  # reset cleared it: put it back
+    assert restore_pregenerated(ai) == []  # already there: untouched
+    shift["handover_summary"] = "live summary"
+    assert restore_pregenerated(ai) == [] and shift["handover_summary"] == "live summary"
+
+
+def test_handover_job_restores_without_llm(ai, shift, cache_files, monkeypatch):
+    from app.core.config import get_settings
+    from app.jobs import ai as jobs
+
+    pregenerate(cache_files, {SHIFT: "Machine: pre"})
+    monkeypatch.setattr(get_settings(), "llm_api_key", None)
+    job = jobs.HandoverJob(ai, Engine(False, None, []))
+    asyncio.run(job.tick(END + timedelta(minutes=1)))
+    assert ai.handovers[SHIFT][0] == "Machine: pre"
 
 
 # ---------------------------------------------------------------------------------------------

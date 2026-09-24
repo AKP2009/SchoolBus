@@ -627,7 +627,30 @@ The set is `backend/kb/rag_eval.json`: each question has `expected_points`, `sou
   (safe action first even for "what does X mean", keep every step / limit / call-maintenance condition, ~180 words):
   **21/25 = 84% correct, 2 unsafe** (Q01, Q24: E-365, whose kb section lists Meaning and Causes before "What to do
   right now"; the answers start with step 2 or the "don't touch" warning). Misses Q16 (approaching raises one level),
-  Q23 (25% threshold). Open: reorder that kb section to action-first, and re-run with a stronger model when quota allows.
+  Q23 (25% threshold).
+- **Knowledge base restructured (approved follow-up):** every section in `fault_codes.md`, `troubleshooting_faq.md`
+  and `safety_rules.md` (46), plus the hazard sections of `operating_tips.md` (rain, dust, start-of-shift check), now
+  opens with **What to do now:**, then the meaning, then causes (fault codes: What to do now → Meaning → Likely causes
+  → When to call maintenance). The first step is always an action (E-110 no longer starts with "Stay calm", E-215 no
+  longer with "This is the most urgent code"). The other tips and the training-module descriptions are how-to /
+  catalogue text with no hazard, so they have no such block.
+- **Q24 root cause:** after the reorder the English E-365 answer led with the action, the Hindi one still with the
+  meaning (retrieval was right: E-365 top). Answering a "what does X mean?" question in Hindi, the model followed
+  the question rather than rule 3. Fix in the prompt, not the eval: rule 3 now names the first step of the section's
+  "What to do now", says it applies in every language, and forbids opening with the meaning, a definition or a
+  "don't touch" warning.
+- **Eval after the restructure (one run, same models): 23/25 = 92% correct, 1 flagged unsafe.** Q01 and Q24 pass.
+  The flagged one is Q04 (E-360), judged "safe action not first" although the answer's first line is the kb's step 1
+  ("1. Lower the bucket, boom or blade to the ground slowly and under control"): a judge false positive, left as
+  reported (not re-run). Q16 misses two details (approaching raises a level, +2 m in low visibility).
+- **Cache (`backend/app/services/chat_cache.py`):** `/chat` answers are cached on (language, normalised question:
+  NFKC, case-folded, punctuation dropped, "E365"/"e 365" → "e-365"; combining marks kept so Hindi words stay
+  distinct). A hit makes no LLM call, needs no key, and returns `cached: true`. Entries carry the kb version (hash of
+  backend/kb/*.md) and are ignored after a kb edit. Exact match only: a fuzzy one could answer E-360 with E-365.
+  `backend/cache/demo.json` (committed) holds the pre-warmed answers to the web app's three suggestion chips and two
+  handovers (`scripts/prewarm_demo.py`); `backend/cache/chat_runtime.json` (gitignored, newest 200) holds the rest.
+  Live chat calls get 2 attempts and ≤ 5 s backoff; on 429/503 the cache is checked again, else 503 `CHAT_BUSY`
+  "Chatbot busy, try again in a minute."
 
 ---
 
@@ -653,6 +676,10 @@ unfinished work, fuel. `temperature=0.3`. Stored in `shifts.handover_summary`.
   fuel start/end, latest `maintenance_predictions` row at the end; times in Asia/Kolkata. Reply cleaned to ≤ 5 labelled
   lines (`Machine:`, `Open issues:`, `Check before starting:`, `Unfinished work:`, `Fuel:`). Live check 2026-09-24,
   SH-2026-08-19-M05-N: hydraulic oil hot, people near the rear, task 5 with 19.2 m3 left, fuel 60.48%.
+- **Pre-generated (`backend/cache/demo.json`):** SH-2026-08-19-M05-N and SH-2026-08-19-M05-D (the handover
+  Ganesh reads at login). The backend writes them back to `shifts` when they are missing, at startup and on each
+  handover-job tick, so `reset_demo_state.py --apply` doesn't cost a live call. `POST /handover` falls back to
+  them when the LLM is rate limited, overloaded or not configured (`pre_generated: true`).
 - **Incident drafts (`backend/app/services/incidents.py`):** `temperature=0`, JSON schema = `IncidentDraft`; injury
   forces `injury=true` and severity ≥ critical.
 
