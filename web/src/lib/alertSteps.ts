@@ -21,7 +21,8 @@ export function stepsFor(alertCode: string, stage: AlertStage, machineType: Mach
   }
   if (SHUTDOWN_CODES.test(alertCode) && stage === 'derate') return ['Switch to economy mode', 'Reduce the load'];
   if (alertCode === 'TIP_RISK') return ['Slow down', 'Keep the attachment low', 'Move to flatter ground'];
-  if (alertCode.startsWith('PROXIMITY')) return ['Stop all movement', 'Sound the horn', 'Wait until you can see them clear'];
+  if (alertCode === 'EYES_CLOSED') return ['Stop the machine safely', 'Lower the attachment', 'Take a break before you carry on'];
+  if (alertCode.startsWith('PROXIMITY') || alertCode.startsWith('BLINDSPOT')) return ['Stop all movement', 'Sound the horn', 'Wait until you can see them clear'];
   if (alertCode === 'SEATBELT') return ['Stop the machine', 'Fasten your seatbelt'];
   return undefined;
 }

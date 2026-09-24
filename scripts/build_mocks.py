@@ -22,7 +22,8 @@ supabase/migrations/001_init.sql). Nothing is invented where the data or a model
 Two things the pipeline can't produce yet are built here and labelled as such in `_meta`:
 the handover summary (LLM not wired; a template over the same inputs as models.md §9) and the
 geofences (none are loaded; four zones placed from the site's own GPS extent).
-Vision events in the window (blindspot, fatigue) become alerts the way POST /events will.
+Vision events in the window (blindspot, fatigue) become alerts through the backend's own
+`app.services.events.alert_spec`, resolving EXPIRE_S after the event as the live service does.
 
 Never written: anomaly_label, anomaly_type (not even read) and operators.personality.
 """
@@ -52,6 +53,8 @@ from app.alerts.rules import MachineRuleEngine, load_thresholds  # noqa: E402
 from app.replay.engine import ReplayEngine  # noqa: E402
 from app.replay.source import TELEMETRY_COLUMNS, normalize  # noqa: E402
 from app.replay.writer import MemoryStore  # noqa: E402
+from app.schemas.events import AlertEvent as VisionEvent  # noqa: E402
+from app.services.events import EXPIRE_S, alert_spec  # noqa: E402
 from ml.inference import anomaly as A  # noqa: E402
 from ml.inference import health as H  # noqa: E402
 from ml.inference import maintenance as M  # noqa: E402
@@ -489,42 +492,40 @@ class Build:
         self.msgs = msgs
         self.alert_ids = iter(range(max(store.alerts, default=0) + 1, 10**6))
 
-    # -- vision events -> alerts (what POST /events will do) ---------------------------------
-    VISION_TEXT = {
-        "blindspot_intrusion": ("PROXIMITY_RED", "Person {sector} you — {d:.1f} m", "Stop moving. Sound the horn and wait until you can see them clear."),
-        "proximity_breach": ("PROXIMITY_ORANGE", "Person {sector} you — {d:.1f} m", "Slow down and check your {sector_word} camera."),
-        "fatigue_high": ("FATIGUE_HIGH", "Fatigue high", "Stop at a safe point and take a 15-minute break."),
-        "phone_use": ("PHONE_USE", "Phone in use while working", "Put the phone away or stop the machine first."),
-        "sos": ("SOS", "SOS from the cab", "Go to the machine now. Call the site first-aider."),
-    }
-    SECTOR_PHRASE = {"rear": "behind", "front": "in front of", "left": "left of", "right": "right of"}
-
+    # -- vision events -> alerts: the backend's own mapping (app.services.events) -----------
     def vision_alert(self, ev: pd.Series) -> dict[str, Any] | None:
-        spec = self.VISION_TEXT.get(ev.event_type)
-        if spec is None:
+        """alerts row for a vision safety event, as POST /events writes it (alert_spec). One
+        event = one episode; it resolves EXPIRE_S after the event (SOS never auto-resolves)."""
+        if ev.event_type not in ("proximity_breach", "blindspot_intrusion", "fatigue_high", "phone_use", "sos"):
             return None
-        code, title, action = spec
-        sector = ev.sector if isinstance(ev.sector, str) else None
-        d = float(ev.distance_m) if pd.notna(ev.distance_m) else 0.0
+        details = parse_json(ev.details) or {}
+        try:
+            e = VisionEvent.model_validate({
+                "type": ev.event_type, "machine_id": ev.machine_id, "operator_id": ev.operator_id,
+                "ts": iso(ev.ts), "severity": ev.severity,
+                "distance_m": None if pd.isna(ev.distance_m) else float(ev.distance_m),
+                "sector": ev.sector if isinstance(ev.sector, str) else None,
+                "approaching": None if pd.isna(ev.approaching) else bool(ev.approaching),
+                "details": {k: v for k, v in details.items() if k != "source"},
+            })
+        except Exception as err:  # noqa: BLE001 - a row /events would reject gets no alert
+            log(f"    skipped vision event {ev.id}: {err}")
+            return None
+        spec = alert_spec(e, self.op_name.get(str(ev.operator_id)))
+        resolves = None if ev.event_type == "sos" else ev.ts + timedelta(seconds=EXPIRE_S)
         return {
             "id": next(self.alert_ids),
             "ts": iso(ev.ts),
             "site_id": ev.site_id,
             "machine_id": ev.machine_id,
             "operator_id": ev.operator_id,
-            "source": "vision",
-            "category": "emergency" if code == "SOS" else "safety",
-            "alert_code": code,
-            "title": title.format(sector=self.SECTOR_PHRASE.get(sector or "", "near"), d=d),
-            "message": f"{ev.event_type.replace('_', ' ').capitalize()} ({sector or 'cab'}).",
-            "recommended_action": action.format(sector_word=sector or "rear"),
-            "severity": ev.severity,
-            "stage": "warn",
+            **spec,
+            "severity": "emergency" if ev.event_type == "sos" else ev.severity,
             "anomaly_score": None,
-            "evidence": clean({"distance_m": ev.distance_m, "sector": sector, "approaching": ev.approaching, **(parse_json(ev.details) or {})}),
+            "evidence": clean({"distance_m": ev.distance_m, "sector": e.sector.value if e.sector else None, "approaching": e.approaching, **details}),
             "acknowledged_by": None,
             "acknowledged_at": None,
-            "resolved_at": None,
+            "resolved_at": iso(resolves) if resolves is not None and resolves <= NOW else None,
         }
 
     # -- alerts ----------------------------------------------------------------------------------
@@ -535,17 +536,13 @@ class Build:
             r["resolved_at"] = iso(r["resolved_at"]) if r.get("resolved_at") else None
             r.setdefault("acknowledged_by", None)
             r.setdefault("acknowledged_at", None)
-        # Vision events on the site this shift become alerts (POST /events). Nothing clears them
-        # the way hysteresis clears a rule alert: they stay open until the manager resolves them.
-        # The operator acknowledges in the cab; events older than 30 min count as acknowledged.
+        # Vision events on the site this shift become alerts the way POST /events writes them.
         ev = self.safety[(self.safety.site_id == DEMO_SITE) & (self.safety.ts >= self.shift.start_time) & (self.safety.ts <= NOW)]
         self.vision_rows = []
         for _, e in ev.sort_values("ts").iterrows():
             a = self.vision_alert(e)
             if a is None:
                 continue
-            if e.ts < NOW - timedelta(minutes=30):
-                a["acknowledged_at"] = iso(e.ts + timedelta(minutes=1))
             self.vision_rows.append((e, a))
             rows.append(a)
         self.all_alerts = rows
@@ -597,6 +594,8 @@ class Build:
                 continue
             base = {k: a[k] for k in ("id", "alert_code", "severity", "stage", "title", "recommended_action")}
             msgs.append((e.ts, {"kind": "alert", "data": base}))
+            if a["resolved_at"]:
+                msgs.append((pd.Timestamp(a["resolved_at"]), {"kind": "alert", "data": {**base, "stage": "resolved"}}))
         # fatigue once a minute (the vision service's fatigue_sample)
         f = self.fatigue[(self.fatigue.operator_id == DEMO_OPERATOR) & (self.fatigue.ts > STREAM_FROM) & (self.fatigue.ts <= NOW)]
         for _, r in f.iterrows():

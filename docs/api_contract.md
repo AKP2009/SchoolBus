@@ -257,7 +257,7 @@ where each file came from; `anomaly_label`, `anomaly_type` and `personality` are
 | `tasks.json`, `task_predictions.json` | `tasks` rows with p10/p50/p90 + factors (LightGBM + SHAP); `/predict/task-time` response |
 | `handover.json`, `machine_logs.json` | previous shift + 5-line brief (template until the LLM is wired); 7 days of shifts with rule-engine alerts |
 | `machine_health.json`, `machine_signals.json`, `machine_live.json` | `/machine/{id}/health` for all 12 machines; 60-min signals; last telemetry row |
-| `alerts_open.json` | `v_open_alerts` rows: rule-engine alerts from the backend replay engine (escalated overheating on M05) + vision alerts |
+| `alerts_open.json` | `v_open_alerts` rows at `now` (rule-engine + vision alerts through the backend code; escalated overheating on M05) |
 | `safety_events.json`, `shifts.json`, `fatigue.json`, `incidents.json` | table rows up to `now` |
 | `fleet.json` | machines + latest position/health/open alerts + `geofences` (four zones placed from S1's GPS extent: none are loaded yet) |
 | `maintenance_predictions.json` | latest per machine (XGBoost) + `risk_band`, factor `label` |
@@ -266,9 +266,10 @@ where each file came from; `anomaly_label`, `anomaly_type` and `personality` are
 | `telemetry_stream.json` | `{machine_id, from, to, messages: [{at_s, kind, data}]}`: 120 min of `/stream` messages, replayed by the mock WebSocket |
 
 The stream is the backend `ReplayEngine` run offline (in-memory store) with `overheating` triggered on
-M05 at 16:54:30. Vision events become alerts the way `/events` will: `PROXIMITY_RED` (critical, "Person
-behind you — 2.4 m"), `PROXIMITY_ORANGE`, `FATIGUE_HIGH` (warning), `PHONE_USE`, `SOS`, source `vision`;
-they stay open until the manager resolves them (nothing clears them like hysteresis).
+M05 at 16:54:30. Vision events in the shift become alerts through the backend's own
+`app.services.events.alert_spec` (e.g. `BLINDSPOT_RED` "Person 2.4 m behind the machine — blind spot") and
+resolve `EXPIRE_S` (30 s) after the event, as the live service does; so at `now` the open alerts are the
+escalated `COOLANT_CRITICAL` and the `COOLANT_HIGH` warning on M05.
 
 **Known limit:** the maintenance model's baselines need ~21 days of telemetry; the 14-day load gives
 none, so every failure probability from Supabase is ~0 (`--source files` reads 30 days; the fleet

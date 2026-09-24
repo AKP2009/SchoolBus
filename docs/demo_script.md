@@ -4,10 +4,9 @@
 the site manager. About 6–7 minutes. One person drives the operator tablet (Chrome device mode
 or a real tablet), one drives the manager screen on the projector, one walks into the webcam, one narrates.
 
-> **Mocks (web without a backend):** the web mocks follow a different real shift: OP02 Ganesh Nair on the
-> dozer M05, night shift `SH-2026-08-19-M05-N`, replayed from 15:15 UTC (21:00 IST, 2 h 45 min in).
-> It holds a real blindspot intrusion at 2.4 m (16:05), fatigue reaching high (16:04) and the overheating
-> scenario at 16:54. `/demo` jumps to each. The Ravi / M04 story below applies to the live backend demo.
+> **Mocks (web without a backend):** `web/src/mocks` replay this same window (OP02 on M05 from 15:15 UTC)
+> for 120 data minutes, with the real fatigue high (16:04) and blindspot intrusion at 2.4 m (16:05) and the
+> overheating scenario triggered at 16:54:30. `/demo` jumps to each; `?t=` / `?speed=` set the mock clock.
 
 ## Setup (before judges arrive)
 - [ ] **Before the demo:** clear leftovers from rehearsals. Stop any replay, then run
