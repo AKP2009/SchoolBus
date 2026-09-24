@@ -3,12 +3,15 @@ replay engine (fake telemetry source, in-memory store, real anomaly model and he
 
 from __future__ import annotations
 
+import asyncio
+import time
 from datetime import timedelta
 from typing import Any
 
 import pytest
 from conftest import T0, row
 
+from app.db import DatabaseUnavailable
 from app.replay.engine import ReplayEngine, ReplayError
 from app.replay.writer import MemoryStore
 
@@ -210,4 +213,92 @@ async def test_health_and_anomaly_every_minute_with_models():
     assert h["band"] == "red" and h["anomaly_score"] is not None
     state = eng.machine_state("M04")
     assert state["moving"] is True and state["ground_speed_kmh"] == 1.5
+    await eng.stop()
+
+
+class SlowSource(FakeSource):
+    """Each fetch blocks for `delay_s`, like a Supabase page on a slow link."""
+
+    def __init__(self, machine_ids: list[str], delay_s: float) -> None:
+        super().__init__(machine_ids)
+        self.delay_s = delay_s
+
+    def fetch(self, machine_id, after, until=None, limit=1000):
+        time.sleep(self.delay_s)
+        return super().fetch(machine_id, after, until, limit)
+
+
+class FlakySource(FakeSource):
+    """The first `failures` fetches after warm-up raise a connection error."""
+
+    def __init__(self, machine_ids: list[str], failures: int) -> None:
+        super().__init__(machine_ids)
+        self.failures = failures
+        self.armed = False
+
+    def fetch(self, machine_id, after, until=None, limit=1000):
+        if self.armed and self.failures > 0:
+            self.failures -= 1
+            raise DatabaseUnavailable("Supabase unreachable after 3 attempts")
+        return super().fetch(machine_id, after, until, limit)
+
+
+async def test_scenario_sent_during_replay_start_waits_for_it():
+    """The demo panel's scenario POST can arrive while /replay/start is still warming up."""
+    eng = ReplayEngine(pusher=Pusher(), store=MemoryStore(), score=False)
+    source = SlowSource(["M04"], delay_s=0.2)
+    starting = asyncio.create_task(eng.start(["M04"], T0, 10, source, MACHINES, run_loop=False))
+    await asyncio.sleep(0)  # start holds the lock and is warming up
+    assert not eng.running
+    sc = await eng.start_scenario("overheating", "M04")
+    assert starting.done() and eng.running
+    assert sc.start_ts >= T0
+    assert eng.status()["scenarios"] == {"M04": "overheating"}
+    await eng.stop()
+
+
+async def test_failed_telemetry_fetch_does_not_stop_the_replay():
+    """A transient Supabase error in the replay loop used to crash it (running = False), so the
+    next POST /scenario said "Start the replay first" right after /replay/start returned."""
+    pusher = Pusher()
+    eng = ReplayEngine(pusher=pusher, store=MemoryStore(), score=False, tick_s=0.01)
+    source = FlakySource(["M04"], failures=3)
+    await eng.start(["M04"], T0, 600, source, MACHINES)
+    source.armed = True
+    for _ in range(200):
+        await asyncio.sleep(0.01)
+        if source.failures == 0 and eng.replay_ts > T0 + timedelta(minutes=2):
+            break
+    assert source.failures == 0
+    assert eng.running and eng.stopped_reason is None
+    assert any(kind == "telemetry" for _, kind, _ in pusher.messages)  # rows after the errors
+    sc = await eng.start_scenario("overheating", "M04")
+    assert sc.start_ts > T0
+    await eng.stop()
+
+
+async def test_trigger_explains_why_the_replay_stopped():
+    eng, _, _ = await start_engine(machines=("M04",))
+    eng.running = False
+    eng.stopped_reason = "it reached the end of the data at 2026-08-20 04:00:00+00:00"
+    with pytest.raises(ReplayError) as e:
+        await eng.start_scenario("overheating", "M04")
+    assert e.value.code == "REPLAY_NOT_RUNNING"
+    assert "end of the data" in e.value.message
+    await eng.stop()
+
+
+async def test_scenario_endpoint_right_after_start(client, headers):
+    from app.main import app
+    from app.runtime import get_engine
+
+    eng, _, _ = await start_engine(machines=("M04",))
+    app.dependency_overrides[get_engine] = lambda: eng
+    r = client.post("/scenario/overheating", json={"machine_id": "M04"}, headers=headers("manager"))
+    assert r.status_code == 200, r.json()
+    body = r.json()
+    assert body["scenario"] == "overheating" and body["machine_id"] == "M04"
+    assert body["started"] is True
+    r = client.post("/scenario/overheating", json={"machine_id": "M04"}, headers=headers("manager"))
+    assert r.status_code == 409 and r.json()["error"]["code"] == "SCENARIO_RUNNING"
     await eng.stop()

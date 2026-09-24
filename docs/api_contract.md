@@ -237,7 +237,9 @@ Body `{ "machine_id": "M05" }`. Injects a scripted signal sequence into the repl
 Built into the replay: `overheating`, `hydraulic_leak`, `tip_risk`, `seatbelt` (timings in
 `backend/app/replay/scenarios.py`). `fatigue`, `proximity`, `sos` come from the vision service /
 voice via `POST /events` and return 501 here. 409 `REPLAY_NOT_RUNNING`, `MACHINE_NOT_IN_REPLAY`,
-`SCENARIO_RUNNING` (one scenario per machine at a time).
+`SCENARIO_RUNNING` (one scenario per machine at a time). Works as soon as `/replay/start` returns; a
+request sent while a start is still in progress waits for it. When the replay stopped by itself,
+the `REPLAY_NOT_RUNNING` message says why (end of the data, or a crash).
 
 ## WebSocket `GET /stream/{machine_id}`
 Server → client messages, one JSON per line:
@@ -312,6 +314,8 @@ Mock-mode QA URL parameters: `?state=loading|empty|error|offline`, `?t=<data s>`
 HTTP 400 validation (`VALIDATION_ERROR`), 401 auth (`UNAUTHORIZED`), 403 not allowed (`FORBIDDEN`),
 404 not found (`NOT_FOUND`, `UNKNOWN_MACHINE`, `UNKNOWN_OPERATOR`), 405 `METHOD_NOT_ALLOWED`,
 409 state conflicts (`REPLAY_NOT_RUNNING`, `NO_PENDING_PLAN`, `PLAN_EXPIRED`, …), 501 not built yet
-(`NOT_IMPLEMENTED`), 503 model/LLM unavailable (`MODEL_NOT_LOADED`, `AUTH_UNAVAILABLE`, `LLM_UNAVAILABLE`,
-`LLM_RATE_LIMITED`, `LLM_OVERLOADED`, `LLM_ERROR`, `CHAT_BUSY`), 500 `INTERNAL_ERROR`.
-Every error, including unknown routes and framework validation, uses this shape (`backend/app/core/errors.py`).
+(`NOT_IMPLEMENTED`), 503 model/LLM/database unavailable (`MODEL_NOT_LOADED`, `AUTH_UNAVAILABLE`,
+`DB_UNAVAILABLE` (Supabase unreachable after the retries, supabase.md "Who talks to Supabase how"),
+`LLM_UNAVAILABLE`, `LLM_RATE_LIMITED`, `LLM_OVERLOADED`, `LLM_ERROR`, `CHAT_BUSY`), 500 `INTERNAL_ERROR`.
+Every error, including unknown routes and framework validation, uses this shape (`backend/app/core/errors.py`)
+and carries the CORS headers, 500s included (`InternalErrorMiddleware` sits inside `CORSMiddleware`).

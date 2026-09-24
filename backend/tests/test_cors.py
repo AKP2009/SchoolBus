@@ -54,3 +54,43 @@ def test_preflight_allows_web_app(default_cors, origin):
 def test_other_origins_get_no_cors_headers(client):
     r = client.get("/health", headers={"Origin": "http://evil.test"})
     assert "access-control-allow-origin" not in r.headers
+
+
+def _raising_engine(exc: Exception):
+    def dep():
+        raise exc
+
+    return dep
+
+
+def test_unhandled_errors_carry_cors_headers(default_cors, headers):
+    """A 500 used to come from ServerErrorMiddleware, outside CORS: the browser saw a CORS error."""
+    from app.runtime import get_engine
+
+    default_cors.app.dependency_overrides[get_engine] = _raising_engine(RuntimeError("boom"))
+    origin = WEB_ORIGINS[0]
+    r = default_cors.get("/replay/status", headers={**headers("manager"), "Origin": origin})
+    assert r.status_code == 500
+    assert r.json() == {
+        "error": {"code": "INTERNAL_ERROR", "message": "Something went wrong on the server."}
+    }
+    assert r.headers["access-control-allow-origin"] == origin
+    assert r.headers["access-control-allow-credentials"] == "true"
+    assert r.headers["content-type"] == "application/json; charset=utf-8"
+
+
+def test_handled_errors_carry_cors_headers(default_cors, headers):
+    from app.db import DatabaseUnavailable
+    from app.runtime import get_engine
+
+    origin = WEB_ORIGINS[1]
+    cases = [
+        (default_cors.get("/replay/status", headers={"Origin": origin}), 401),
+        (default_cors.get("/no/such/route", headers={"Origin": origin}), 404),
+    ]
+    default_cors.app.dependency_overrides[get_engine] = _raising_engine(DatabaseUnavailable("x"))
+    r = default_cors.get("/replay/status", headers={**headers("manager"), "Origin": origin})
+    cases.append((r, 503))
+    for resp, status in cases:
+        assert resp.status_code == status
+        assert resp.headers["access-control-allow-origin"] == origin

@@ -31,6 +31,12 @@
 
 The service role key bypasses RLS. It exists only in `backend/.env` and `data/.env`. Never in the web app.
 
+FastAPI's client (`backend/app/db.py`) retries transient connection errors: 3 attempts, 0.25 s then
+0.5 s apart. A request that never reached Supabase (connect error / timeout) is retried for any
+method; one whose connection broke mid-flight only for reads, so an insert is never doubled. If it
+still fails the API answers 503 `DB_UNAVAILABLE`, and the replay loop skips that telemetry page
+and fetches it again on the next tick instead of stopping.
+
 ---
 
 ## Setup

@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends
 
 from app.core.auth import Manager
 from app.core.errors import ApiError
@@ -10,14 +12,19 @@ router = APIRouter(prefix="/scenario", tags=["scenario"])
 
 
 @router.post("/{name}", response_model=ScenarioResponse)
-def trigger(name: ScenarioName, body: ScenarioRequest, _: Manager) -> ScenarioResponse:
+async def trigger(
+    name: ScenarioName,
+    body: ScenarioRequest,
+    _: Manager,
+    engine: Annotated[Any, Depends(get_engine)],
+) -> ScenarioResponse:
     """Splice a scripted sequence into the live replay of one machine (demo panel only).
 
     Built: overheating, hydraulic_leak, tip_risk, seatbelt. fatigue, proximity and sos come
     from the vision service / voice through POST /events and return 501 here.
     """
     try:
-        sc = get_engine().trigger(name.value, body.machine_id)
+        sc = await engine.start_scenario(name.value, body.machine_id)
     except ReplayError as e:
         raise ApiError(e.status, e.code, e.message) from e
     return ScenarioResponse(

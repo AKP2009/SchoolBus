@@ -6,7 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.db import DatabaseUnavailable
 from app.schemas.common import ErrorBody, ErrorResponse
 
 log = logging.getLogger(__name__)
@@ -21,6 +23,7 @@ HTTP_CODES = {
     501: "NOT_IMPLEMENTED",
     503: "UNAVAILABLE",
 }
+DB_UNAVAILABLE = "The database is unreachable right now. Try again in a moment."
 
 
 class Utf8JSONResponse(JSONResponse):
@@ -85,9 +88,43 @@ def register_error_handlers(app: FastAPI) -> None:
             headers=getattr(exc, "headers", None),
         )
 
-    @app.exception_handler(Exception)
-    async def _unhandled(_: Request, exc: Exception) -> Utf8JSONResponse:
-        log.exception("unhandled error: %s", exc)
-        return Utf8JSONResponse(
-            status_code=500, content=_body("INTERNAL_ERROR", "Something went wrong on the server.")
-        )
+    @app.exception_handler(DatabaseUnavailable)
+    async def _db_unavailable(_: Request, exc: DatabaseUnavailable) -> Utf8JSONResponse:
+        log.error("database unavailable: %s", exc)
+        return Utf8JSONResponse(status_code=503, content=_body("DB_UNAVAILABLE", DB_UNAVAILABLE))
+
+
+class InternalErrorMiddleware:
+    """Turns any unhandled exception into the contract's 500 INTERNAL_ERROR.
+
+    Add it before CORSMiddleware so it sits inside it: FastAPI's `exception_handler(Exception)`
+    runs in ServerErrorMiddleware, outside every user middleware, so its 500s had no CORS headers
+    and the browser reported a CORS error instead of the response.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def _send(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, _send)
+        except Exception as exc:
+            if started:  # too late for an error body
+                raise
+            log.exception("unhandled error: %s", exc)
+            response = Utf8JSONResponse(
+                status_code=500,
+                content=_body("INTERNAL_ERROR", "Something went wrong on the server."),
+            )
+            await response(scope, receive, send)

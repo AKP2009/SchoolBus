@@ -8,7 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.ai_repo import get_ai_repo
 from app.core.config import get_settings
-from app.core.errors import Utf8JSONResponse, register_error_handlers
+from app.core.errors import InternalErrorMiddleware, Utf8JSONResponse, register_error_handlers
 from app.jobs.scheduler import build_scheduler
 from app.llm import config_error as llm_config_error
 from app.replay.runtime import get_engine
@@ -65,6 +65,8 @@ app = FastAPI(
     default_response_class=Utf8JSONResponse,
 )
 
+# added first = innermost: unhandled-error 500s pass through CORSMiddleware and get its headers
+app.add_middleware(InternalErrorMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origin_list,

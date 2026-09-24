@@ -125,6 +125,7 @@ class ReplayEngine:
         self.running = False
         self.task: asyncio.Task[None] | None = None
         self.anomaly_error: str | None = None
+        self.stopped_reason: str | None = None  # why a replay stopped by itself
         self._lock = asyncio.Lock()
 
     # -- lifecycle -----------------------------------------------------------------------------
@@ -147,6 +148,7 @@ class ReplayEngine:
                     "UNKNOWN_MACHINE", f"Unknown machine(s): {', '.join(unknown)}", 404
                 )
             self.source = source
+            self.stopped_reason = None
             self.speed = speed
             self.replay_ts = from_ts
             self.from_ts = from_ts
@@ -234,11 +236,13 @@ class ReplayEngine:
                     for s in self.streams.values()
                 ):
                     log.info("replay reached the end of the data at %s", self.replay_ts)
+                    self.stopped_reason = f"it reached the end of the data at {self.replay_ts}"
                     self.running = False
         except asyncio.CancelledError:
             raise
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             log.exception("replay loop crashed")
+            self.stopped_reason = f"it crashed: {e}"
             self.running = False
 
     async def advance_to(self, target: datetime) -> None:
@@ -252,7 +256,12 @@ class ReplayEngine:
         if s.exhausted or len(s.buffer) >= REFILL_BELOW or self.source is None:
             return
         assert s.cursor is not None
-        rows = await run_in_threadpool(self.source.fetch, s.machine_id, s.cursor)
+        try:
+            rows = await run_in_threadpool(self.source.fetch, s.machine_id, s.cursor)
+        except Exception as e:  # noqa: BLE001 - a failed page must not end the replay
+            # the database retried already; the stream pauses and the next tick fetches again
+            log.warning("telemetry fetch for %s failed, retrying next tick: %s", s.machine_id, e)
+            return
         if not rows:
             s.exhausted = True
             return
@@ -371,9 +380,18 @@ class ReplayEngine:
         return anomaly, acked, maint
 
     # -- scenarios / reads ---------------------------------------------------------------------
+    async def start_scenario(self, name: str, machine_id: str) -> Scenario:
+        """`trigger` after any start / stop in progress (POST /scenario): a scenario sent while
+        /replay/start is still warming up would otherwise see the half-started engine."""
+        async with self._lock:
+            return self.trigger(name, machine_id)
+
     def trigger(self, name: str, machine_id: str) -> Scenario:
         if not self.running or self.replay_ts is None:
-            raise ReplayError("REPLAY_NOT_RUNNING", "Start the replay first: POST /replay/start.")
+            msg = "Start the replay first: POST /replay/start."
+            if self.stopped_reason:
+                msg += f" The last replay stopped because {self.stopped_reason}."
+            raise ReplayError("REPLAY_NOT_RUNNING", msg)
         s = self.streams.get(machine_id)
         if s is None:
             raise ReplayError(
