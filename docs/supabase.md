@@ -62,7 +62,10 @@ VITE_WS_URL=ws://localhost:8000
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role>
 DATABASE_URL=postgresql://postgres.<ref>:<pw-url-encoded>@aws-0-ap-south-1.pooler.supabase.com:5432/postgres
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-3.5-flash-lite
 LLM_API_KEY=<key>
+CORS_ORIGINS=http://localhost:5173,http://localhost:4173   # web dev + preview servers (the default)
 ```
 Commit `.env.example` files, never `.env`.
 

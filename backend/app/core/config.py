@@ -17,9 +17,10 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     # LLM for chat, handover and incident drafts (app/llm.py). Only "gemini" (google-genai).
     llm_provider: str = "gemini"
-    llm_model: str = "gemini-3.6-flash"
+    llm_model: str = "gemini-3.5-flash-lite"
     llm_api_key: SecretStr | None = None
-    cors_origins: str = "http://localhost:5173"
+    # Web app origins allowed to call the API: Vite dev (5173) and preview (4173) servers.
+    cors_origins: str = "http://localhost:5173,http://localhost:4173"
     # Shared bearer token of the vision service (POST /events and the reads it polls).
     vision_api_token: SecretStr | None = None
     # Legacy HS256 JWT secret (Dashboard -> Settings -> API -> JWT secret). Optional: without it,
