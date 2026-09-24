@@ -8,7 +8,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
+from app.ai_repo import get_ai_repo
 from app.core.config import get_settings
+from app.jobs.ai import HandoverJob
 from app.jobs.maintenance import MaintenanceScorer
 from app.replay.runtime import get_engine
 from app.repo import Repo, get_repo
@@ -17,8 +19,10 @@ from app.services.telemetry import TelemetryHistory
 from app.ws import manager
 
 __all__ = [
+    "get_ai_repo",
     "get_engine",
     "get_event_service",
+    "get_handover_job",
     "get_maintenance_scorer",
     "get_repo",
     "get_telemetry",
@@ -40,6 +44,11 @@ def get_telemetry() -> TelemetryHistory:
 @lru_cache
 def get_maintenance_scorer() -> MaintenanceScorer:
     return MaintenanceScorer(get_repo(), get_engine(), get_telemetry())
+
+
+@lru_cache
+def get_handover_job() -> HandoverJob:
+    return HandoverJob(get_ai_repo(), get_engine())
 
 
 def engine_or_none() -> Any:

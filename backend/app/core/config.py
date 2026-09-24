@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: SecretStr
     database_url: SecretStr | None = None
+    # LLM for chat, handover and incident drafts (app/llm.py). Only "gemini" (google-genai).
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-3.6-flash"
     llm_api_key: SecretStr | None = None
     cors_origins: str = "http://localhost:5173"
     # Shared bearer token of the vision service (POST /events and the reads it polls).

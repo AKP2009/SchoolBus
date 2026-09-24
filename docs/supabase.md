@@ -152,7 +152,10 @@ create policy "incident media read" on storage.objects for select to authenticat
 ### 8. pgvector
 Extension enabled in the migration. Embeddings are 384-d (`bge-small-en-v1.5`), HNSW cosine index.
 Ingest script: `backend/scripts/ingest_docs.py` — read file → chunk → embed → insert into
-`documents` + `document_chunks`. Query from FastAPI:
+`documents` + `document_chunks` (5 documents, 76 chunks). Idempotent: documents are matched on
+`source` (`backend/kb/<file>`) and keep their id, their chunks are replaced, documents of deleted kb
+files are removed. `document_chunks.metadata` = `{title, heading, chunk_index, source, doc_type}`, so
+`/chat` cites sources from the RPC result without another query. `--dry-run` prints the chunks. Query from FastAPI:
 ```python
 res = supabase.rpc("match_document_chunks",
                    {"query_embedding": emb.tolist(), "match_count": 4, "min_similarity": 0.3}).execute()
@@ -196,13 +199,23 @@ Run in FastAPI with APScheduler (simpler than pg_cron for Python models):
 | Predictive maintenance scoring | 10 min of replay time | `maintenance_predictions` | built (`backend/app/jobs/maintenance.py`) |
 | Fleet metrics + clustering | on demand (`POST /analytics/cluster`) / daily 01:00 IST | `fleet_metrics_weekly` | built |
 | Vision alert expiry | 10 s | resolves vision alerts quiet for 30 s | built (`EventService.expire`) |
-| Training recommendations | daily | `training_recommendations` | next task |
-| Handover summary | at shift end | `shifts.handover_summary` | next task |
+| Training recommendations | daily 01:30 IST (and `POST /training/recommendations`) | `training_recommendations` | built (`backend/app/jobs/ai.py`) |
+| Handover summary | 30 s; for shifts that ended in the last 12 h | `shifts.handover_summary` | built (`backend/app/jobs/ai.py`) |
 
 `backend/app/jobs/scheduler.py` builds an `AsyncIOScheduler` started in the FastAPI lifespan when
 `SCHEDULER_ENABLED` (default true; the tests run without it). Every job has `max_instances=1`, `coalesce=True`.
 The maintenance job ticks every 5 s of wall-clock time and scores a machine once its replay clock has moved
 10 min; with no replay running it does nothing.
+
+**Vision alert expiry** runs on its own 10 s timer, replay or not. Open vision episodes live in memory, so each
+tick also resolves open `source='vision'` alerts the process doesn't track and that have been quiet for 30 s
+(orphaned by a restart such as `uvicorn --reload`); SOS (`source='operator'`) is never auto-resolved. An event
+that arrives after the 30 s coalesce window but before the tick resolves the old alert before opening a new one.
+
+**Handover** "ended" is measured on the replay clock for machines in the running replay (the synthetic shifts are
+in the past) and on the wall clock otherwise; one summary per tick (free-tier LLM limits), a failure is retried
+after 10 min, and without `LLM_API_KEY` the job logs once and idles. **Recommendations** run for every operator
+with the window ending at the latest shift end in the database (models.md §10).
 
 ---
 

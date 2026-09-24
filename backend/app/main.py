@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.errors import Utf8JSONResponse, register_error_handlers
 from app.jobs.scheduler import build_scheduler
+from app.llm import config_error as llm_config_error
 from app.replay.runtime import get_engine
 from app.routers import (
     analytics,
@@ -23,8 +24,11 @@ from app.routers import (
     replay,
     scenario,
     stream,
+    training,
     voice,
 )
+
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -32,6 +36,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    if (reason := llm_config_error()) is not None:
+        # the rest of the API works; /chat, /handover, /incidents/transcribe return 503
+        log.warning("LLM features disabled: %s", reason)
     scheduler = build_scheduler() if get_settings().scheduler_enabled else None
     if scheduler is not None:
         scheduler.start()
@@ -70,6 +77,7 @@ for router in (
     handover.router,
     incidents.router,
     analytics.router,
+    training.router,
     replay.router,
     scenario.router,
     stream.router,

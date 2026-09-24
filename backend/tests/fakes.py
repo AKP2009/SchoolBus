@@ -253,3 +253,120 @@ class FakeTelemetry:
         d = self.df
         d = d[d.machine_id.isin(machine_ids) & (d.ts >= _ts(start)) & (d.ts < _ts(end))]
         return d.reset_index(drop=True).copy()
+
+
+class MemoryAiRepo:
+    """`app.ai_repo.AiRepo` in memory: a few chunks, one shift, modules and recommendations."""
+
+    def __init__(self) -> None:
+        self.chunks: list[dict[str, Any]] = []
+        self.chat_rows: list[dict[str, Any]] = []
+        self.shifts: dict[str, dict[str, Any]] = {}
+        self.alerts: list[dict[str, Any]] = []
+        self.events: list[dict[str, Any]] = []
+        self.maintenance: list[dict[str, Any]] = []
+        self.tasks: list[dict[str, Any]] = []
+        self.handovers: dict[str, tuple[str, datetime]] = {}
+        self.modules = {
+            m: {"module_id": m, "title": m, "topic": "t"}
+            for m in (
+                "TM-FUEL-01",
+                "TM-IDLE-01",
+                "TM-SAFE-01",
+                "TM-SAFE-02",
+                "TM-SAFE-03",
+                "TM-SMTH-01",
+                "TM-EXC-01",
+                "TM-CYC-01",
+                "TM-SIM-01",
+            )
+        }
+        self.metrics: list[dict[str, Any]] = []
+        self.recs: list[dict[str, Any]] = []
+        self._ids = itertools.count(1)
+
+    def match_chunks(
+        self, embedding: list[float], match_count: int, min_similarity: float
+    ) -> list[dict[str, Any]]:
+        return self.chunks[:match_count]
+
+    def insert_chat_messages(self, rows: list[dict[str, Any]]) -> None:
+        self.chat_rows.extend(rows)
+
+    def shift_full(self, shift_id: str) -> dict[str, Any] | None:
+        return self.shifts.get(shift_id)
+
+    def open_alerts_at(self, machine_id: str, at: datetime) -> list[dict[str, Any]]:
+        return [a for a in self.alerts if a["machine_id"] == machine_id]
+
+    def machine_safety_events(
+        self, machine_id: str, start: datetime, end: datetime
+    ) -> list[dict[str, Any]]:
+        return [e for e in self.events if e["machine_id"] == machine_id]
+
+    def latest_maintenance(self, machine_id: str, at: datetime) -> dict[str, Any] | None:
+        return self.maintenance[-1] if self.maintenance else None
+
+    def shift_tasks(self, shift_id: str) -> list[dict[str, Any]]:
+        return [t for t in self.tasks if t["shift_id"] == shift_id]
+
+    def save_handover(self, shift_id: str, summary: str, generated_at: datetime) -> None:
+        self.handovers[shift_id] = (summary, generated_at)
+        self.shifts[shift_id]["handover_summary"] = summary
+
+    def shifts_needing_handover(
+        self, end_from: datetime, end_to: datetime, machine_ids: list[str] | None
+    ) -> list[dict[str, Any]]:
+        out = []
+        for s in self.shifts.values():
+            end = _ts(s["end_time"])
+            if s.get("handover_summary") or not (_ts(end_from) < end <= _ts(end_to)):
+                continue
+            if machine_ids is None or s["machine_id"] in machine_ids:
+                out.append(s)
+        return sorted(out, key=lambda s: s["end_time"])
+
+    def training_modules(self) -> dict[str, dict[str, Any]]:
+        return self.modules
+
+    def operator_ids(self) -> list[str]:
+        return ["OP01", "OP05"]
+
+    def fleet_metrics(
+        self, operator_id: str, week_from: date, week_to: date
+    ) -> list[dict[str, Any]]:
+        return [m for m in self.metrics if m["entity_id"] == operator_id]
+
+    def recommendations(self, operator_id: str) -> list[dict[str, Any]]:
+        return [r for r in self.recs if r["operator_id"] == operator_id]
+
+    def insert_recommendations(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        out = [
+            {**r, "id": next(self._ids), "created_at": iso(datetime.now().astimezone())}
+            for r in rows
+        ]
+        self.recs.extend(out)
+        return out
+
+
+class FakeLLM:
+    """Scripted `app.llm.LLM`: replies are popped in order; every call is recorded."""
+
+    model = "fake"
+
+    def __init__(self, *replies: Any) -> None:
+        self.replies = list(replies)
+        self.calls: list[dict[str, Any]] = []
+
+    def _next(self, **call: Any) -> Any:
+        self.calls.append(call)
+        return self.replies.pop(0)
+
+    def text(self, system: str, prompt: str, *, temperature: float, max_tokens: int) -> str:
+        return self._next(system=system, prompt=prompt, temperature=temperature)
+
+    def json(
+        self, system: str, prompt: str, schema: Any, *, temperature: float, max_tokens: int
+    ) -> Any:
+        reply = self._next(system=system, prompt=prompt, temperature=temperature)
+        return schema.model_validate(reply) if isinstance(reply, dict) else reply
