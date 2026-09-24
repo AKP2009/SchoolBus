@@ -25,7 +25,7 @@ import {
   sampleTasks,
   sampleTwin,
   sampleWarning,
-} from '@/mocks/sample';
+} from '@/mocks/styleguide';
 import type { Alert } from '@/types/domain';
 
 const MODES: Mode[] = ['cab', 'office'];

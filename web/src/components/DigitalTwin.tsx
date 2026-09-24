@@ -20,6 +20,8 @@ export interface TwinSignal {
 export interface DigitalTwinProps {
   scores: HealthScores;
   signals?: Partial<Record<Subsystem, TwinSignal[]>>;
+  /** Drawing to use; excavator by default. */
+  machineType?: 'excavator' | 'wheel_loader' | 'dozer' | 'articulated_truck';
   className?: string;
 }
 
@@ -42,7 +44,7 @@ const FILL: Record<Status, string> = {
 };
 
 // Flat side view of an excavator in a 600 × 340 viewBox, facing right.
-const SHAPES: Record<Subsystem, ReactNode> = {
+const EXCAVATOR: Record<Subsystem, ReactNode> = {
   undercarriage: (
     <>
       <rect x={50} y={252} width={330} height={62} rx={31} />
@@ -62,6 +64,34 @@ const SHAPES: Record<Subsystem, ReactNode> = {
   ),
 };
 
+// Flat side view of a dozer, blade on the right: cab (electrical), engine hood, radiator (cooling),
+// push arms + lift cylinder + blade (hydraulics), tracks (undercarriage).
+const DOZER: Record<Subsystem, ReactNode> = {
+  undercarriage: (
+    <>
+      <rect x={90} y={252} width={350} height={62} rx={31} />
+      <circle cx={122} cy={283} r={16} className="fill-surface" />
+      <circle cx={408} cy={283} r={16} className="fill-surface" />
+    </>
+  ),
+  electrical: <path d="M110 246 V90 Q110 72 128 72 H228 Q245 72 245 90 V246 Z" />,
+  engine: <path d="M250 246 V150 H392 V246 Z" />,
+  cooling: <path d="M398 246 V150 H432 V246 Z" />,
+  hydraulics: (
+    <>
+      <path d="M300 262 L470 248 L472 264 L302 278 Z" />
+      <path d="M404 150 L482 186 L474 199 L398 165 Z" />
+      <path d="M472 116 Q524 205 482 312 L508 314 Q552 205 494 114 Z" />
+    </>
+  ),
+};
+
+// House top per drawing: not a monitored subsystem.
+const HOUSE: Record<'excavator' | 'dozer', string> = {
+  excavator: 'M40 168 V150 Q40 140 50 140 H232 V168 Z',
+  dozer: 'M372 150 V112 H386 V150 Z',
+};
+
 function scoreOf(scores: HealthScores, key: Subsystem): number | null {
   return scores[`${key}_score`];
 }
@@ -71,7 +101,9 @@ function pctText(score: number | null) {
 }
 
 /** Machine health by subsystem (design.md §Digital twin). Tap a region or a row for signals. */
-export function DigitalTwin({ scores, signals, className }: DigitalTwinProps) {
+export function DigitalTwin({ scores, signals, machineType = 'excavator', className }: DigitalTwinProps) {
+  const drawing = machineType === 'dozer' ? 'dozer' : 'excavator';
+  const SHAPES = drawing === 'dozer' ? DOZER : EXCAVATOR;
   const mode = useMode();
   const cab = mode === 'cab';
   const [selected, setSelected] = useState<Subsystem | null>(null);
@@ -93,7 +125,7 @@ export function DigitalTwin({ scores, signals, className }: DigitalTwinProps) {
     >
       <svg viewBox="0 0 600 340" className="w-full min-w-0" role="group" aria-label="Machine side view">
         {/* House top: not a monitored subsystem */}
-        <path d="M40 168 V150 Q40 140 50 140 H232 V168 Z" className="fill-raised stroke-line" strokeWidth={3} />
+        <path d={HOUSE[drawing]} className="fill-raised stroke-line" strokeWidth={3} />
         {SUBSYSTEMS.map(({ key, label }) => {
           const score = scoreOf(scores, key);
           const status = healthStatus(score);

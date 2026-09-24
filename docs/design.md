@@ -330,6 +330,24 @@ The implemented config **replaces** Tailwind's `colors` (not `extend`) so defaul
 and `header` / `header-ink` colours.
 Icons: `lucide-react`, stroke width 2, 24px office / 32px cab.
 
+**Added with the screens (feat/web-screens):**
+- `DataState` wraps every data-backed block: skeleton while loading, error with "Try again", the
+  screen's own empty text, and an "Offline — showing what was saved at HH:MM" line over cached data.
+- `FleetMap` (Leaflet) is shared by the fleet, machine detail and geofence pages. Geofence and marker
+  colours come from CSS classes (`.gf-nogo`, `.gf-pedestrian`, `.gf-speed` in `index.css`) because Leaflet
+  writes SVG attributes, which can't read CSS variables. No-go zones use an SVG hatch pattern.
+- **Basemap:** CARTO Positron now watermarks tiles without an API key, so maps use OpenStreetMap tiles
+  desaturated with a CSS filter (`.basemap-muted`), which keeps the muted look.
+- **Categorical chart order** (validated with the dataviz palette checker on white): steel `series-2`,
+  `saffron-600`, teal `series-3`, violet `series-4`. The listed order put teal next to steel (ΔE 13 in
+  normal vision, below the 15 floor) and saffron-500 is too light on white. Contrast against white is
+  under 3:1, so categorical charts always add a marker shape per series, a worded legend and a table.
+- `DigitalTwin` takes `machineType`: a dozer drawing (blade, push arms, hood, radiator, cab, tracks)
+  besides the excavator; wheel loader and truck still use the excavator outline.
+- `CabLayout` takes the alert queue, the banner and a status-bar toast as props (the operator shell
+  feeds them from the live stream); nav has Tasks · Machine · Safety · Training · Report.
+- Alert takeover steps are machine-aware (`lib/alertSteps.ts`: "Lower the blade" on a dozer).
+
 ## Do / don't
 | Do | Don't |
 |---|---|

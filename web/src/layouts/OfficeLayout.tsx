@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Bell, HeartPulse, Map, Network, OctagonAlert, Settings, GraduationCap, UserRound } from 'lucide-react';
+import { Bell, HeartPulse, Map, Network, OctagonAlert, ShieldCheck, Shapes, UserRound } from 'lucide-react';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { cx } from '@/lib/cx';
 import { ModeProvider, useDocumentMode } from '@/lib/mode';
@@ -15,16 +15,18 @@ export interface OfficeLayoutProps {
   /** Open alerts: total and how many are critical or emergency. */
   alertCount?: { open: number; critical: number };
   userName?: string;
+  /** Right side of the page title row (filters, buttons). */
+  actions?: ReactNode;
   embedded?: boolean;
 }
 
 const NAV = [
   { to: '/manager', label: 'Fleet', icon: Map, end: true },
   { to: '/manager/alerts', label: 'Alerts', icon: Bell, end: false },
-  { to: '/manager/health', label: 'Health', icon: HeartPulse, end: false },
+  { to: '/manager/health', label: 'Maintenance', icon: HeartPulse, end: false },
   { to: '/manager/clusters', label: 'Clusters', icon: Network, end: false },
-  { to: '/manager/training', label: 'Training', icon: GraduationCap, end: false },
-  { to: '/manager/settings', label: 'Settings', icon: Settings, end: false },
+  { to: '/manager/safety', label: 'Safety', icon: ShieldCheck, end: false },
+  { to: '/manager/geofences', label: 'Geofences', icon: Shapes, end: false },
 ];
 
 function DocumentMode() {
@@ -44,6 +46,7 @@ export function OfficeLayout({
   onSiteChange,
   alertCount = { open: 0, critical: 0 },
   userName = 'Site manager',
+  actions,
   embedded,
 }: OfficeLayoutProps) {
   return (
@@ -113,7 +116,10 @@ export function OfficeLayout({
             </ul>
           </nav>
           <main className="min-w-0 flex-1 overflow-auto p-6">
-            <h1 className="mb-6 text-office-h1">{title}</h1>
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+              <h1 className="text-office-h1">{title}</h1>
+              {actions}
+            </div>
             <div className="grid grid-cols-12 gap-6">{children}</div>
           </main>
         </div>

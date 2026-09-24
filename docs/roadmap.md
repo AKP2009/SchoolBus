@@ -23,7 +23,7 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 ## Phase 0 — Design lock (everyone)
 - [ ] Read `features.md`; confirm P0 / P1 / P2 split — freeze it
 - [ ] Confirm schema (`001_init.sql`) and generator column names match
-- [ ] Confirm `api_contract.md`; D creates mock JSON files from it
+- [x] Confirm `api_contract.md`; D creates mock JSON files from it _(`scripts/build_mocks.py` → `web/src/mocks/*.json` from the loaded Supabase data, see api_contract.md §Mocks)_
 - [ ] Paper sketches for all P0 screens
 - [ ] Repo created with folder layout from `CLAUDE.md`; everyone can run `git pull`
 - [x] Supabase project created, migration applied, demo users created (C) _(project `hjdxrhgqojlwpayoyfvc` linked, 001+002 pushed; 5 demo users via `backend/scripts/create_demo_users.py`)_
@@ -55,8 +55,8 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **B:** phone detection _(YOLO11n class 67 every 5th cab frame, shares the proximity weights, 3 s persistence)_
 - [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
 - [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions
-- [ ] **D:** all P0 operator screens on mocks
-- [ ] **D:** all P0 manager screens on mocks
+- [x] **D:** all P0 operator screens on mocks _(login, handover + 7-day log, tasks with factors / delay / plan update, machine twin + gauges, safety, report incident, training (library, recommendations, TM-SIM-01 quiz, chat); takeover queue with Web Audio tones; checked at 1280×800)_
+- [x] **D:** all P0 manager screens on mocks _(fleet map + live alerts, alerts, machine detail, maintenance board, clusters (PCA + ranking + verify), safety analytics, geofences with drawing; checked at 1440)_
 
 **Checkpoint 2:** `from ml.inference import …` works in the backend; every P0 screen exists.
 
@@ -90,7 +90,7 @@ recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolve
 **Checkpoint 4:** the full demo path runs end to end on one laptop, even if rough.
 
 ## Phase 5 — Integration and scenarios (everyone)
-- [ ] Demo panel with all scenario buttons
+- [x] Demo panel with all scenario buttons _(hidden `/demo`: replay start/stop/status and `/scenario/*`, `/events` for fatigue / proximity / SOS; in mock mode it seeks the recorded stream and drives every tab over a BroadcastChannel. Not yet run against the live backend)_
 - [ ] Run `demo_script.md` end to end 3 times; log every failure; fix
 - [ ] Plan re-evaluation (P1) if time _(ML side done: `ml/inference/plan.py`; `/plan/re-evaluate` and `/plan/accept` not wired yet)_
 - [ ] Geofencing, training recommendations, scenario quiz (P1) if time

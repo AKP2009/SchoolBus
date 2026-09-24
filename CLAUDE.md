@@ -68,6 +68,7 @@ python data/generator/generate.py --config data/generator/config.yaml --sample  
 python data/generator/generate.py --config data/generator/config.yaml            # full 90 days -> data/output/ (~30 s)
 python -m nbconvert --to notebook --execute --inplace data/generator/validation.ipynb           # all validation checks
 python data/generator/load_to_supabase.py --days 14 --reset                      # last 14 days -> Supabase (needs data/.env)
+python scripts/build_mocks.py                                                     # web/src/mocks/*.json from Supabase (--source files: data/output/)
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
 cd backend && python -m pytest                                                    # rule engine + scenario tests (no DB needed)
@@ -83,6 +84,7 @@ cd vision && python -m pytest                                                   
 # web
 cd web && npm run dev                                                             # /operator, /manager, /styleguide
 cd web && npm run build                                                           # tsc strict + vite build + PWA
+# /demo = hidden demo panel; mock QA: /operator?as=OP02&t=6720&speed=0, ?state=loading|empty|error|offline
 # db
 supabase db push
 ```

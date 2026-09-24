@@ -166,6 +166,39 @@ These were not specified above. They are defined in `backend/app/schemas/` and c
   (`start_ts` is replay time)
 - `POST /events` accepts only the 5 alert types listed above plus `fatigue_sample`; any other `type` is a 400.
 
+## Mocks (`web/src/mocks/`, built by `scripts/build_mocks.py`)
+`python scripts/build_mocks.py` reads the loaded Supabase data (`DATABASE_URL` in `data/.env`);
+`--source files` reads `data/output/` cut to the same 14-day window (same rows). Demo world: OP02
+(Ganesh Nair, name from `operators`) on the dozer M05, night shift `SH-2026-08-19-M05-N`; the stream
+covers 15:15–17:15 UTC and the static files are the state at 17:15 (`world.now`). `_meta.json` says
+where each file came from; `anomaly_label`, `anomaly_type` and `personality` are never written.
+
+| File | Shape |
+|---|---|
+| `tasks.json`, `task_predictions.json` | `tasks` rows with p10/p50/p90 + factors (LightGBM + SHAP); `/predict/task-time` response |
+| `handover.json`, `machine_logs.json` | previous shift + 5-line brief (template until the LLM is wired); 7 days of shifts with rule-engine alerts |
+| `machine_health.json`, `machine_signals.json`, `machine_live.json` | `/machine/{id}/health` for all 12 machines; 60-min signals; last telemetry row |
+| `alerts_open.json` | `v_open_alerts` rows: rule-engine alerts from the backend replay engine (escalated overheating on M05) + vision alerts |
+| `safety_events.json`, `shifts.json`, `fatigue.json`, `incidents.json` | table rows up to `now` |
+| `fleet.json` | machines + latest position/health/open alerts + `geofences` (four zones placed from S1's GPS extent: none are loaded yet) |
+| `maintenance_predictions.json` | latest per machine (XGBoost) + `risk_band`, factor `label` |
+| `clusters.json` | `fleet_metrics_weekly` for the last full week + `pca_points.json` for S1 + display names |
+| `training.json`, `chat.json`, `plan.json` | modules (TM-SIM-01 from `backend/kb/scenarios.json`), records, §10 recommendations; cached answers from the KB sections `rag_eval.json` names; `/plan/re-evaluate` |
+| `telemetry_stream.json` | `{machine_id, from, to, messages: [{at_s, kind, data}]}`: 120 min of `/stream` messages, replayed by the mock WebSocket |
+
+The stream is the backend `ReplayEngine` run offline (in-memory store) with `overheating` triggered on
+M05 at 16:54:30. Vision events become alerts the way `/events` will: `PROXIMITY_RED` (critical, "Person
+behind you — 2.4 m"), `PROXIMITY_ORANGE`, `FATIGUE_HIGH` (warning), `PHONE_USE`, `SOS`, source `vision`;
+they stay open until the manager resolves them (nothing clears them like hysteresis).
+
+**Known limit:** the maintenance model's baselines need ~21 days of telemetry; the 14-day load gives
+none, so every failure probability from Supabase is ~0 (`--source files` reads 30 days; the fleet
+is still all "low" at this moment: the next failure, M08, is 2.5 days away).
+
+Web switch: `VITE_USE_MOCKS=false` moves every hook in `web/src/data/hooks.ts` to Supabase + FastAPI.
+Mock-mode QA URL parameters: `?state=loading|empty|error|offline`, `?t=<data s>`, `?speed=0`,
+`?as=OP02` (sign the cab in), `?ack=<alert ids>`, `?tab=practice|ask` (training).
+
 ## Errors
 `{ "error": { "code": "MODEL_NOT_LOADED", "message": "Task time model is not loaded. Run ml/02 and restart." } }`
 HTTP 400 validation (`VALIDATION_ERROR`), 401 auth, 404 not found, 501 not built yet (`NOT_IMPLEMENTED`),

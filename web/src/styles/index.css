@@ -33,3 +33,14 @@
   .anim-emergency { animation: none; box-shadow: 0 0 0 8px var(--critical); }
   .transition-state { transition: none; }
 }
+
+/* Geofences on Leaflet maps (design.md §Maps). Leaflet writes colours as SVG attributes; these
+   classes override them with tokens. */
+.gf-nogo { stroke: var(--critical); fill: url(#gf-hatch); fill-opacity: 1; }
+.gf-pedestrian { stroke: var(--info); fill: var(--info); fill-opacity: 0.08; }
+.gf-speed { stroke: var(--saffron-600); stroke-dasharray: 8 6; fill: var(--saffron-500); fill-opacity: 0.06; }
+.gf-draft { stroke: var(--saffron-500); stroke-dasharray: 4 4; fill: var(--saffron-500); fill-opacity: 0.12; }
+.gf-inactive { stroke-opacity: 0.35; fill-opacity: 0.02; }
+.leaflet-container { font-family: var(--font-sans); background: var(--raised); }
+/* Muted basemap: OSM tiles desaturated (CARTO Positron now watermarks tiles without an API key). */
+.basemap-muted { filter: grayscale(1) contrast(0.85) brightness(1.08); }

@@ -4,6 +4,11 @@
 the site manager. About 6–7 minutes. One person drives the operator tablet (Chrome device mode
 or a real tablet), one drives the manager screen on the projector, one walks into the webcam, one narrates.
 
+> **Mocks (web without a backend):** the web mocks follow a different real shift: OP02 Ganesh Nair on the
+> dozer M05, night shift `SH-2026-08-19-M05-N`, replayed from 15:15 UTC (21:00 IST, 2 h 45 min in).
+> It holds a real blindspot intrusion at 2.4 m (16:05), fatigue reaching high (16:04) and the overheating
+> scenario at 16:54. `/demo` jumps to each. The Ravi / M04 story below applies to the live backend demo.
+
 ## Setup (before judges arrive)
 - [ ] Backend running, `/health` shows all models loaded
 - [ ] Replay started for M01–M06 at 1×, from a timestamp 3 h into a night shift
