@@ -225,7 +225,7 @@ def test_lost_track_is_forgotten():
 def test_event_matches_api_contract():
     _, r = run(linear(4.0, 1.5, 1.2))
     ev = P.build_event(
-        r[-1], "M04", "OP03", "rear", now=datetime(2026, 9, 23, 10, 15, 3, tzinfo=UTC)
+        r[-1], "M05", "OP02", "rear", now=datetime(2026, 9, 23, 10, 15, 3, tzinfo=UTC)
     )
     assert set(ev) == {
         "type",

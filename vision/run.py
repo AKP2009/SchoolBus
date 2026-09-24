@@ -1,14 +1,19 @@
 """Vision service entry point.
 
-    python vision/run.py --camera 0 --sector rear --machine-id M04 --operator-id OP03 --dry-run
+    python vision/run.py --camera 0 --sector rear --machine-id M05 --operator-id OP02 --dry-run
     python vision/run.py --source demo.mp4 --backend http://localhost:8000
-    python vision/run.py --mode fatigue --camera 0 --operator-id OP03 --shift-type night --dry-run
+    python vision/run.py --mode fatigue --camera 0 --operator-id OP02 --shift-type night --dry-run
     python vision/run.py --mode both --camera 1 --cab-camera 0 --sector rear --dry-run
     python vision/run.py --mode both --camera 0 --cab-camera rtsp://192.168.1.20:554/stream1
     python vision/run.py calibrate --distance 3
 
 --mode proximity (default) watches --camera / --source; fatigue watches --cab-camera (falls back to
 the proximity camera); both runs the two pipelines on two cameras, or on one if they are the same.
+Defaults are the demo persona OP02 on M05. vision/.env supplies VISION_API_TOKEN (sent as
+`Authorization: Bearer` on every backend call) and optionally BACKEND_URL, MACHINE_ID, OPERATOR_ID.
+The machine-moving flag polls GET /machine/{id}/state and, without a local fatigue pipeline, the
+high-fatigue check polls GET /operator/{id}/fatigue, every 2 s (backend_client.py);
+--[no-]machine-moving and --[no-]fatigue-high override them for testing.
 Events (JSON lines in --dry-run) go to stdout; logs and the run summary go to stderr.
 Press q in an overlay window or Ctrl+C to stop.
 """
@@ -31,6 +36,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from backend_client import MachineState, OperatorFatigue, load_env  # noqa: E402
 from events import EventSink  # noqa: E402
 from fatigue import (  # noqa: E402
     PHONE_CLASS_ID,
@@ -49,7 +55,6 @@ from proximity import (  # noqa: E402
     SECTORS,
     Calibration,
     Detector,
-    FatigueStatus,
     ProximityTracker,
     TrackReading,
     build_event,
@@ -144,7 +149,7 @@ class FpsMeter:
         self.times.append(now)
         while self.times and self.times[0] < now - FPS_WINDOW_S:
             self.times.popleft()
-        if len(self.times) > 1:
+        if len(self.times) > 1 and self.times[-1] > self.times[0]:  # Windows clock ~16 ms
             self.fps = (len(self.times) - 1) / (self.times[-1] - self.times[0])
         if self.warm and len(self.times) > 1:
             self.samples.append(self.fps)
@@ -235,10 +240,17 @@ class ProximityPipeline:
 class FatiguePipeline:
     window = "vision - fatigue"
 
-    def __init__(self, args: argparse.Namespace, detector: Detector, sink: EventSink) -> None:
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        detector: Detector,
+        sink: EventSink,
+        machine: MachineState,
+    ) -> None:
         self.args = args
         self.detector = detector
         self.sink = sink
+        self.machine = machine
         self.face_mesh = FaceMesh()
         shift = resolve_shift(args.shift_start, args.shift_type, args.machine_id, args.shift_id)
         log.info(
@@ -271,12 +283,13 @@ class FatiguePipeline:
         checked = self.frames % PHONE_EVERY_N_FRAMES == 1  # every 5th frame
         conf = self.detector.phone_conf(frame, PHONE_CONF, PHONE_CLASS_ID) if checked else None
         h, w = frame.shape[:2]
+        moving = self.machine.moving()
         self.reading = self.monitor.update(
             t,
             landmarks,
             w,
             h,
-            machine_moving=self.args.machine_moving,
+            machine_moving=moving,
             phone_conf=conf,
             phone_checked=checked,
         )
@@ -292,7 +305,7 @@ class FatiguePipeline:
         if self.args.no_display:
             return None
         return draw_fatigue(
-            frame, self.reading, landmarks, self.meter.fps, self.args.machine_moving
+            frame, self.reading, landmarks, self.meter.fps, moving, self.machine.source
         )
 
     def summary(self) -> str:
@@ -320,18 +333,31 @@ def run(args: argparse.Namespace) -> int:
         log.warning("--mode both without --cab-camera: both pipelines use %s", prox_spec)
 
     detector = Detector(args.weights)  # one model: proximity tracking and phone detection
+    if not args.token:
+        log.warning("no VISION_API_TOKEN (vision/.env or --token); the backend will answer 401")
     sink = EventSink(args.backend, dry_run=args.dry_run, token=args.token)
+    pollers: list[MachineState | OperatorFatigue] = []
     cameras: dict[str, Camera] = {}
     pipelines: list[tuple[str, ProximityPipeline | FatiguePipeline]] = []
     fatigue: FatiguePipeline | None = None
     if args.mode in ("fatigue", "both"):
         cameras[cab_spec] = Camera(cab_spec, "cab")
-        fatigue = FatiguePipeline(args, detector, sink)
+        machine = MachineState(
+            args.backend, args.machine_id, args.token, override=args.machine_moving
+        )
+        pollers.append(machine.start())
+        fatigue = FatiguePipeline(args, detector, sink, machine)
     if args.mode in ("proximity", "both"):
         if prox_spec not in cameras:
             cameras[prox_spec] = Camera(prox_spec, "proximity")
-        poll = FatigueStatus(args.backend, args.operator_id)  # stub until the backend has it
-        high = fatigue.is_high if fatigue else poll.is_high
+        if fatigue:  # the local cab camera is fresher than the backend's fatigue_log
+            high = fatigue.is_high if args.fatigue_high is None else lambda: bool(args.fatigue_high)
+        else:
+            status = OperatorFatigue(
+                args.backend, args.operator_id, args.token, override=args.fatigue_high
+            )
+            pollers.append(status.start())
+            high = status.is_high
         pipelines.append((prox_spec, ProximityPipeline(args, detector, sink, high)))
     if fatigue:
         pipelines.append((cab_spec, fatigue))
@@ -371,11 +397,18 @@ def run(args: argparse.Namespace) -> int:
         cv2.destroyAllWindows()
         if fatigue:
             fatigue.close()
+        for poller in pollers:
+            poller.stop()
         sink.close()
 
     total = time.monotonic() - start
     for _, pipe in pipelines:
         print(pipe.summary(), file=sys.stderr)
+    for poller in pollers:
+        print(
+            f"poll {poller.url}: {poller.polls} polls, last {poller.value} ({poller.source})",
+            file=sys.stderr,
+        )
     print(f"summary: {total:.1f} s, sink sent {sink.sent} dropped {sink.dropped}", file=sys.stderr)
     return 0
 
@@ -437,17 +470,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="fatigue camera: webcam index, IP camera URL or video file (default: --camera)",
     )
     p.add_argument("--sector", choices=SECTORS, default="front")
-    p.add_argument("--machine-id", default="M01")
-    p.add_argument("--operator-id", default=None)
-    p.add_argument("--backend", default="http://localhost:8000")
+    p.add_argument("--machine-id", default=os.environ.get("MACHINE_ID", "M05"))
+    p.add_argument("--operator-id", default=os.environ.get("OPERATOR_ID", "OP02"))
+    p.add_argument("--backend", default=os.environ.get("BACKEND_URL", "http://localhost:8000"))
     p.add_argument(
         "--token",
         default=os.environ.get("VISION_API_TOKEN"),
-        help="Bearer token for the backend (default $VISION_API_TOKEN)",
+        help="Bearer token for the backend (default $VISION_API_TOKEN, read from vision/.env)",
     )
     p.add_argument("--dry-run", action="store_true", help="print events instead of posting")
     p.add_argument("--low-visibility", action="store_true", help="widen both zones by 2 m")
-    # fatigue inputs that will come from the backend later
     p.add_argument(
         "--shift-start",
         help="ISO datetime or HH:MM, site time (default: 06:00 day / 18:00 night, most recent)",
@@ -456,8 +488,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--shift-id", help="default SH-<start date>-<machine>-<D|N>")
     p.add_argument(
         "--machine-moving",
-        action="store_true",
-        help="stub for telemetry: treat the machine as moving (eyes closed > 2 s is then critical)",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="override GET /machine/{id}/state: treat the machine as moving / stopped "
+        "(moving: eyes closed > 2 s is critical)",
+    )
+    p.add_argument(
+        "--fatigue-high",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="override the high-fatigue check (GET /operator/{id}/fatigue or the cab pipeline); "
+        "high widens both proximity zones",
     )
     p.add_argument("--distance", type=float, default=3.0, help="calibrate: metres to the person")
     p.add_argument("--calibration", type=Path, default=CALIBRATION_PATH)
@@ -470,6 +511,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)  # one INFO line per event is noise
+    load_env()
     args = parse_args(argv)
     if args.command == "calibrate":
         return run_calibrate(args)

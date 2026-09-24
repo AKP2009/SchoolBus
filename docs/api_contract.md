@@ -29,7 +29,7 @@ Anything that needs a model, an LLM, the service role, or the live stream goes t
   (ES256/RS256), with `SUPABASE_JWT_SECRET` for legacy HS256, else by Supabase (`GET /auth/v1/user`).
   Role, `operator_id` and `site_id` come from `profiles` (cached 60 s), never from `user_metadata`.
 - **Vision service:** `VISION_API_TOKEN` from `backend/.env` (`vision/run.py --token`, default
-  `$VISION_API_TOKEN`). It may call `POST /events`, `GET /machine/{id}/state` and
+  `$VISION_API_TOKEN`, read from `vision/.env`; sent as `Authorization: Bearer <token>` on every call). It may call `POST /events`, `GET /machine/{id}/state` and
   `GET /operator/{id}/fatigue` only; anything else is 403.
 - Like RLS: operators act on their own rows (events, fatigue, tasks, shifts); managers and admins
   on everything. **Managers only:** `/replay/start`, `/replay/stop`, `/scenario/{name}`,
@@ -104,6 +104,8 @@ Served from the running replay (updated every data minute); without a replay, fr
 From the latest row of the replay stream (scripted scenario rows included). `moving` =
 `ground_speed_kmh > 0.5` (`moving_kmh` in `thresholds.yaml`, the same limit as the SEATBELT rule).
 `ts` is replay (data) time. 404 `NOT_FOUND` when the machine isn't in the running replay.
+Vision polls it every 2 s; on 404 it assumes `moving: true`, and it keeps the last value while the
+backend is unreachable (models.md §6 "Backend polling").
 
 ### `POST /events` (from vision service and voice)
 ```json
