@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends
 from starlette.concurrency import run_in_threadpool
 
+from app.core.auth import CurrentUser, Manager
 from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.db import get_supabase
@@ -17,7 +20,7 @@ def replay_error(e: ReplayError) -> ApiError:
 
 
 @router.post("/start", response_model=ReplayStatus)
-async def start(body: ReplayStartRequest) -> ReplayStatus:
+async def start(body: ReplayStartRequest, _: Manager) -> ReplayStatus:
     engine = get_engine()
     client = get_supabase()
     ids = list(dict.fromkeys(body.machine_ids))
@@ -40,12 +43,11 @@ async def start(body: ReplayStartRequest) -> ReplayStatus:
 
 
 @router.post("/stop", response_model=ReplayStatus)
-async def stop() -> ReplayStatus:
-    engine = get_engine()
+async def stop(_: Manager, engine: Annotated[Any, Depends(get_engine)]) -> ReplayStatus:
     await engine.stop()
     return ReplayStatus(**engine.status())
 
 
 @router.get("/status", response_model=ReplayStatus)
-def status() -> ReplayStatus:
-    return ReplayStatus(**get_engine().status())
+def status(_: CurrentUser, engine: Annotated[Any, Depends(get_engine)]) -> ReplayStatus:
+    return ReplayStatus(**engine.status())

@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -6,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
-from app.replay.runtime import get_engine  # noqa: E402
+from app.jobs.scheduler import build_scheduler
+from app.replay.runtime import get_engine
 from app.routers import (
     analytics,
     chat,
@@ -15,6 +17,7 @@ from app.routers import (
     health,
     incidents,
     machine,
+    operator,
     plan,
     predict,
     replay,
@@ -26,7 +29,15 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    scheduler = build_scheduler() if get_settings().scheduler_enabled else None
+    if scheduler is not None:
+        scheduler.start()
     yield
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
     # stop the replay and flush pending alert / health writes
     await get_engine().stop()
 
@@ -48,6 +59,7 @@ for router in (
     plan.router,
     machine.router,
     events.router,
+    operator.router,
     chat.router,
     voice.router,
     handover.router,

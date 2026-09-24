@@ -81,6 +81,7 @@ def draw_fatigue(
     landmarks: np.ndarray | None,
     fps: float,
     machine_moving: bool,
+    moving_source: str = "flag",
 ) -> np.ndarray:
     img = frame.copy()
     if landmarks is not None:
@@ -89,7 +90,7 @@ def draw_fatigue(
             cv2.circle(img, (x, y), 2, WHITE, -1, cv2.LINE_AA)
     moving = "MOVING" if machine_moving else "stopped"
     lines: list[tuple[str, tuple[int, int, int]]] = [
-        (f"CAB  fps {fps:4.1f}  machine {moving} (flag)", BLACK)
+        (f"CAB  fps {fps:4.1f}  machine {moving} ({moving_source})", BLACK)
     ]
     if r is None:
         lines.append(("starting...", BLACK))

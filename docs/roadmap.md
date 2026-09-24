@@ -50,10 +50,11 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **A:** clustering + result sheet (personality ARI 0.42 on holdout, below 0.5: efficient and average share a cluster, see `ml/artifacts/clustering/README.md`)
 - [x] **A:** predictive maintenance + result sheet (hour-level recall 0.44 misses 0.75, 12/15 failures caught at 0.5 and 15/15 at medium with the 6σ safety floor, median lead 37 h; electrical/undercarriage weak, see `ml/artifacts/maintenance/README.md`)
 - [x] **A:** digital twin health score + plan re-evaluation (`ml/inference/health.py`, `plan.py`, demo `ml/05_health_and_plan.ipynb`; anomaly term only on `machine_fault`, see `ml/artifacts/health/README.md` and `ml/artifacts/plan/README.md`)
-- [ ] **A:** `ml/inference/` functions importable by backend
+- [x] **A:** `ml/inference/` functions importable by backend _(the backend imports anomaly, health, task_time, plan, maintenance and clustering)_
 - [x] **B:** fatigue detection (EAR, PERCLOS, yawn, head-down, score) _(MediaPipe FaceLandmarker 1.0.1, ~23–24 fps on the laptop webcam with phone detection on; `vision/run.py --mode fatigue|both`)_
 - [x] **B:** phone detection _(YOLO11n class 67 every 5th cab frame, shares the proximity weights, 3 s persistence)_
 - [x] **B:** vision posts to `/events` (backend stub is fine) _(httpx + backoff; 501 from the stub is logged and dropped; verified in `--dry-run` only)_
+- [x] **B:** vision live on the backend: `VISION_API_TOKEN` from `vision/.env` on every call; machine moving from `GET /machine/{id}/state` and high fatigue from `GET /operator/{id}/fatigue`, polled every 2 s with last-known / safe-default fallback; defaults OP02/M05 _(`vision/tests/test_backend_client.py` against a mock backend; live: 20 s proximity run posted 20 `blindspot_intrusion` → 20 `safety_events` rows on one `BLINDSPOT_RED` alert)_
 - [ ] **C:** RAG ingest + `/chat` passing ≥ 80% of test questions
 - [x] **D:** all P0 operator screens on mocks _(login, handover + 7-day log, tasks with factors / delay / plan update, machine twin + gauges, safety, report incident, training (library, recommendations, TM-SIM-01 quiz, chat); takeover queue with Web Audio tones; checked at 1280×800)_
 - [x] **D:** all P0 manager screens on mocks _(fleet map + live alerts, alerts, machine detail, maintenance board, clusters (PCA + ranking + verify), safety analytics, geofences with drawing; checked at 1440)_
@@ -64,8 +65,11 @@ Sleep in shifts during a 48-hour event; never all four at once, never the same p
 - [x] **C:** replay engine + WebSocket `/stream/{machine_id}`
 - [x] **C:** rule engine + graded response state machine + hysteresis
 - [x] **C + A:** anomaly scoring and health snapshots every minute in replay
-- [ ] **C:** `/events` writes safety_events / fatigue_log / alerts and forwards on WebSocket
-- [ ] **C:** `/predict/task-time` writes predictions to tasks
+- [x] **C:** `/events` writes safety_events / fatigue_log / alerts and forwards on WebSocket _(all 6 types validated per type; one alert per episode, resolved after 30 s quiet; SOS = emergency; `GET /operator/{id}/fatigue` added)_
+- [x] **C:** `/predict/task-time` writes predictions to tasks _(live health from the replay / `v_machine_health_latest`)_
+- [x] **C:** `/plan/re-evaluate` + `/plan/accept` _(fatigue trigger from the latest `fatigue_log`)_
+- [x] **C:** maintenance scoring job every 10 replay minutes → `maintenance_predictions` (health shows failure probability); `POST /analytics/cluster` + daily clustering job (APScheduler)
+- [x] **C:** Supabase JWT on every endpoint except `/health`; vision uses `VISION_API_TOKEN`; managers-only replay / scenario / clustering; contract error shape everywhere _(`backend/tests`, 99 passing)_
 - [x] **C + A:** `/scenario/{name}` with overheating, hydraulic_leak, tip_risk, seatbelt _(also `GET /machine/{id}/state` for vision; `backend/tests`, 39 passing)_
 - [ ] **C:** handover summary, incident transcript → draft
 - [ ] **B:** voice command pipeline (STT → intent → TTS)
@@ -92,7 +96,7 @@ recommend_shutdown +3 (value rising) / escalated +5 (not acknowledged) / resolve
 ## Phase 5 — Integration and scenarios (everyone)
 - [x] Demo panel with all scenario buttons _(hidden `/demo`: replay start/stop/status and `/scenario/*`, `/events` for fatigue / proximity / SOS; in mock mode it seeks the recorded stream and drives every tab over a BroadcastChannel. Not yet run against the live backend)_
 - [ ] Run `demo_script.md` end to end 3 times; log every failure; fix
-- [ ] Plan re-evaluation (P1) if time _(ML side done: `ml/inference/plan.py`; `/plan/re-evaluate` and `/plan/accept` not wired yet)_
+- [ ] Plan re-evaluation (P1) if time _(ML and backend done: `/plan/re-evaluate` and `/plan/accept`; UI not wired yet)_
 - [ ] Geofencing, training recommendations, scenario quiz (P1) if time
 - [ ] Offline demo: Wi-Fi off → report incident → Wi-Fi on → appears on manager screen
 - [ ] Fallbacks ready: `--source demo.mp4` for vision, cached LLM answers for chat

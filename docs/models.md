@@ -276,6 +276,13 @@ target ≈ 80%). Baseline to beat: median duration per task_type × quantity.
 - Artifacts (≈ 1.8 MB, committed): `lgbm_p10/p50/p90.joblib` (compress=3), `encoders.json`,
   `config.json` (interval offset, params), `feature_list.json`, `metrics.json`, `shap_importance.png`.
   Pinned in `ml/requirements.txt` (lightgbm 4.7.0, shap 0.52.0). Not yet logged to `model_runs`.
+- **Live (`POST /predict/task-time`, `backend/app/services/tasks.py`):** the feature table is rebuilt from
+  Supabase with `build_feature_table` (tasks, weather from 6 h before, operators, machines, the machines' and
+  operators' shifts, 30 days of fatigue_log and completed-task history, maintenance_log), then `health_score`
+  is replaced by the live overall health (running replay, else `v_machine_health_latest`; the service-based value
+  stays when neither exists). A task without `scheduled_start` starts with its shift. Results are written to
+  `tasks.predicted_p10/p50/p90_min` and `prediction_factors`. Supabase holds 14 days, so
+  `operator_avg_time_ratio` sees at most that much history (the model uses 30).
 
 ---
 
@@ -358,6 +365,15 @@ hours before failure the probability first crossed 0.6. Missing a failure costs 
   alerts 0.29 → 0.25 per machine-week (runs merge), normal hours at medium or above 2.4 % → 4.7 %.
 - Artifacts (≈ 0.4 MB, committed): `xgb_failure.joblib` (compress=3), `config.json`, `feature_list.json`,
   `metrics.json`, `shap_importance.png`, `lead_time.png`. xgboost 2.1.4 pinned. Not yet logged to `model_runs`.
+- **Live (APScheduler job, `backend/app/jobs/maintenance.py`):** every 10 min of replay time per replayed machine.
+  History = 35 days of telemetry before the replay start, read from `data/output/telemetry.parquet` when present
+  (Supabase has only 14 days, too short for the 72–336 engine-hour baseline), else Supabase; plus the minutes the
+  replay has emitted since (scripted scenario rows included). Model 1 scores the history once per replay (cached)
+  and new minutes with 60 min of context; `build_hourly_features` → the latest engine-hour row → `predict_failure`.
+  Row in `maintenance_predictions` with `predicted_at` = replay time and `model_version` from `config.json`,
+  handed to the replay engine at once, so the next health minute shows it. First score ≈ 5 s after the start
+  (history scoring), then ≈ 1 s. Live check 2026-09-24: M04 from 2026-08-20 01:30 → p = 0.0, likely component
+  undercarriage (the electrical failure is on 08-25).
 
 ---
 
@@ -433,6 +449,12 @@ recovered (adjusted Rand index). This is our proof the clustering found real pat
   core points, eps), `config.json` (type scalers, cluster names), `feature_list.json`, `metrics.json`,
   `pca_scatter.png`, `pca_points.json` (dashboard scatter), `k_distance.png`,
   `fleet_metrics_weekly.csv` (13 weeks of output rows). Not yet logged to `model_runs`.
+- **Live (`POST /analytics/cluster?week_start=`, daily job at 01:00 IST for the week of the latest shift,
+  `backend/app/services/analytics.py`):** the week's shifts, tasks and safety events from Supabase, telemetry from
+  the parquet when present (else Supabase), model 1 on every minute for the `machine_fault` events, fleet p50 from
+  the task-time feature table with the health the machine had then (not today's), `build_weekly_segments` →
+  `cluster_week` → upsert on (entity_type, entity_id, week_start). The upsert doesn't send `verified_by` /
+  `verified_at`, so a manager's verification survives a re-run.
 
 ---
 
@@ -492,10 +514,16 @@ shorter sentences; high — suggest a break now, notify supervisor, raise proxim
   high needs score < 0.55, so it doesn't flicker); `fatigue_high` **critical** with
   `details.reason='eyes_closed'` when eyes are closed > 2 s while the machine moves, re-posted every
   2 s while it lasts; `phone_use` **warning**. `fatigue_sample` every 60 s.
-- Stubs until the backend supplies them: machine moving (`--machine-moving`), shift
-  (`--shift-start`, `--shift-type`, `--shift-id`; default start 06:00 day / 18:00 night IST if that
+- Machine moving: polled from `GET /machine/{id}/state` every 2 s (`vision/backend_client.py`,
+  `MachineState`). `--machine-moving` / `--no-machine-moving` override it for testing.
+- Still a stub: shift (`--shift-start`, `--shift-type`, `--shift-id`; default start 06:00 day / 18:00 night IST if that
   8 h shift is still running, otherwise "now" with a warning; id `SH-<start date>-<machine>-<D|N>`). In `--mode both` the proximity zones widen from the local
-  fatigue state instead of the `FatigueStatus` stub.
+  fatigue state (fresher than the backend's `fatigue_log`) instead of polling.
+- **Backend (`POST /events`, `backend/app/services/events.py`):** `fatigue_sample` → `fatigue_log` + `fatigue`
+  WebSocket message; `fatigue_high` → `FATIGUE_HIGH` (warning) or `EYES_CLOSED` (critical) alert, `phone_use` →
+  `PHONE_USE` (category behaviour). The 2 s re-posts of eyes-closed coalesce into one alert per episode (30 s), which
+  resolves 30 s after the last event. `GET /operator/{id}/fatigue` returns the latest level with a `stale` flag
+  (> 10 min old); vision polls it every 2 s for zone widening (§6).
 - Cameras: `--camera` / `--source` for proximity, `--cab-camera` (index, URL or file) for fatigue;
   the same source for both is opened once. URL streams are read on a thread that keeps only the
   newest frame.
@@ -539,8 +567,23 @@ Low visibility or high fatigue adds 2 m to both limits.
 - Zone hysteresis: entry limits are exact (3 m / 7 m), but leaving a zone outward needs 0.3 m extra,
   otherwise a person standing at 3.0 m flips warning/critical every frame (seen on the webcam test).
 - Event type: `blindspot_intrusion` for sectors rear / left / right, else `proximity_breach`.
-- High fatigue widening: `FatigueStatus` is a stub (always false) until the backend has an endpoint
-  to poll; `--low-visibility` widens now.
+- High fatigue widening: without a local cab pipeline, `OperatorFatigue` polls
+  `GET /operator/{id}/fatigue` every 2 s; high = `fatigue_level == "high"` and not `stale`.
+  `--fatigue-high` / `--no-fatigue-high` override it; `--low-visibility` widens too.
+- Backend polling (`vision/backend_client.py`): a daemon thread per endpoint GETs every 2 s (timeout
+  1.5 s) and caches the answer; the frame loop only reads the cache. Backend down, timeout, 5xx or
+  401/403 → keep the last known value (or the default if there never was one). 404 (machine not in
+  the running replay, no fatigue row) or a stale row → the safe default: **moving = true** (eyes
+  closed > 2 s is then critical; the machine may be moving) and **fatigue high = false** (standard
+  zones; widening on every outage would flood alerts). Only up/down transitions are logged.
+- Auth: every backend call (`POST /events` and both polls) sends `Authorization: Bearer
+  $VISION_API_TOKEN`; `run.py` reads `vision/.env` (see `vision/.env.example`) without overriding
+  variables already set, and `--token` wins. Defaults are the demo persona OP02 on M05
+  (`MACHINE_ID`, `OPERATOR_ID`, `BACKEND_URL` in `.env` can change them).
+- **Backend:** `PROXIMITY_ORANGE/RED`, `BLINDSPOT_ORANGE/RED` alerts (`source='vision'`, `category='safety'`,
+  stage `warn`: safety alerts from the camera don't derate). The every-2-s red re-posts update one alert per
+  machine and kind (count, closest distance; ORANGE → RED only rises) and it resolves after 30 s without events.
+  Every event is still its own `safety_events` row linked by `alert_id`.
 - Delivery: background thread, httpx, exponential backoff 0.5 → 10 s on connection errors and 5xx;
   4xx and 501 are logged and dropped. Bounded queue of 200, oldest dropped first. `--dry-run` prints.
 - 640 → 480 px when the loop averages under 10 fps over 3 s (after a 3 s warm-up that starts at the
@@ -637,7 +680,8 @@ undercarriage (vibration while travelling).
   HYD_PRESSURE_DROP); the backend's rule engine supplies the real states.
 - **Live (backend replay):** every data minute per machine, `compute_health` gets the rule engine's open alerts
   (`AlertInstance.health_state()`), model 1 on the trailing 60 min (one row per minute), `travelling` from the
-  latest row, and the latest `maintenance_predictions` row at or before the replay time (none loaded yet, so
+  latest row, and the latest `maintenance_predictions` row at or before the replay time (the maintenance job
+  writes one every 10 replay minutes and hands it straight to the engine; before its first run the fields are
   null). Written to `machine_health_snapshots` and pushed as a `health` WebSocket message.
 - **Demo (test period):** M04 electrical failure 2026-08-25 is green until 23 engine h before, then red
   (probability 0.09 → 0.53 in one hour), orange/red after, 0.32 at the end. Details: `ml/artifacts/health/README.md`.
@@ -669,3 +713,12 @@ show the diff for accept/reject. Stretch: OR-Tools CP-SAT with precedence constr
   time from the shift before the remaining tasks are re-fitted. Explanation: "Break added because fatigue is high
   (15 min before the next task). Task 5 no longer fits…". Response field `break` = `{start, end, minutes}` or null.
   (The task-time model itself has no live-fatigue feature; the break is how fatigue changes the plan.)
+- **Backend (`/plan/re-evaluate`, `/plan/accept`, `backend/app/services/tasks.py`):** the plan's clock is the
+  request's `now`, else the replay time when the shift's machine is replayed, else the wall clock. Conditions =
+  the site's latest weather row at or before that clock and the machine's live health; triggers are detected
+  and appended to the request's reason. **Fatigue trigger:** the operator's latest `fatigue_log` row, a live one
+  (last 30 min of wall-clock time, i.e. from the cab camera) first, else the latest at or before the plan's clock
+  (replayed history). The result is kept in memory per shift for 30 min; accept renumbers the planned tasks after
+  the finished ones, sets their `scheduled_start`, and marks moved tasks `delayed` with
+  `delay_reason='moved_to_next_shift'`, which later re-evaluations leave out. No next-shift task row is created
+  (task ids encode the shift).

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.core.auth import Manager
 from app.core.errors import ApiError
 from app.replay.engine import ReplayError
 from app.replay.runtime import get_engine
@@ -9,7 +10,7 @@ router = APIRouter(prefix="/scenario", tags=["scenario"])
 
 
 @router.post("/{name}", response_model=ScenarioResponse)
-def trigger(name: ScenarioName, body: ScenarioRequest) -> ScenarioResponse:
+def trigger(name: ScenarioName, body: ScenarioRequest, _: Manager) -> ScenarioResponse:
     """Splice a scripted sequence into the live replay of one machine (demo panel only).
 
     Built: overheating, hydraulic_leak, tip_risk, seatbelt. fatigue, proximity and sos come

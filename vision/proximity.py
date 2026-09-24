@@ -345,24 +345,6 @@ def build_event(
     }
 
 
-# --- fatigue link (models.md §5: high fatigue widens the zones) ------------------------------
-class FatigueStatus:
-    """Whether the operator's fatigue level is high.
-
-    Stub: always False. Later this polls the backend (e.g. GET /operator/{id}/fatigue, not in the
-    API contract yet) every `poll_s` seconds and caches the answer; it must never block the frame
-    loop or raise.
-    """
-
-    def __init__(self, backend: str, operator_id: str | None, poll_s: float = 30.0) -> None:
-        self.backend = backend
-        self.operator_id = operator_id
-        self.poll_s = poll_s
-
-    def is_high(self) -> bool:
-        return False
-
-
 # --- detector -----------------------------------------------------------------------------------
 class Detector:
     """Ultralytics YOLO nano + ByteTrack. Weights download on first use to vision/weights/."""

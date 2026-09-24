@@ -71,14 +71,16 @@ python data/generator/load_to_supabase.py --days 14 --reset                     
 python scripts/build_mocks.py                                                     # web/src/mocks/*.json from Supabase (--source files: data/output/)
 # backend
 cd backend && uvicorn app.main:app --reload --port 8000
-cd backend && python -m pytest                                                    # rule engine + scenario tests (no DB needed)
-curl -X POST localhost:8000/replay/start -H 'content-type: application/json'   -d '{"machine_ids":["M01","M02","M03","M04"],"from":"2026-08-20T01:30:00Z","speed":10}'
-curl -X POST localhost:8000/scenario/overheating -H 'content-type: application/json' -d '{"machine_id":"M04"}'
+cd backend && python -m pytest                                                    # rules, scenarios, events, predict/plan, jobs, auth (no DB needed)
+TOKEN=$(python backend/scripts/get_token.py)                                     # manager JWT (priya); every endpoint but /health needs one
+curl -X POST localhost:8000/replay/start -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"machine_ids":["M04","M05"],"from":"2026-08-19T15:15:00Z","speed":10}'   # demo window
+curl -X POST localhost:8000/scenario/overheating -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"machine_id":"M05"}'
+curl -X POST "localhost:8000/analytics/cluster?week_start=2026-08-17" -H "authorization: Bearer $TOKEN"   # fleet clustering for a week
 # vision
-python vision/run.py --camera 0 --backend http://localhost:8000
+python vision/run.py --camera 0 --backend http://localhost:8000                 # posts with $VISION_API_TOKEN (same value as backend/.env)
 python vision/run.py calibrate --distance 3                                       # once per camera -> vision/calibration.json
-python vision/run.py --camera 0 --sector rear --machine-id M04 --dry-run          # print events; --source demo.mp4 as fallback
-python vision/run.py --mode fatigue --camera 0 --operator-id OP03 --dry-run      # fatigue on the webcam; --shift-type night, --machine-moving
+python vision/run.py --camera 0 --sector rear --machine-id M05 --dry-run          # print events; --source demo.mp4 as fallback
+python vision/run.py --mode fatigue --camera 0 --operator-id OP02 --dry-run      # fatigue on the webcam; --shift-type night, --machine-moving
 python vision/run.py --mode both --camera 1 --cab-camera 0 --dry-run              # proximity + fatigue; --cab-camera takes an index, URL or file
 cd vision && python -m pytest                                                     # vision tests (no camera needed)
 # web
@@ -88,6 +90,12 @@ cd web && npm run build                                                         
 # db
 supabase db push
 ```
+
+## Virtual environments (Windows paths; not committed)
+- `backend/.venv` ← `backend/requirements.txt` — runs backend tests: `cd backend && .venv/Scripts/python -m pytest`
+- `ml/.venv` ← `ml/requirements.txt` — runs ml tests: `cd ml && .venv/Scripts/python -m pytest`
+- Both are built on Python 3.12.1 (the version that trained `ml/artifacts/`). Refresh with
+  `.venv/Scripts/python -m pip install -r requirements.txt`. Don't run tests with the system Python.
 
 ## When you finish a task
 Tick its checkbox in `docs/roadmap.md` and note any new decision in the relevant doc.

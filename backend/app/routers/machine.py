@@ -1,9 +1,12 @@
-from fastapi import APIRouter
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends
 from starlette.concurrency import run_in_threadpool
 
+from app.core.auth import CurrentUser, UserOrService
 from app.core.errors import ApiError
-from app.db import get_supabase
 from app.replay.runtime import get_engine
+from app.repo import Repo, get_repo
 from app.schemas.machine import MachineHealthResponse, MachineStateResponse
 
 router = APIRouter(prefix="/machine", tags=["machine"])
@@ -11,26 +14,18 @@ router = APIRouter(prefix="/machine", tags=["machine"])
 SUBSYSTEMS = ("engine", "cooling", "hydraulics", "electrical", "undercarriage")
 
 
-def _latest_snapshot(machine_id: str) -> dict | None:
-    data = (
-        get_supabase()
-        .table("v_machine_health_latest")
-        .select("*")
-        .eq("machine_id", machine_id)
-        .limit(1)
-        .execute()
-        .data
-    )
-    return data[0] if data else None
-
-
 @router.get("/{machine_id}/health", response_model=MachineHealthResponse)
-async def machine_health(machine_id: str) -> MachineHealthResponse:
+async def machine_health(
+    machine_id: str,
+    _: CurrentUser,
+    repo: Annotated[Repo, Depends(get_repo)],
+    engine: Annotated[Any, Depends(get_engine)],
+) -> MachineHealthResponse:
     """Latest health from the live replay, else the latest stored snapshot."""
-    live = get_engine().machine_health(machine_id)
+    live = engine.machine_health(machine_id)
     if live is not None:
         return MachineHealthResponse(**live)
-    snap = await run_in_threadpool(_latest_snapshot, machine_id)
+    snap = await run_in_threadpool(repo.latest_health, machine_id)
     if snap is None:
         raise ApiError(404, "NOT_FOUND", f"No health data for {machine_id} yet. Start the replay.")
     details = snap.get("details") or {}
@@ -50,9 +45,11 @@ async def machine_health(machine_id: str) -> MachineHealthResponse:
 
 
 @router.get("/{machine_id}/state", response_model=MachineStateResponse)
-def machine_state(machine_id: str) -> MachineStateResponse:
+def machine_state(
+    machine_id: str, _: UserOrService, engine: Annotated[Any, Depends(get_engine)]
+) -> MachineStateResponse:
     """Is the machine moving right now (replay stream)? Used by the vision service."""
-    state = get_engine().machine_state(machine_id)
+    state = engine.machine_state(machine_id)
     if state is None:
         raise ApiError(404, "NOT_FOUND", f"{machine_id} is not in the running replay.")
     return MachineStateResponse(**state)

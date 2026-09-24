@@ -2,7 +2,7 @@
 
 `EventSink.send(event)` never blocks the frame loop and never raises. A background thread posts
 with httpx and retries with exponential backoff while the backend is down (connection errors,
-timeouts, 5xx). 4xx and 501 (the endpoint is still a stub) are not retryable: the event is logged
+timeouts, 5xx). 4xx and 501 are not retryable: the event is logged
 and dropped. The queue is bounded; when it is full the oldest event is dropped, since a stale
 proximity warning is worth less than a fresh one.
 
@@ -20,6 +20,8 @@ from typing import Any
 
 import httpx
 
+from backend_client import auth_headers
+
 log = logging.getLogger("vision.events")
 
 MAX_QUEUE = 200
@@ -32,7 +34,7 @@ class EventSink:
     def __init__(self, backend: str, dry_run: bool = False, token: str | None = None) -> None:
         self.url = backend.rstrip("/") + "/events"
         self.dry_run = dry_run
-        self.headers = {"Authorization": f"Bearer {token}"} if token else {}
+        self.headers = auth_headers(token)
         self.sent = 0
         self.dropped = 0
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=MAX_QUEUE)

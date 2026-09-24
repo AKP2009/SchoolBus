@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     llm_api_key: SecretStr | None = None
     cors_origins: str = "http://localhost:5173"
+    # Shared bearer token of the vision service (POST /events and the reads it polls).
+    vision_api_token: SecretStr | None = None
+    # Legacy HS256 JWT secret (Dashboard -> Settings -> API -> JWT secret). Optional: without it,
+    # asymmetric tokens are checked against the project's JWKS and HS256 ones via GET /auth/v1/user.
+    supabase_jwt_secret: SecretStr | None = None
+    # APScheduler jobs (maintenance scoring, daily clustering, vision alert expiry). Off in tests.
+    scheduler_enabled: bool = True
     # Replay falls back to this file when Supabase telemetry is unreachable or empty.
     telemetry_parquet: str = str(REPO_ROOT / "data" / "output" / "telemetry.parquet")
 
